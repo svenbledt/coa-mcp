@@ -7,7 +7,7 @@ public sealed record RestoreOptions(string DataDir, string OutDir, ArchiveConfig
     Func<string, long>? FreeBytes = null, Action<string>? Progress = null);
 
 public sealed record RestoreResult(int Archives, long Entries, long Ok, long Extracted, long Skipped, long Failed, long Unnamed,
-    long PatchFiles, long DeleteMarkers, IReadOnlyList<string> BrokenArchives, TimeSpan Elapsed);
+    long PatchFiles, long DeleteMarkers, long Recovered, IReadOnlyList<string> BrokenArchives, TimeSpan Elapsed);
 
 /// <summary>Restores every archive to &lt;out&gt;/&lt;archive&gt;/&lt;path&gt; and records every entry in manifest.sqlite. Archives are only read.</summary>
 public static class MpqRestorer
@@ -83,7 +83,7 @@ public static class MpqRestorer
         var byStatus = manifest.CountBy("SELECT status, count(*) FROM files GROUP BY status");
         long Of(string s) => byStatus.GetValueOrDefault(s);
         return new RestoreResult(archives.Count, byStatus.Values.Sum(), Of(StatusOk), progress.Extracted, progress.Skipped, Of(StatusFailed), Of(StatusUnnamed),
-            Of(StatusPatchFile), Of(StatusDeleteMarker), broken, clock.Elapsed);
+            Of(StatusPatchFile), Of(StatusDeleteMarker), manifest.Count("SELECT count(*) FROM files WHERE status='ok' AND reason LIKE 'recovered:%'"), broken, clock.Elapsed);
     }
 
     private static void RefuseOutput(string data, string output)

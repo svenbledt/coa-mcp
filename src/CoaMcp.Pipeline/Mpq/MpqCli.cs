@@ -41,7 +41,7 @@ public static class MpqCli
         var config = ArchiveConfig.Load(v.GetValueOrDefault("--config") ?? Path.Combine(AppContext.BaseDirectory, "config", "archives.json"));
 
         var r = MpqRestorer.Run(new RestoreOptions(data, dir, config, parallel, Progress: output.WriteLine));
-        output.WriteLine($"restored {r.Archives} archives in {r.Elapsed:hh\\:mm\\:ss}: {r.Entries:N0} entries, {r.Ok:N0} ok ({r.Extracted:N0} extracted, {r.Skipped:N0} already correct), {r.Unnamed:N0} unnamed, {r.Failed:N0} failed, {r.DeleteMarkers:N0} delete markers, {r.PatchFiles:N0} patch files");
+        output.WriteLine($"restored {r.Archives} archives in {r.Elapsed:hh\\:mm\\:ss}: {r.Entries:N0} entries, {r.Ok:N0} ok ({r.Extracted:N0} extracted, {r.Skipped:N0} already correct, {r.Recovered:N0} recovered with another sector size), {r.Unnamed:N0} unnamed, {r.Failed:N0} failed, {r.DeleteMarkers:N0} delete markers, {r.PatchFiles:N0} patch files");
         foreach (var broken in r.BrokenArchives) output.WriteLine("broken archive: " + broken);
         return r.BrokenArchives.Count == 0 ? 0 : 1;
     }

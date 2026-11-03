@@ -7,6 +7,9 @@ namespace CoaMcp.Pipeline.Mpq;
 /// <summary>One used slot of an archive's hash table, joined with its block table record.</summary>
 public readonly record struct MpqEntry(int HashIndex, uint Name1, uint Name2, ushort Locale, uint BlockIndex, uint Size, uint Flags, bool BlockValid);
 
+/// <summary>Where an entry's stored bytes sit in the archive file, and the sector shift the header claims.</summary>
+public readonly record struct MpqLocation(long Offset, uint CompressedSize, int HeaderShift);
+
 /// <summary>Read-only handle on one MPQ. Not thread-safe: use one handle per thread.</summary>
 public sealed class MpqArchive : IDisposable
 {
@@ -23,7 +26,13 @@ public sealed class MpqArchive : IDisposable
 
     private IntPtr _mpq;
 
-    private MpqArchive(IntPtr mpq) => _mpq = mpq;
+    private MpqArchive(IntPtr mpq, string path)
+    {
+        _mpq = mpq;
+        FilePath = path;
+    }
+
+    public string FilePath { get; }
 
     public static MpqArchive Open(string path)
     {
@@ -31,7 +40,7 @@ public sealed class MpqArchive : IDisposable
         {
             if (!SFileOpenArchive(path, 0, OpenReadOnly | OpenNoListfile | OpenCheckSectorCrc, out var mpq))
                 throw new IOException($"cannot open archive: {Message(Marshal.GetLastPInvokeError())}");
-            return new MpqArchive(mpq);
+            return new MpqArchive(mpq, path);
         }
     }
 
@@ -87,6 +96,21 @@ public sealed class MpqArchive : IDisposable
             if (total != entry.Size) throw new IOException($"read {total} bytes, block table says {entry.Size}");
             var crc = FileInfoUInt32(file, InfoClass.FileCrc32);
             return crc == 0 ? null : crc;
+        }
+        finally { SFileCloseFile(file); }
+    }
+
+    /// <summary>Where an entry's stored bytes are in the archive file, and the sector size the header claims.</summary>
+    public MpqLocation Locate(MpqEntry entry, string? name)
+    {
+        if (!TryOpen(name ?? $"File{entry.BlockIndex:D8}.xxx", entry.Locale, out var file))
+            throw new IOException($"open failed: {Message(Marshal.GetLastPInvokeError())}");
+        try
+        {
+            var relative = FileInfoUInt64(file, InfoClass.FileByteOffset);
+            var sectorSize = InfoUInt32(InfoClass.SectorSize);
+            return new MpqLocation((long)(FileInfoUInt64(_mpq, InfoClass.HeaderOffset) + relative),
+                FileInfoUInt32(file, InfoClass.FileCompressedSize), System.Numerics.BitOperations.Log2(sectorSize) - 9);
         }
         finally { SFileCloseFile(file); }
     }
@@ -150,6 +174,14 @@ public sealed class MpqArchive : IDisposable
         return BitConverter.ToUInt32(bytes);
     }
 
+    private static ulong FileInfoUInt64(IntPtr handle, InfoClass info)
+    {
+        var bytes = new byte[8];
+        if (!SFileGetFileInfo(handle, info, bytes, 8, out _))
+            throw new IOException($"file info {info} failed: {Message(Marshal.GetLastPInvokeError())}");
+        return BitConverter.ToUInt64(bytes);
+    }
+
     private byte[] InfoBytes(InfoClass info, int size)
     {
         var bytes = new byte[size];
@@ -163,8 +195,8 @@ public sealed class MpqArchive : IDisposable
     /// <summary>SFileInfoClass values from StormLib v9.40's StormLib.h, which build-stormlib.ps1 pins.</summary>
     private enum InfoClass
     {
-        HashTableSize = 18, HashTable = 19, BlockTableSize = 22, BlockTable = 23,
-        FileIndex = 48, FileCrc32 = 56,
+        HeaderOffset = 5, HashTableSize = 18, HashTable = 19, BlockTableSize = 22, BlockTable = 23, SectorSize = 35,
+        FileIndex = 48, FileByteOffset = 49, FileCompressedSize = 52, FileCrc32 = 56,
     }
 
     [DllImport("StormLib", SetLastError = true, CharSet = CharSet.Unicode)]

@@ -2,7 +2,7 @@
 
 Restore of `D:\WoW\Coa\Data` to `F:\WorkDir\CoaRestored` and listfile reconstruction to `D:\WoW\Coa\Listfiles`, 2026-11-03. Both outputs stay on the owner's machine; this report holds only counts and file names.
 
-**The listfile is complete: every one of the 770,946 entries has a name that matches both hashes.** 83 of those entries could not be restored. All 83 are in `enUS/backup-enUS.MPQ`, which the client never opens.
+**The restore and the listfile are both complete: every one of the 770,946 entries has a name that matches both hashes, and none failed.** 766,035 entries are restored as files. The other 4,911 are delete markers, which have no file. 83 of the restored files needed a fallback reader because `enUS/backup-enUS.MPQ` has a wrong sector size in its header.
 
 ## How to re-run
 
@@ -38,16 +38,20 @@ How we know:
 - Of the 4,911 markers, 4,906 are the top copy of their path, once realm archives and archives the client never opens are left out.
 - In the other 5, a live copy in a higher archive wins: `DBFilesClient/CharVariations.dbc`, `Interface/GlueXML/SoundOptionsFrame.lua` and `.xml` (marker in `enUS/patch-enUS.MPQ`), and `Interface/GlueXML/RaceSelect.lua` and `.xml` (marker in `enUS/patch-enUS-2.MPQ`).
 
-## The 83 failures: a wrong sector size in one archive's header
+## 83 files recovered from a wrong sector size in one archive's header
 
-`enUS/backup-enUS.MPQ` says its sectors are 16,384 bytes (shift 5; the other 77 archives use shift 3, 4,096 bytes). Its multi-sector compressed files were actually stored with 4,096-byte sectors, and StormLib follows the header:
+`enUS/backup-enUS.MPQ` says its sectors are 16,384 bytes (shift 5; the other 77 archives use shift 3, 4,096 bytes). Its multi-sector compressed files were actually stored with 4,096-byte sectors, and StormLib follows the header and can't be told otherwise:
 
 - 16 files fail with a read error (`ERROR_FILE_CORRUPT`).
-- **67 files read with no error but come back wrong**: the first 4,096 bytes are right, then zeros and raw compressed data. Only the CRC in `(attributes)` catches them. Restore now records any such disagreement as `failed` and keeps no file.
+- **67 files read with no error but come back wrong**: the first 4,096 bytes are right, then zeros and raw compressed data. Only the CRC in `(attributes)` catches them.
 
-Decoding all 83 by hand with 4,096-byte sectors succeeds, and all 67 that have an `(attributes)` CRC then match it. So the archive is fine and the bytes are recoverable, but StormLib has no way to override the sector size. They would need our own sector reader.
+So every read must now agree with `(attributes)`. When a read fails or disagrees, `SectorReader` reads the file's sectors straight from the archive (read-only) and tries the other sector sizes that fit its sector table.
 
-They are installer extras, not game data: `Wow.exe`, `Battle.net.dll`, the Mac apps, manuals and help pages. The client only checks this archive's stock size (`CoA64/WoW/Source/Ui/BugReport.cpp:56`). No other archive has a failure or a CRC disagreement.
+- **What counts:** a result is accepted only if its length is right and its CRC matches `(attributes)`. Length alone is never enough.
+- **No CRC:** a file with none stays `failed` if its sector table doesn't fit the header's sector size, because that is the case where StormLib's read can be silently wrong.
+- **Scope:** stored and zlib sectors only, the only kinds these 83 files use (14,290 compressed sectors, all zlib). Anything else, including bzip2, stays `failed` with a reason naming the compression byte.
+
+**Result: all 83 recovered at shift 3, and all 83 match their `(attributes)` CRC**, including the 16 that couldn't be read before. Their manifest rows are `ok`, with `reason` set to `recovered: header sector shift 5 wrong, used 3`. They are installer extras, not game data: `Wow.exe`, `Battle.net.dll`, the Mac apps, manuals and help pages. The client only checks this archive's stock size (`CoA64/WoW/Source/Ui/BugReport.cpp:56`).
 
 ## Load order
 
@@ -73,8 +77,8 @@ Origins: `patch-B.MPQ` and `patch-T.MPQ` are `project`, everything else is `unkn
 
 - **Against `mpq-listfile.md`:** all 70 archives match on line count. The total is 770,789 lines there and 770,791 here, and the 2 extra lines are `patch-ZG.MPQ`'s, which the doc doesn't cover. Unique names excluding internal files: 639,153 in both.
 - **The 8 archives the doc leaves out:** `patch-4`, `-5`, `-C`, `-CZZ`, `-W`, `-WB` and `-WC` hold only `(listfile)` and `(attributes)`. `patch-ZG.MPQ` also holds two real files, and its own listfile names both: `DBFilesClient/ItemDisplayInfo.dbc` and `Interface/Icons/INV_GrootCoin.blp`.
-- **On disk:** 765,952 files and 84,073,985,211 bytes, both equal to the manifest's `ok` rows. No partial files. A sample of 3,000 files re-read from disk all matched their recorded CRC.
-- **CRC against `(attributes)`:** 765,860 `ok` files match, 0 disagree. 92 have no CRC to compare, 86 of them internal files.
+- **On disk:** 766,035 files and 84,137,498,852 bytes, both equal to the manifest's `ok` rows. No partial files. A sample of 3,000 files re-read from disk all matched their recorded CRC, as did all 83 recovered files.
+- **CRC against `(attributes)`:** 765,943 `ok` files match, 0 disagree. 92 have no CRC to compare: 86 internal files and 6 other files, 5 of them in `patch-B.MPQ`. All 6 are empty files (size 0), so there are no bytes to check.
 - **Listfiles:** 79 files. Per-archive line counts add up to 770,946, and `patch.MPQ.listfile.txt` has 41,162 lines.
 - **Archives unchanged:** archives open read-only, and a test proves a fixture's bytes and timestamp don't change. On the real client, all 78 archives still total 45,479,931,701 bytes and nothing under `D:\WoW\Coa\Data` has a modified date of today. No hash was taken beforehand, so this isn't a byte-level proof.
 
@@ -96,20 +100,22 @@ Nothing was left for the last two sources to find, so `listfile` skipped the str
 | Total | 770,946 |
 | Named | 770,946 |
 | Unnamed | 0 |
-| Restored (`ok`) | 765,952 |
+| Restored (`ok`) | 766,035 |
+| of which recovered with another sector size | 83 |
 | Delete markers (no file, by design) | 4,911 |
 | Patch files | 0 |
-| Failed | 83 |
+| Failed | 0 |
 
 Nonzero by archive:
 
 | Archive | Failed | Delete markers | Unnamed |
 | --- | ---: | ---: | ---: |
-| `enUS/backup-enUS.MPQ` | 83 | 0 | 0 |
 | `enUS/patch-enUS-2.MPQ` | 0 | 2 | 0 |
 | `enUS/patch-enUS.MPQ` | 0 | 26 | 0 |
 | `patch-2.MPQ` | 0 | 1,234 | 0 |
 | `patch-3.MPQ` | 0 | 39 | 0 |
 | `patch.MPQ` | 0 | 3,610 | 0 |
 
-**The listfile is complete; nothing remains unnamed.** What remains unrestored is the 83 `backup-enUS.MPQ` files above. The listed names include internal files and delete markers, because each one is a real entry matching both hashes. `client-listfile.txt` has 639,155 unique names, 639,153 without the two internal names.
+All 83 recovered files are in `enUS/backup-enUS.MPQ`, which has no failures, markers or unnamed entries.
+
+**The listfile is complete; nothing remains unnamed or unrestored.** The listed names include internal files and delete markers, because each one is a real entry matching both hashes. `client-listfile.txt` has 639,155 unique names, 639,153 without the two internal names.

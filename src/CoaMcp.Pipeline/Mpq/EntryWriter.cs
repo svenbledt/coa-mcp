@@ -5,6 +5,8 @@ namespace CoaMcp.Pipeline.Mpq;
 /// <summary>Decides one entry's status and path, and writes its bytes. Shared by restore and by listfile when an entry gains a name.</summary>
 public static class EntryWriter
 {
+    private const string RecoveredPrefix = "recovered:";
+
     public static FileRow Write(MpqArchive mpq, string archive, string root, MpqEntry e, string? name, string? source, bool lowestLocale, FileRow? previous, Counters? progress)
     {
         var path = name is null
@@ -24,20 +26,20 @@ public static class EntryWriter
         if (name is null && (e.Flags & MpqArchive.FlagEncrypted) != 0)
             return Row(MpqRestorer.StatusUnnamed, "encrypted: its key depends on the name, so the bytes can't be read yet");
 
-        string full;
+        uint? attr = previous?.AttrCrc;
         try
         {
-            full = SafePath.Under(root, path);
-            var attr = previous?.AttrCrc;
+            var full = SafePath.Under(root, path);
+            attr ??= mpq.AttributesCrc(e, name);
             if (File.Exists(full))
             {
-                attr ??= mpq.AttributesCrc(e, name);
                 // (attributes) outranks an earlier run's CRC: that run could have recorded wrong bytes.
                 var expected = attr ?? (previous is { Status: MpqRestorer.StatusOk or MpqRestorer.StatusUnnamed } && previous.Path == path ? previous.Crc : null);
                 if (AlreadyCorrect(full, e.Size, expected))
                 {
                     progress?.CountSkipped();
-                    return Row(unnamedStatus ?? MpqRestorer.StatusOk, null, expected, attr);
+                    var kept = previous?.Reason is { } note && note.StartsWith(RecoveredPrefix, StringComparison.Ordinal) && previous.Path == path ? note : null;
+                    return Row(unnamedStatus ?? MpqRestorer.StatusOk, kept, expected, attr);
                 }
             }
 
@@ -45,16 +47,23 @@ public static class EntryWriter
             var part = full + ".part";
             try
             {
-                var crc = new Crc32();
-                using (var stream = new FileStream(part, FileMode.Create, FileAccess.Write, FileShare.None, 1 << 16))
-                    attr = mpq.Extract(e, name, stream, data => crc.Append(data)) ?? attr;
-                var actual = crc.GetCurrentHashAsUInt32();
-                // StormLib can read wrong bytes without an error, so a read that "worked" still has to agree.
-                if (attr is not null && attr != actual)
-                    throw new IOException($"read bytes with CRC {actual:X8}, but (attributes) says {attr:X8}");
+                // With no CRC, a wrong sector size would read "fine" and hand back wrong bytes. Only the table shows it.
+                if (attr is null && SectorReader.HasCheckableTable(e.Flags, e.Size) && !SectorReader.TableMatchesHeader(mpq.FilePath, mpq.Locate(e, name), e.Size, e.Flags))
+                    throw new IOException("sector table doesn't fit the header's sector size, and no CRC in (attributes) can prove another size");
+
+                var failure = ExtractToPart(mpq, e, name, part, attr, out var actual);
+                string? recoveredNote = null;
+                if (failure is not null)
+                {
+                    var bytes = SectorReader.Recover(mpq.FilePath, mpq.Locate(e, name), e.Size, e.Flags, attr, out var shift, out var why)
+                        ?? throw new IOException($"{failure}; recovery: {why}");
+                    File.WriteAllBytes(part, bytes);
+                    actual = attr!.Value;   // Recover returned, so the bytes match it
+                    recoveredNote = $"{RecoveredPrefix} header sector shift {mpq.Locate(e, name).HeaderShift} wrong, used {shift}";
+                }
                 File.Move(part, full, overwrite: true);
                 progress?.CountExtracted(e.Size);
-                return Row(unnamedStatus ?? MpqRestorer.StatusOk, null, actual, attr);
+                return Row(unnamedStatus ?? MpqRestorer.StatusOk, recoveredNote, actual, attr);
             }
             catch
             {
@@ -65,7 +74,26 @@ public static class EntryWriter
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
-            return Row(unnamedStatus ?? MpqRestorer.StatusFailed, ex.Message);
+            return Row(unnamedStatus ?? MpqRestorer.StatusFailed, ex.Message, null, attr);
+        }
+    }
+
+    /// <summary>StormLib's read of an entry. Returns why it can't be trusted, or null with the bytes in <paramref name="part"/>.</summary>
+    private static string? ExtractToPart(MpqArchive mpq, MpqEntry e, string? name, string part, uint? attr, out uint actual)
+    {
+        actual = 0;
+        try
+        {
+            var crc = new Crc32();
+            using (var stream = new FileStream(part, FileMode.Create, FileAccess.Write, FileShare.None, 1 << 16))
+                mpq.Extract(e, name, stream, data => crc.Append(data));
+            actual = crc.GetCurrentHashAsUInt32();
+            // StormLib can read wrong bytes without an error, so a read that "worked" still has to agree.
+            return attr is not null && attr != actual ? $"read bytes with CRC {actual:X8}, but (attributes) says {attr:X8}" : null;
+        }
+        catch (IOException ex)
+        {
+            return ex.Message;
         }
     }
 
