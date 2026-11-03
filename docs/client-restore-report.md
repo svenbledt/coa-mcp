@@ -19,7 +19,10 @@ What protects a finished restore:
 - **Wrong `--data`:** a manifest belongs to one client folder. Another folder is refused, and a folder with no archives is an error. Either way nothing changes.
 - **Archive gone from disk:** only reported, with its files and rows kept, and the run exits 1. `--prune-gone` removes them.
 - **Damaged or half-written archive:** if the header's size doesn't match the file, or any entry points past the block table or at a freed block, the archive is reported as broken and nothing is changed for it. `coamcp-pipeline archive-check --data <folder>` runs this check read-only; all 78 real archives pass.
-- **Failed run:** an archive's new size and date are recorded only after it finishes, so it still counts as changed next time.
+- **Failed read:** an existing file is replaced only by a read that passed its checks. If a read fails, the old file stays and its row is `failed`, with a reason saying the copy on disk is older. A `failed` row's file must not be used as this archive's current content.
+- **Removal:** files are removed only once every read in an archive has passed, and only if that archive no longer lists them.
+- **Failed run:** an archive's new size and date are recorded only after it finishes with no failed entries, so it still counts as changed next time.
+- **Exit code:** `restore` exits 1 if any entry failed or any archive is broken or gone, and names what needs attention.
 
 ## The 4,911 unresolved names are delete markers
 

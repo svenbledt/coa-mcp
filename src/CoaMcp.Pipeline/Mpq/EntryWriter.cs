@@ -5,6 +5,9 @@ namespace CoaMcp.Pipeline.Mpq;
 /// <summary>Decides one entry's status and path, and writes its bytes. Shared by restore and by listfile when an entry gains a name.</summary>
 public static class EntryWriter
 {
+    /// <summary>Marks a row that failed only because a file or folder is in the way, which removing stale files may clear.</summary>
+    public const string PathConflictPrefix = "path conflict:";
+
     private const string RecoveredPrefix = "recovered:";
 
     /// <summary>Where an entry belongs under its archive's folder. An unsafe name gets its literal form, which is only ever recorded.</summary>
@@ -34,9 +37,10 @@ public static class EntryWriter
             return Row(MpqRestorer.StatusUnnamed, "encrypted: its key depends on the name, so the bytes can't be read yet");
 
         uint? attr = null;
+        string? full = null;
         try
         {
-            var full = SafePath.Under(root, path);
+            full = SafePath.Under(root, path);
             attr = mpq.AttributesCrc(e, name);   // always the archive's current value, never an earlier run's
             if (trustDisk && File.Exists(full))
             {
@@ -50,7 +54,11 @@ public static class EntryWriter
                 }
             }
 
-            Directory.CreateDirectory(Path.GetDirectoryName(full)!);
+            try { Directory.CreateDirectory(Path.GetDirectoryName(full)!); }
+            catch (IOException ex) { return Row(unnamedStatus ?? MpqRestorer.StatusFailed, $"{PathConflictPrefix} {ex.Message}", null, attr); }
+            if (Directory.Exists(full)) return Row(unnamedStatus ?? MpqRestorer.StatusFailed, $"{PathConflictPrefix} a folder has this file's name", null, attr);
+
+            // The file in place is replaced only by a read that passed its checks. A failed read never costs what we already have.
             var part = full + ".part";
             try
             {
@@ -75,13 +83,13 @@ public static class EntryWriter
             catch
             {
                 TryDelete(part);
-                TryDelete(full);   // an older file here is known wrong, or we wouldn't be re-extracting
                 throw;
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
-            return Row(unnamedStatus ?? MpqRestorer.StatusFailed, ex.Message, null, attr);
+            var kept = full is not null && File.Exists(full) ? "; the on-disk copy is from an older archive version or an earlier run, and was kept" : "";
+            return Row(unnamedStatus ?? MpqRestorer.StatusFailed, ex.Message + kept, null, attr);
         }
     }
 

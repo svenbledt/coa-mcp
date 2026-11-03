@@ -70,9 +70,11 @@ public static class MpqCli
         output.WriteLine($"restored {r.Archives} archives in {r.Elapsed:hh\\:mm\\:ss}: {r.Entries:N0} entries, {r.Ok:N0} ok ({r.Extracted:N0} extracted, {r.Skipped:N0} already correct, {r.Recovered:N0} recovered with another sector size), {r.Unnamed:N0} unnamed, {r.Failed:N0} failed, {r.DeleteMarkers:N0} delete markers, {r.PatchFiles:N0} patch files");
         foreach (var changed in r.ChangedArchives) output.WriteLine("archive changed since last run, restored again: " + changed);
         foreach (var broken in r.BrokenArchives) output.WriteLine("broken archive: " + broken);
+        foreach (var (archive, count) in r.FailedByArchive.OrderBy(f => f.Key, StringComparer.Ordinal))
+            output.WriteLine($"needs attention: {count:N0} failed entries in {archive}. Its existing files were kept, and it stays marked as changed until it restores cleanly.");
         foreach (var gone in r.GoneArchives)
             output.WriteLine(pruneGone ? "pruned, no longer on disk: " + gone : $"no longer on disk, kept (remove with --prune-gone): {gone}");
-        return r.BrokenArchives.Count == 0 && (pruneGone || r.GoneArchives.Count == 0) ? 0 : 1;
+        return r.Failed == 0 && r.BrokenArchives.Count == 0 && (pruneGone || r.GoneArchives.Count == 0) ? 0 : 1;
     }
 
     private static int Listfile(Dictionary<string, string> v, TextWriter output, TextWriter error)

@@ -106,7 +106,9 @@ public static class ListfileBuilder
             {
                 var old = unnamed[hit.Key];
                 var lowest = manifest.LowestLocale(group.Key, old.Name1, old.Name2) == old.Locale;
-                rows.Add(EntryWriter.Write(mpq, group.Key, root, old.ToEntry(), hit.Value.Name, hit.Value.Source, lowest, null, null));
+                var row = EntryWriter.Write(mpq, group.Key, root, old.ToEntry(), hit.Value.Name, hit.Value.Source, lowest, null, null);
+                rows.Add(row);
+                if (row.Status != MpqRestorer.StatusOk) continue;   // the unnamed copy is still the only good one
                 var pseudo = SafePath.Under(root, old.Path);
                 if (File.Exists(pseudo)) File.Delete(pseudo);
             }

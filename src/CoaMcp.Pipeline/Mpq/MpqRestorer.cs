@@ -8,7 +8,8 @@ public sealed record RestoreOptions(string DataDir, string OutDir, ArchiveConfig
     Func<string, long>? FreeBytes = null, Action<string>? Progress = null, bool PruneGone = false);
 
 public sealed record RestoreResult(int Archives, long Entries, long Ok, long Extracted, long Skipped, long Failed, long Unnamed,
-    long PatchFiles, long DeleteMarkers, long Recovered, IReadOnlyList<string> BrokenArchives, IReadOnlyList<string> ChangedArchives, IReadOnlyList<string> GoneArchives, TimeSpan Elapsed);
+    long PatchFiles, long DeleteMarkers, long Recovered, IReadOnlyList<string> BrokenArchives, IReadOnlyList<string> ChangedArchives, IReadOnlyList<string> GoneArchives,
+    IReadOnlyDictionary<string, long> FailedByArchive, TimeSpan Elapsed);
 
 /// <summary>Restores every archive to &lt;out&gt;/&lt;archive&gt;/&lt;path&gt; and records every entry in manifest.sqlite. Archives are only read.</summary>
 public static class MpqRestorer
@@ -101,7 +102,8 @@ public static class MpqRestorer
         var byStatus = manifest.CountBy("SELECT status, count(*) FROM files GROUP BY status");
         long Of(string s) => byStatus.GetValueOrDefault(s);
         return new RestoreResult(archives.Count, byStatus.Values.Sum(), Of(StatusOk), progress.Extracted, progress.Skipped, Of(StatusFailed), Of(StatusUnnamed),
-            Of(StatusPatchFile), Of(StatusDeleteMarker), manifest.Count("SELECT count(*) FROM files WHERE status='ok' AND reason LIKE 'recovered:%'"), broken, changed.OrderBy(a => a, StringComparer.Ordinal).ToList(), goneArchives, clock.Elapsed);
+            Of(StatusPatchFile), Of(StatusDeleteMarker), manifest.Count("SELECT count(*) FROM files WHERE status='ok' AND reason LIKE 'recovered:%'"), broken, changed.OrderBy(a => a, StringComparer.Ordinal).ToList(), goneArchives,
+            manifest.CountBy($"SELECT archive, count(*) FROM files WHERE status='{StatusFailed}' GROUP BY archive"), clock.Elapsed);
     }
 
     private static void RefuseOutput(string data, string output)
@@ -177,30 +179,36 @@ public static class MpqRestorer
         var root = Path.Combine(output, archive.RelPath);
         var lowest = entries.GroupBy(e => (e.Name1, e.Name2)).ToDictionary(g => g.Key, g => g.Min(e => e.Locale));
 
-        // A replaced archive starts over. In this order a crash can only repeat the work, never strand a file.
+        // A replaced archive is read again in full. Until every read has passed, it's not known healthy, so nothing is removed.
         var recorded = manifest.IdentityOf(archive.RelPath);
         var replaced = recorded is not null && recorded != identity;
         if (replaced) changedArchives.Add(archive.RelPath);
-        var stillOnDisk = entries.Where(e => e.BlockValid && StatusFromFlags(e.Flags) == StatusOk)
-            .Select(e => EntryWriter.PathFor(e, names.TryGetValue(e.HashIndex, out var n) ? n.Name : null, e.Locale == lowest[(e.Name1, e.Name2)]))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        RestoredFiles.Remove(root, oldRows.Values.Select(r => r.Path).Where(p => !stillOnDisk.Contains(p)));
-        var live = entries.Select(e => e.HashIndex).ToHashSet();
-        manifest.DropFiles(archive.RelPath, oldRows.Keys.Where(k => replaced || !live.Contains(k)));
         var prior = replaced ? [] : oldRows;
+
+        FileRow WriteEntry(MpqEntry e)
+        {
+            var named = names.TryGetValue(e.HashIndex, out var found) ? found : default;
+            // Identity can't see every replacement, so a row must also describe this entry to count.
+            var previous = prior.TryGetValue(e.HashIndex, out var p) && p.Name1 == e.Name1 && p.Name2 == e.Name2 && p.Locale == e.Locale && p.Size == e.Size ? p : null;
+            return EntryWriter.Write(mpq, archive.RelPath, root, e, named.Name, named.Source, e.Locale == lowest[(e.Name1, e.Name2)], previous, progress, trustDisk: !replaced);
+        }
 
         manifest.SaveListfile(archive.RelPath, matchedLines);
         manifest.SaveArchive(archive, hashSlots, blockSlots, entries.Count, lines.Count, matchedLines.Count(l => !l.Item2), null, recorded);   // the new identity waits until the archive has finished
 
         var batch = new List<FileRow>(BatchSize);
         var count = 0;
+        var failedReads = 0;
+        var conflicts = new List<MpqEntry>();
         foreach (var e in entries)
         {
             if (stop.IsCancellationRequested) throw new OutOfSpaceException("stopped: another archive hit the free-space limit");
-            var named = names.TryGetValue(e.HashIndex, out var found) ? found : default;
-            // Identity can't see every replacement, so a row must also describe this entry to count.
-            var previous = prior.TryGetValue(e.HashIndex, out var p) && p.Name1 == e.Name1 && p.Name2 == e.Name2 && p.Locale == e.Locale && p.Size == e.Size ? p : null;
-            var row = EntryWriter.Write(mpq, archive.RelPath, root, e, named.Name, named.Source, e.Locale == lowest[(e.Name1, e.Name2)], previous, progress, trustDisk: !replaced);
+            var row = WriteEntry(e);
+            if (row.Status == StatusFailed)
+            {
+                if (row.Reason?.StartsWith(EntryWriter.PathConflictPrefix, StringComparison.Ordinal) == true) conflicts.Add(e);
+                else failedReads++;
+            }
             batch.Add(row);
             progress.CountEntry();
             if (batch.Count >= BatchSize) { manifest.SaveFiles(batch); batch.Clear(); }
@@ -212,7 +220,19 @@ public static class MpqRestorer
             }
         }
         manifest.SaveFiles(batch);
-        manifest.SetIdentity(archive.RelPath, identity);
+        if (failedReads > 0) return;   // still counts as changed next run; the old files and rows stay
+
+        // Healthy: now what's no longer listed really is gone. That can clear the way for a file that wanted an old folder's name.
+        var stillOnDisk = entries.Where(e => e.BlockValid && StatusFromFlags(e.Flags) == StatusOk)
+            .Select(e => EntryWriter.PathFor(e, names.TryGetValue(e.HashIndex, out var n) ? n.Name : null, e.Locale == lowest[(e.Name1, e.Name2)]))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        RestoredFiles.Remove(root, oldRows.Values.Select(r => r.Path).Where(p => !stillOnDisk.Contains(p)));
+        var live = entries.Select(e => e.HashIndex).ToHashSet();
+        manifest.DropFiles(archive.RelPath, oldRows.Keys.Where(k => !live.Contains(k)));
+
+        var retried = conflicts.Select(WriteEntry).ToList();
+        manifest.SaveFiles(retried);
+        if (retried.All(r => r.Status != StatusFailed)) manifest.SetIdentity(archive.RelPath, identity);
     }
 
     /// <summary>The lines of the archive's own (listfile), with each name's bytes kept as a Latin-1 string.</summary>

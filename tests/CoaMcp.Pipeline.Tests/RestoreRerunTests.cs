@@ -479,6 +479,141 @@ public class RestoreRerunTests : IDisposable
         Assert.Equal(new[] { "a.MPQ" }, Restore().ChangedArchives);
     }
 
+    /// <summary>Random text, so it compresses but stays long enough that zeroed bytes land inside each file's data.</summary>
+    private Dictionary<string, string> Bodies()
+    {
+        var rng = new Random(1);
+        var bodies = new Dictionary<string, string>();
+        for (var i = 0; i < 42; i++)
+            bodies[$"dir{i % 3}\\file{i}.txt"] = string.Concat(Enumerable.Range(0, 900).Select(_ => (char)('a' + rng.Next(26))));
+        return bodies;
+    }
+
+    private void BuildFlagged(DateTime stamp, IReadOnlyDictionary<string, string> bodies, uint flags)
+    {
+        if (File.Exists(ArchivePath())) File.Delete(ArchivePath());
+        using (var f = new MpqFixture(ArchivePath()))
+            foreach (var (name, body) in bodies) f.Add(name, body, flags);
+        File.SetLastWriteTimeUtc(ArchivePath(), stamp);
+    }
+
+    /// <summary>Header, size and tables stay intact; most of the file data becomes zeros.</summary>
+    private void ZeroDataRegion(DateTime stamp)
+    {
+        var bytes = File.ReadAllBytes(ArchivePath());
+        var hashTable = BitConverter.ToInt32(bytes, 16);
+        Array.Clear(bytes, 32, (int)((hashTable - 32) * 0.7));
+        File.WriteAllBytes(ArchivePath(), bytes);
+        File.SetLastWriteTimeUtc(ArchivePath(), stamp);
+    }
+
+    [Theory]
+    [InlineData(0u)]
+    [InlineData(MpqFixture.Compress)]
+    public void Rerun_ZeroedDataWithIntactTables_KeepsAllFiles(uint flags)
+    {
+        var bodies = Bodies();
+        BuildFlagged(First, bodies, flags);
+        var first = Restore();
+        ZeroDataRegion(Second);
+        Assert.Null(ArchiveIntegrity.Check(ArchivePath()));   // the tables can't show this damage
+
+        var output = new StringWriter();
+        var exit = MpqCli.Run("restore", ["--data", _data, "--out", _out, "--config", ConfigFile()], output, TextWriter.Null);
+
+        Assert.NotEqual(0, exit);
+        foreach (var (name, body) in bodies)
+            Assert.Equal(body, File.ReadAllText(Restored(name)));
+        var failed = Rows("SELECT * FROM files WHERE status='failed'");
+        Assert.NotEmpty(failed);
+        Assert.All(failed, r => Assert.Contains("older archive version", (string)r["reason"]!));
+        Assert.Equal(first.Entries, Rows("SELECT * FROM files").Count);
+        Assert.Equal(First.Ticks, Assert.Single(Rows("SELECT file_mtime FROM archives"))["file_mtime"]);
+        Assert.Contains("a.MPQ", output.ToString());
+        Assert.Contains("failed", output.ToString());
+    }
+
+    [Fact]
+    public void Rerun_FailedEntries_RemoveNothingEvenIfUnlisted()
+    {
+        var bodies = Bodies();
+        bodies["only-in-old.txt"] = "old";
+        BuildFlagged(First, bodies, 0);
+        var first = Restore();
+
+        bodies.Remove("only-in-old.txt");
+        BuildFlagged(Second, bodies, 0);
+        ZeroDataRegion(Second);
+        var second = Restore();
+
+        Assert.True(second.Failed > 0);
+        Assert.Equal("old", File.ReadAllText(Restored("only-in-old.txt")));
+        Assert.Equal(first.Entries, second.Entries);
+    }
+
+    [Theory]
+    [InlineData(0u)]
+    [InlineData(MpqFixture.Compress)]
+    public void Rerun_GoodReplacementAfterBadOne_Recovers(uint flags)
+    {
+        var bodies = Bodies();
+        BuildFlagged(First, bodies, flags);
+        Restore();
+        ZeroDataRegion(Second);
+        Assert.True(Restore().Failed > 0);
+        var third = new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        bodies[bodies.Keys.First()] = "a changed body";
+        BuildFlagged(third, bodies, flags);
+        var good = Restore();
+
+        Assert.Equal(0, good.Failed);
+        Assert.Equal(new[] { "a.MPQ" }, good.ChangedArchives);
+        foreach (var (name, body) in bodies)
+            Assert.Equal(body, File.ReadAllText(Restored(name)));
+        Assert.Empty(Rows("SELECT * FROM files WHERE status='failed' OR reason IS NOT NULL"));
+        Assert.Equal(third.Ticks, Assert.Single(Rows("SELECT file_mtime FROM archives"))["file_mtime"]);
+    }
+
+    [Fact]
+    public void Rerun_SameBadArchiveAgain_StillFailsAndKeepsFiles()
+    {
+        var bodies = Bodies();
+        BuildFlagged(First, bodies, 0);
+        Restore();
+        ZeroDataRegion(Second);
+        Restore();
+
+        var again = Restore();
+
+        Assert.True(again.Failed > 0);
+        Assert.Equal(new[] { "a.MPQ" }, again.ChangedArchives);
+        foreach (var (name, body) in bodies)
+            Assert.Equal(body, File.ReadAllText(Restored(name)));
+    }
+
+    [Fact]
+    public void FreshRestore_FailedEntry_ExitsNonZero()
+    {
+        BuildFlagged(First, Bodies(), MpqFixture.Compress);
+        ZeroDataRegion(Second);
+
+        var output = new StringWriter();
+        var exit = MpqCli.Run("restore", ["--data", _data, "--out", _out, "--config", ConfigFile()], output, TextWriter.Null);
+
+        Assert.NotEqual(0, exit);
+        Assert.Contains("a.MPQ", output.ToString());
+        Assert.NotEmpty(Rows("SELECT * FROM files WHERE status='failed'"));
+    }
+
+    [Fact]
+    public void CleanRestore_ExitsZero()
+    {
+        BuildFlagged(First, Bodies(), MpqFixture.Compress);
+
+        Assert.Equal(0, MpqCli.Run("restore", ["--data", _data, "--out", _out, "--config", ConfigFile()], TextWriter.Null, TextWriter.Null));
+    }
+
     private string ConfigFile()
     {
         var path = _dir.File("archives.json");

@@ -173,7 +173,7 @@ public class RestorerTests : IDisposable
     }
 
     [Fact]
-    public void Restore_Rerun_RemovesOldFileThatDisagreesWithAttributes()
+    public void Restore_Rerun_FailedReadKeepsOldFileAndSaysSo()
     {
         ArchiveWithWrongBytes();
         Restore();
@@ -194,7 +194,8 @@ public class RestorerTests : IDisposable
 
         Assert.Equal(1, result.Failed);
         Assert.Equal("failed", Row("victim.bin")["status"]);
-        Assert.False(File.Exists(stale));
+        Assert.Contains("older archive version", (string)Row("victim.bin")["reason"]!);
+        Assert.Equal(garbage, File.ReadAllBytes(stale));
     }
 
     [Fact]

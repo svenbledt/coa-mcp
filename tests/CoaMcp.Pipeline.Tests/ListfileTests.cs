@@ -225,6 +225,8 @@ public class ListfileTests : IDisposable
         Assert.Equal("failed", r.GetString(0));
         Assert.Contains("traversal", r.GetString(1));
         Assert.Empty(Directory.GetFiles(_dir.Path, "evil.txt", SearchOption.AllDirectories));
+        // Its name can't be used, so the bytes stay under their unnamed path rather than being lost.
+        Assert.Single(Directory.GetFiles(Path.Combine(_out, "b.MPQ", "(unnamed)")));
     }
 
     [Fact]
