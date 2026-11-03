@@ -62,6 +62,34 @@ public class ClientIpResolverTests
     public void Tunnel_MissingCfConnectingIp_FallsBackToTheRightmostAddress() =>
         Assert.Equal("10.0.1.2", R("10.0.1.5", "10.0.1.2", null));
 
+    private static readonly IReadOnlyList<IPAddress> Gateway = new[] { IPAddress.Parse("10.0.1.1") };
+
+    private static string G(string peer, string? xff, string? cf) =>
+        ClientIpResolver.Resolve(IPAddress.Parse(peer), xff, cf, Trusted, Gateway).ToString();
+
+    [Fact]
+    public void DirectIpv6ViaGateway_SpoofedCfConnectingIp_Ignored()
+    {
+        // docker-proxy hands direct IPv6 clients to Traefik from the Docker gateway, so Traefik writes the gateway as the client.
+        // The gateway is inside the trusted network but is listed as never trusted, so it is the client and the CF header is ignored.
+        Assert.Equal("10.0.1.1", G("10.0.1.5", "10.0.1.1", "198.51.100.7"));
+        Assert.Equal("10.0.1.1", G("10.0.1.5", "10.0.1.1", "198.51.100.8"));
+        Assert.Equal("10.0.1.1", G("10.0.1.5", "10.0.1.1", null));
+        Assert.Equal("10.0.1.1", G("10.0.1.5", "::ffff:10.0.1.1", "198.51.100.7"));
+        Assert.Equal("10.0.1.1", G("10.0.1.5", "198.51.100.1, 10.0.1.2, 10.0.1.1", "198.51.100.7"));
+    }
+
+    [Fact]
+    public void UntrustedAddress_DoesNotBreakTheTunnelPath()
+    {
+        Assert.Equal("198.51.100.7", G("10.0.1.5", "10.0.1.2", "198.51.100.7"));
+        Assert.Equal("203.0.113.9", G("10.0.1.5", "203.0.113.9", "198.51.100.7"));
+    }
+
+    [Fact]
+    public void UntrustedAddress_AsThePeer_IsNeverBelievedAboutHeaders() =>
+        Assert.Equal("10.0.1.1", G("10.0.1.1", "198.51.100.1", "198.51.100.7"));
+
     [Fact]
     public void Tunnel_TwoClients_SeparateBuckets()
     {
@@ -141,6 +169,23 @@ public class ClientIpEndToEndTests
         for (var i = 0; i < 3; i++) Assert.NotEqual(HttpStatusCode.TooManyRequests, await Hit(c, "10.0.1.5", "10.0.1.2", "198.51.100.7"));
         Assert.Equal(HttpStatusCode.TooManyRequests, await Hit(c, "10.0.1.5", "10.0.1.2", "198.51.100.7"));
         Assert.NotEqual(HttpStatusCode.TooManyRequests, await Hit(c, "10.0.1.5", "10.0.1.2", "198.51.100.8"));
+    }
+
+    [Fact]
+    public async Task DirectIpv6ViaGateway_SpoofedCfConnectingIp_Ignored()
+    {
+        using var h = new ServerHarness(settings: new Dictionary<string, string?>
+        {
+            ["RateLimit:PerMinute"] = "3",
+            ["Network:TrustedProxies:0"] = "10.0.1.0/24",
+            ["Network:UntrustedAddresses:0"] = "10.0.1.1",
+        });
+        var c = h.Http();
+        // Each request forges a different CF-Connecting-IP; they all arrive from the gateway and share one bucket.
+        for (var i = 0; i < 3; i++) Assert.NotEqual(HttpStatusCode.TooManyRequests, await Hit(c, "10.0.1.5", "10.0.1.1", $"198.51.100.{i}"));
+        Assert.Equal(HttpStatusCode.TooManyRequests, await Hit(c, "10.0.1.5", "10.0.1.1", "198.51.100.99"));
+        // The tunnel still tells clients apart (a different address in the same network).
+        Assert.NotEqual(HttpStatusCode.TooManyRequests, await Hit(c, "10.0.1.5", "10.0.1.2", "198.51.100.200"));
     }
 
     [Fact]

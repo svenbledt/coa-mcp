@@ -53,6 +53,6 @@ dotnet run --project src/CoaMcp.Server      # reads layers from Layers__Root (de
 dotnet test CoaMcp.sln
 ```
 
-Settings (environment variables): `Layers__Root` (data root), `Layers__ReloadSeconds` (default 30), `RateLimit__PerMinute` (default 120), `Network__TrustedProxies__0` (CIDR of the proxy network; forwarded headers are believed only from peers in it, empty means trust nothing). The rate limit keys on the real client: the rightmost untrusted `X-Forwarded-For` address, or `CF-Connecting-IP` when the request came through cloudflared (all addresses trusted).
+Settings (environment variables): `Layers__Root` (data root), `Layers__ReloadSeconds` (default 30), `RateLimit__PerMinute` (default 120), `Network__UntrustedAddresses__0` (exact addresses never trusted even inside the trusted network, such as the Docker gateway), `Network__TrustedProxies__0` (CIDR of the proxy network; forwarded headers are believed only from peers in it, empty means trust nothing). The rate limit keys on the real client: the rightmost untrusted `X-Forwarded-For` address, or `CF-Connecting-IP` when the request came through cloudflared (all addresses trusted).
 
 Deployment is `docker-compose.yml` on Coolify, with the domain set in Coolify. The host folder `/data/coamcp` is mounted at `/data`. The publisher sets modes explicitly: layer folders 0755 and files 0644 (root-owned, so the server can read but not write them), and `writable/` owned by UID 10001 with mode 0750 for the future writable store. The server never opens layer files for writing.

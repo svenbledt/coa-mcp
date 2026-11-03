@@ -7,7 +7,9 @@ namespace CoaMcp.Server;
 /// Works out the real client address for rate limiting. The path is: client, Cloudflare, cloudflared, Traefik, this app,
 /// and Traefik can also be reached straight from the internet, so a header is only believed when the hop that wrote it is trusted.
 /// <list type="number">
-/// <item>The peer must be in the trusted networks (<c>Network:TrustedProxies</c>); otherwise every header is ignored.</item>
+/// <item>The peer must be in the trusted networks (<c>Network:TrustedProxies</c>); otherwise every header is ignored.
+/// An address listed in <c>Network:UntrustedAddresses</c> is never trusted, even inside a trusted network: Docker's gateway is the
+/// apparent client of direct IPv6 requests, so it must count as the client and not as a proxy hop.</item>
 /// <item>Walk <c>X-Forwarded-For</c> from the right while entries are trusted. The first untrusted address is the client:
 /// Traefik wrote the rightmost entry, so a direct request resolves to its real public address whatever the client put further left.</item>
 /// <item>If only trusted addresses were found, the request came through cloudflared (Traefik replaces the header with its peer).
@@ -17,10 +19,11 @@ namespace CoaMcp.Server;
 /// </summary>
 public static class ClientIpResolver
 {
-    public static IPAddress Resolve(IPAddress peer, string? forwardedFor, string? cfConnectingIp, IReadOnlyList<IPNetwork> trusted)
+    public static IPAddress Resolve(IPAddress peer, string? forwardedFor, string? cfConnectingIp, IReadOnlyList<IPNetwork> trusted, IReadOnlyList<IPAddress>? untrusted = null)
     {
+        untrusted ??= Array.Empty<IPAddress>();
         var self = Normalize(peer);
-        if (trusted.Count == 0 || !IsTrusted(self, trusted)) return self;
+        if (trusted.Count == 0 || !IsTrusted(self, trusted, untrusted)) return self;
 
         var chain = (forwardedFor ?? "").Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         if (chain.Length == 0) return self;
@@ -30,7 +33,7 @@ public static class ClientIpResolver
         {
             if (!TryParse(chain[i], out var address))
                 return rightmost ?? self;   // garbage is never the client; stop at the last address a trusted hop vouched for
-            if (!IsTrusted(address, trusted)) return address;
+            if (!IsTrusted(address, trusted, untrusted)) return address;
             rightmost ??= address;
         }
 
@@ -48,8 +51,10 @@ public static class ClientIpResolver
         return new IPAddress(bytes) + "/64";
     }
 
-    private static bool IsTrusted(IPAddress address, IReadOnlyList<IPNetwork> trusted)
+    private static bool IsTrusted(IPAddress address, IReadOnlyList<IPNetwork> trusted, IReadOnlyList<IPAddress> untrusted)
     {
+        foreach (var u in untrusted)
+            if (Normalize(u).Equals(address)) return false;
         foreach (var n in trusted)
             if (n.Contains(address) || (address.AddressFamily == AddressFamily.InterNetwork && n.Contains(address.MapToIPv6()))) return true;
         return false;

@@ -49,6 +49,32 @@ public class TrustedProxyTests
     }
 
     [Fact]
+    public void UntrustedAddresses_ReadFromIndexedAndScalarForms()
+    {
+        var indexed = WithEnv("COATEST_Network__UntrustedAddresses__0", "10.0.1.1", cfg => TrustedProxies.ReadUntrusted(cfg));
+        Assert.Equal("10.0.1.1", Assert.Single(indexed).ToString());
+        var scalar = WithEnv("COATEST_Network__UntrustedAddresses", "10.0.1.1, ::ffff:10.0.1.9", cfg => TrustedProxies.ReadUntrusted(cfg));
+        Assert.Equal(new[] { "10.0.1.1", "10.0.1.9" }, scalar.Select(a => a.ToString()));
+        Assert.Empty(TrustedProxies.ReadUntrusted(new ConfigurationBuilder().Build()));
+    }
+
+    [Fact]
+    public void BadUntrustedAddress_FailsLoudly() =>
+        Assert.ThrowsAny<Exception>(() => TrustedProxies.ReadUntrusted(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Network:UntrustedAddresses:0"] = "10.0.1.0/24" }).Build()));
+
+    [Fact]
+    public void Startup_LogsTheUntrustedAddresses()
+    {
+        var log = new ListLogger();
+        TrustedProxies.Log(log, new[] { IPNetwork.Parse("10.0.1.0/24") }, new[] { IPAddress.Parse("10.0.1.1") });
+        var line = Assert.Single(log.Lines);
+        Assert.Contains("10.0.1.0/24", line.Message);
+        Assert.Contains("10.0.1.1", line.Message);
+        Assert.Contains("never", line.Message);
+    }
+
+    [Fact]
     public void NoSetting_TrustsNothing() =>
         Assert.Empty(TrustedProxies.Read(new ConfigurationBuilder().Build()));
 
