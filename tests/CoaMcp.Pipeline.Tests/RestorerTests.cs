@@ -194,7 +194,7 @@ public class RestorerTests : IDisposable
 
         Assert.Equal(1, result.Failed);
         Assert.Equal("failed", Row("victim.bin")["status"]);
-        Assert.Contains("older archive version", (string)Row("victim.bin")["reason"]!);
+        Assert.Contains("earlier run", (string)Row("victim.bin")["reason"]!);
         Assert.Equal(garbage, File.ReadAllBytes(stale));
     }
 

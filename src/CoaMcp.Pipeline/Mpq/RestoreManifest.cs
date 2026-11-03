@@ -20,10 +20,16 @@ public readonly record struct ArchiveIdentity(long Size, long ModifiedTicks)
     }
 }
 
+/// <summary>What a restore learned about an archive's tables and listfile.</summary>
+public readonly record struct ArchiveFacts(int HashSlots, int BlockSlots, int HashEntries, int ListfileLines, int StaleLines);
+
 /// <summary>manifest.sqlite: every entry of every archive, plus each listfile line and per-archive facts. Calls are serialized.</summary>
 public sealed class RestoreManifest : IDisposable
 {
     public const string DataDirKey = "data_dir", OutDirKey = "out_dir";
+
+    /// <summary>meta key prefix: this archive's rows are new, and its staged folder still has to be swapped into place.</summary>
+    public const string PendingSwapPrefix = "pending_swap:";
 
     private const string RowColumns = "archive, hash_index, block_index, path, size, crc, status, reason, locale, flags, name1, name2, name, name_source, attr_crc";
 
@@ -104,12 +110,42 @@ public sealed class RestoreManifest : IDisposable
             ?? throw new InvalidDataException($"manifest has no {key}");
     }
 
-    public void SaveArchive(ArchiveInfo a, int? hashSlots, int? blockSlots, int? hashEntries, int? listLines, int? staleLines, string? error, ArchiveIdentity? identity)
+    public void SaveArchive(ArchiveInfo a, ArchiveFacts facts, ArchiveIdentity? identity)
     {
-        lock (_gate) Run(
-            "INSERT OR REPLACE INTO archives(archive, priority, origin, realm, hash_slots, block_slots, hash_entries, listfile_lines, stale_lines, error, file_size, file_mtime) VALUES($a,$b,$c,$d,$e,$f,$g,$h,$i,$j,$k,$l)",
-            a.RelPath, a.Priority, a.Origin, a.Realm, hashSlots, blockSlots, hashEntries, listLines, staleLines, error, identity?.Size, identity?.ModifiedTicks);
+        lock (_gate) WriteArchive(a, facts, identity);
     }
+
+    /// <summary>
+    /// Replaces everything known about an archive in one transaction: its rows, listfile lines, facts and identity. The same
+    /// transaction notes that the staged folder still has to be swapped in, so a crash between here and <see cref="ClearPendingSwap"/> is finished next run.
+    /// </summary>
+    public void ReplaceArchive(ArchiveInfo a, ArchiveFacts facts, ArchiveIdentity identity, IReadOnlyCollection<FileRow> rows, IEnumerable<(string Name, bool Matched)> lines)
+    {
+        lock (_gate)
+        {
+            using var tx = _db.BeginTransaction();
+            Run("DELETE FROM files WHERE archive=$a", a.RelPath);
+            WriteFiles(rows);
+            WriteListfile(a.RelPath, lines);
+            WriteArchive(a, facts, identity);
+            Run("INSERT OR REPLACE INTO meta(key, value) VALUES($a, $b)", PendingSwapPrefix + a.RelPath, "1");
+            tx.Commit();
+        }
+    }
+
+    public List<string> PendingSwaps()
+    {
+        lock (_gate) return Strings("SELECT substr(key, $a) FROM meta WHERE key LIKE $b", PendingSwapPrefix.Length + 1, PendingSwapPrefix + "%");
+    }
+
+    public void ClearPendingSwap(string archive)
+    {
+        lock (_gate) Run("DELETE FROM meta WHERE key=$a", PendingSwapPrefix + archive);
+    }
+
+    private void WriteArchive(ArchiveInfo a, ArchiveFacts facts, ArchiveIdentity? identity) => Run(
+        "INSERT OR REPLACE INTO archives(archive, priority, origin, realm, hash_slots, block_slots, hash_entries, listfile_lines, stale_lines, error, file_size, file_mtime) VALUES($a,$b,$c,$d,$e,$f,$g,$h,$i,$j,$k,$l)",
+        a.RelPath, a.Priority, a.Origin, a.Realm, facts.HashSlots, facts.BlockSlots, facts.HashEntries, facts.ListfileLines, facts.StaleLines, null, identity?.Size, identity?.ModifiedTicks);
 
     /// <summary>Records that an archive couldn't be restored, leaving what's known about it as it was, including its identity.</summary>
     public void MarkBroken(ArchiveInfo a, string error)
@@ -162,19 +198,7 @@ public sealed class RestoreManifest : IDisposable
         lock (_gate)
         {
             using var tx = _db.BeginTransaction();
-            Run("DELETE FROM listfile_names WHERE archive=$a", archive);
-            using var cmd = _db.CreateCommand();
-            cmd.CommandText = "INSERT INTO listfile_names(archive, name, matched) VALUES($a,$n,$m)";
-            var a = cmd.Parameters.Add("$a", SqliteType.Text);
-            var n = cmd.Parameters.Add("$n", SqliteType.Text);
-            var m = cmd.Parameters.Add("$m", SqliteType.Integer);
-            a.Value = archive;
-            foreach (var (name, matched) in lines)
-            {
-                n.Value = name;
-                m.Value = matched ? 1 : 0;
-                cmd.ExecuteNonQuery();
-            }
+            WriteListfile(archive, lines);
             tx.Commit();
         }
     }
@@ -185,20 +209,43 @@ public sealed class RestoreManifest : IDisposable
         lock (_gate)
         {
             using var tx = _db.BeginTransaction();
-            using var cmd = _db.CreateCommand();
-            cmd.CommandText = """
-                INSERT OR REPLACE INTO files(archive, hash_index, block_index, path, path_lc, size, crc, status, reason, locale, flags, name1, name2, name, name_source, attr_crc)
-                VALUES($p0,$p1,$p2,$p3,$p4,$p5,$p6,$p7,$p8,$p9,$p10,$p11,$p12,$p13,$p14,$p15)
-                """;
-            var p = Enumerable.Range(0, 16).Select(i => cmd.Parameters.Add("$p" + i, SqliteType.Text)).ToArray();
-            foreach (var r in rows)
-            {
-                object?[] values = [r.Archive, r.HashIndex, r.BlockIndex, r.Path, r.Path.ToLowerInvariant(), r.Size, r.Crc, r.Status, r.Reason,
-                    (int)r.Locale, r.Flags, r.Name1, r.Name2, r.Name, r.NameSource, r.AttrCrc];
-                for (var i = 0; i < values.Length; i++) p[i].Value = values[i] ?? DBNull.Value;
-                cmd.ExecuteNonQuery();
-            }
+            WriteFiles(rows);
             tx.Commit();
+        }
+    }
+
+    private void WriteListfile(string archive, IEnumerable<(string Name, bool Matched)> lines)
+    {
+        Run("DELETE FROM listfile_names WHERE archive=$a", archive);
+        using var cmd = _db.CreateCommand();
+        cmd.CommandText = "INSERT INTO listfile_names(archive, name, matched) VALUES($a,$n,$m)";
+        var a = cmd.Parameters.Add("$a", SqliteType.Text);
+        var n = cmd.Parameters.Add("$n", SqliteType.Text);
+        var m = cmd.Parameters.Add("$m", SqliteType.Integer);
+        a.Value = archive;
+        foreach (var (name, matched) in lines)
+        {
+            n.Value = name;
+            m.Value = matched ? 1 : 0;
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    private void WriteFiles(IReadOnlyCollection<FileRow> rows)
+    {
+        if (rows.Count == 0) return;
+        using var cmd = _db.CreateCommand();
+        cmd.CommandText = """
+            INSERT OR REPLACE INTO files(archive, hash_index, block_index, path, path_lc, size, crc, status, reason, locale, flags, name1, name2, name, name_source, attr_crc)
+            VALUES($p0,$p1,$p2,$p3,$p4,$p5,$p6,$p7,$p8,$p9,$p10,$p11,$p12,$p13,$p14,$p15)
+            """;
+        var p = Enumerable.Range(0, 16).Select(i => cmd.Parameters.Add("$p" + i, SqliteType.Text)).ToArray();
+        foreach (var r in rows)
+        {
+            object?[] values = [r.Archive, r.HashIndex, r.BlockIndex, r.Path, r.Path.ToLowerInvariant(), r.Size, r.Crc, r.Status, r.Reason,
+                (int)r.Locale, r.Flags, r.Name1, r.Name2, r.Name, r.NameSource, r.AttrCrc];
+            for (var i = 0; i < values.Length; i++) p[i].Value = values[i] ?? DBNull.Value;
+            cmd.ExecuteNonQuery();
         }
     }
 

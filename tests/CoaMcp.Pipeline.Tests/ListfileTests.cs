@@ -234,6 +234,7 @@ public class ListfileTests : IDisposable
     {
         TwoArchives();
         File.SetLastWriteTimeUtc(Archive("b.MPQ"), new DateTime(2020, 1, 2, 3, 4, 5, DateTimeKind.Utc));
+        RestoreAll("a.MPQ", "b.MPQ");   // the stamp is part of the archive's recorded identity
         var hash = SHA256.HashData(File.ReadAllBytes(Archive("b.MPQ")));
 
         Build();
@@ -264,6 +265,28 @@ public class ListfileTests : IDisposable
         var row = Find("b.MPQ", "hidden.txt");
         Assert.Equal("other_listfile", row!["name_source"]);
         Assert.Equal("ok", row["status"]);
+    }
+
+    [Fact]
+    public void Listfile_ArchiveChangedSinceRestore_RefusedBeforeAnyWrite()
+    {
+        TwoArchives();
+        // b.MPQ is replaced after the restore: its rows describe the old version, so names can't be applied to it.
+        File.Delete(Archive("b.MPQ"));
+        using (var b = new MpqFixture(Archive("b.MPQ"), listfile: false, attributes: false))
+        {
+            b.Add("hidden.txt", "from b, moved");
+            b.Add("named.txt", "named");
+            b.Add("(listfile)", "named.txt\r\n");
+        }
+        File.SetLastWriteTimeUtc(Archive("b.MPQ"), new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+
+        var ex = Assert.Throws<InvalidOperationException>(Build);
+
+        Assert.Contains("b.MPQ", ex.Message);
+        Assert.Contains("restore", ex.Message);
+        Assert.Null(Find("b.MPQ", "hidden.txt"));   // still only under its unnamed path
+        Assert.False(Directory.Exists(_lists));
     }
 
     [Fact]

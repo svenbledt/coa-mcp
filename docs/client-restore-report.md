@@ -13,16 +13,28 @@ coamcp-pipeline restore --data D:\WoW\Coa\Data --out F:\WorkDir\CoaRestored
 coamcp-pipeline listfile --manifest F:\WorkDir\CoaRestored\manifest.sqlite --out D:\WoW\Coa\Listfiles
 ```
 
-A re-run skips files whose size and CRC are already correct, and re-verifies all of them in about 3 to 4 minutes. Expected CRCs always come from the archive as it is now. The manifest records each archive's size and modified time; when either changes (`patch-B.MPQ` does between client revisions), that archive is restored again from scratch, and its files and rows that no longer exist are removed. Re-run `listfile` afterwards to refresh the lists.
+A re-run of an unchanged archive skips files whose size and CRC are already correct, and re-verifies all of them in about 3 to 4 minutes. Expected CRCs always come from the archive as it is now. The manifest records each archive's size and modified time; when either changes (`patch-B.MPQ` does between client revisions), that archive is **restored as a whole**: everything is extracted to `<out>/.staging/<archive>/`, and only if all of it passed are the folder, rows and identity swapped in, in one step. Otherwise the staging copy is deleted and the older restore of that archive stays exactly as it was. Re-run `listfile` afterwards to refresh the lists.
+
+A changed archive counts as good only if all of these hold:
+- the integrity check passes (header size, block table, no freed blocks);
+- every entry read successfully (a failed read, named or not, is `failed`);
+- every entry is named, or no more entries are unnamed than in the previous version;
+- when the previous version's rows had `(attributes)` CRCs, every non-empty, non-internal entry of the new version has one and matched it. This is what catches zeroed or wrong bytes that read without error, and what a damaged `(attributes)` would otherwise hide.
+
+Before staging starts, free space is checked against the sum of the new archive's entry sizes. If there isn't enough, the archive is reported broken and nothing changes.
 
 What protects a finished restore:
 - **Wrong `--data`:** a manifest belongs to one client folder. Another folder is refused, and a folder with no archives is an error. Either way nothing changes.
 - **Archive gone from disk:** only reported, with its files and rows kept, and the run exits 1. `--prune-gone` removes them.
 - **Damaged or half-written archive:** if the header's size doesn't match the file, or any entry points past the block table or at a freed block, the archive is reported as broken and nothing is changed for it. `coamcp-pipeline archive-check --data <folder>` runs this check read-only; all 78 real archives pass.
-- **Failed read:** an existing file is replaced only by a read that passed its checks. If a read fails, the old file stays and its row is `failed`, with a reason saying the copy on disk is older. A `failed` row's file must not be used as this archive's current content.
-- **Removal:** files are removed only once every read in an archive has passed, and only if that archive no longer lists them.
+- **Changed archive that doesn't pass:** reported as broken with the reason, exit 1, and its folder, rows and recorded identity are untouched. The summary says the on-disk copy is from the older version of the archive. No per-entry `failed` rows are written for it, because the old data is still valid.
+- **Crash during a swap:** the new rows and identity are committed together with a pending-swap note before any folder is renamed. On the next start, a pending swap is finished (old folder aside, new folder in, old removed); anything else left under `.staging` never reached the manifest and is deleted. A crash before the commit leaves the old state untouched.
+- **Failed read on an unchanged or first restore:** an existing file is replaced only by a read that passed its checks. If a read fails, the file from the earlier run stays and the row is `failed` with a reason that says so. A `failed` row's file must not be used as this archive's current content.
 - **Failed run:** an archive's new size and date are recorded only after it finishes with no failed entries, so it still counts as changed next time.
 - **Exit code:** `restore` exits 1 if any entry failed or any archive is broken or gone, and names what needs attention.
+- **`listfile` after a change:** if an archive's size or modified time differs from what the manifest recorded, `listfile` refuses to apply names to it and says to run `restore` first, because its rows describe the old version.
+
+Limits: a replacement with the same size and modified time isn't seen as a change. Files with an `(attributes)` CRC are still caught by the per-file check, which always uses the current archive's CRC; a file with no CRC and the same size would stay stale. On the real client that covers only the 86 internal files and 6 empty files. An archive whose new version legitimately drops `(attributes)` while the old one had it is refused until the owner looks at it.
 
 ## The 4,911 unresolved names are delete markers
 

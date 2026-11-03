@@ -67,6 +67,25 @@ public class RestoreRerunTests : IDisposable
 
     private static long Crc(string body) => Crc32.HashToUInt32(Encoding.ASCII.GetBytes(body));
 
+    private string Staging => Path.Combine(_out, ".staging");
+
+    private long RecordedMtime() => Convert.ToInt64(Assert.Single(Rows("SELECT file_mtime FROM archives"))["file_mtime"]);
+
+    /// <summary>A whole-archive restore that was rejected: files, rows and identity exactly as before, no staging left, and the run says why.</summary>
+    private void AssertRejectedAndIntact(long entries, IReadOnlyDictionary<string, string> bodies, int exit, string output)
+    {
+        Assert.NotEqual(0, exit);
+        foreach (var (name, body) in bodies)
+            Assert.Equal(body, File.ReadAllText(Restored(name)));
+        Assert.Equal(entries, Rows("SELECT * FROM files").Count);
+        Assert.Empty(Rows("SELECT * FROM files WHERE status<>'ok' OR reason IS NOT NULL"));
+        Assert.Equal(First.Ticks, RecordedMtime());
+        Assert.False(Directory.Exists(Restored("(unnamed)")));
+        Assert.False(Directory.Exists(Staging));
+        Assert.Contains("broken archive: a.MPQ", output);
+        Assert.Contains("older version", output);
+    }
+
     [Fact]
     public void Rerun_SameSizeChange_RestoresNewBytes()
     {
@@ -84,6 +103,10 @@ public class RestoreRerunTests : IDisposable
         Assert.Equal(Crc("NEW-BODY-NEW-BODY"), row["crc"]);
         Assert.Equal(Crc("NEW-BODY-NEW-BODY"), row["attr_crc"]);
         Assert.Equal(0, result.Failed);
+        Assert.Equal(new[] { "a.MPQ" }, result.ChangedArchives);
+        Assert.Equal(Second.Ticks, RecordedMtime());
+        Assert.False(Directory.Exists(Staging));
+        Assert.Empty(Rows("SELECT * FROM meta WHERE key LIKE 'pending_swap:%'"));
     }
 
     [Fact]
@@ -100,6 +123,8 @@ public class RestoreRerunTests : IDisposable
         Assert.Equal("ok", row["status"]);
         Assert.Equal((long)"a much longer body than before".Length, row["size"]);
         Assert.Equal(0, result.Failed);
+        Assert.Equal(new[] { "a.MPQ" }, result.ChangedArchives);
+        Assert.False(Directory.Exists(Staging));
     }
 
     [Fact]
@@ -153,6 +178,7 @@ public class RestoreRerunTests : IDisposable
         Assert.Equal(first.Ok, second.Skipped);
         Assert.Equal(stamp, File.GetLastWriteTimeUtc(Restored("same.txt")));
         Assert.Empty(second.ChangedArchives);
+        Assert.False(Directory.Exists(Staging));
     }
 
     [Fact]
@@ -468,15 +494,100 @@ public class RestoreRerunTests : IDisposable
         Restore();
         Build(Second, ("a.txt", "a"), ("b.txt", "b"));
 
-        // Free space runs out partway through: the archive didn't finish, so it must still count as changed.
+        // Free space runs out partway through (the first two checks pass: before the run, and before staging): the archive
+        // didn't finish, so it must still count as changed.
         var calls = 0;
         Build(Second, Enumerable.Range(0, 300).Select(i => ($"f{i}.txt", "x")).ToArray());
-        Assert.Throws<IOException>(() => MpqRestorer.Run(new RestoreOptions(_data, _out, new ArchiveConfig(
-            new Dictionary<string, string> { ["t"] = "fixture" }, [new ArchiveEntry("a.MPQ", 1, "unknown", null, "t")]),
-            FreeBytes: _ => ++calls == 1 ? long.MaxValue : 0)));
+        Assert.Throws<IOException>(() => RestoreWith(FreeBytes: _ => ++calls <= 2 ? long.MaxValue : 0));
 
-        Assert.Equal(First.Ticks, Assert.Single(Rows("SELECT file_mtime FROM archives"))["file_mtime"]);
+        Assert.Equal(First.Ticks, RecordedMtime());
+        Assert.Equal("a", File.ReadAllText(Restored("a.txt")));
+        Assert.False(File.Exists(Restored("f0.txt")));
         Assert.Equal(new[] { "a.MPQ" }, Restore().ChangedArchives);
+        Assert.False(Directory.Exists(Staging));
+    }
+
+    private RestoreResult RestoreWith(Func<string, long>? FreeBytes = null, Action<string>? Checkpoint = null) => MpqRestorer.Run(new RestoreOptions(_data, _out,
+        new ArchiveConfig(new Dictionary<string, string> { ["t"] = "fixture" }, [new ArchiveEntry("a.MPQ", 1, "unknown", null, "t")]),
+        FreeBytes: FreeBytes, Checkpoint: Checkpoint));
+
+    [Fact]
+    public void Rerun_InsufficientSpaceForStaging_ChangesNothing()
+    {
+        var bodies = Bodies();
+        BuildFlagged(First, bodies, 0);
+        var first = Restore();
+        bodies[bodies.Keys.First()] = "a changed body";
+        BuildFlagged(Second, bodies, 0);
+        bodies[bodies.Keys.First()] = Bodies()[bodies.Keys.First()];   // what's on disk is still the old body
+
+        var calls = 0;
+        var result = RestoreWith(FreeBytes: _ => ++calls == 1 ? long.MaxValue : 0);   // the pre-run check passes, the staging check doesn't
+
+        Assert.Contains("space", Assert.Single(result.BrokenArchives));
+        Assert.Equal(0, result.Extracted);
+        foreach (var (name, body) in bodies)
+            Assert.Equal(body, File.ReadAllText(Restored(name)));
+        Assert.Equal(first.Entries, Rows("SELECT * FROM files").Count);
+        Assert.Equal(First.Ticks, RecordedMtime());
+        Assert.False(Directory.Exists(Staging));
+    }
+
+    private sealed class SimulatedCrash : Exception;
+
+    private void CrashAt(string step)
+    {
+        Build(First, ("same.bin", "OLD-BODY-OLD-BODY"), ("gone.txt", "gone"));
+        Restore();
+        Build(Second, ("same.bin", "NEW-BODY-NEW-BODY"), ("new.txt", "new"));
+        Assert.ThrowsAny<Exception>(() => RestoreWith(Checkpoint: at => { if (at == "a.MPQ: " + step) throw new SimulatedCrash(); }));
+    }
+
+    [Fact]
+    public void Rerun_CrashBeforeSwap_OldStateIntact()
+    {
+        CrashAt("staged");
+
+        Assert.Equal("OLD-BODY-OLD-BODY", File.ReadAllText(Restored("same.bin")));
+        Assert.Equal("gone", File.ReadAllText(Restored("gone.txt")));
+        Assert.False(File.Exists(Restored("new.txt")));
+        Assert.Single(Rows("SELECT * FROM files WHERE path_lc='gone.txt'"));
+        Assert.Empty(Rows("SELECT * FROM files WHERE path_lc='new.txt'"));
+        Assert.Equal(First.Ticks, RecordedMtime());
+
+        var next = Restore();
+
+        Assert.Equal(new[] { "a.MPQ" }, next.ChangedArchives);
+        Assert.Empty(next.BrokenArchives);
+        Assert.Equal("NEW-BODY-NEW-BODY", File.ReadAllText(Restored("same.bin")));
+        Assert.Equal("new", File.ReadAllText(Restored("new.txt")));
+        Assert.False(File.Exists(Restored("gone.txt")));
+        Assert.Empty(Rows("SELECT * FROM files WHERE path_lc='gone.txt'"));
+        Assert.Equal(Second.Ticks, RecordedMtime());
+        Assert.False(Directory.Exists(Staging));
+    }
+
+    [Theory]
+    [InlineData("committed")]    // rows and identity are new, the folder is still old
+    [InlineData("old moved")]    // the old folder is set aside, the new one not yet in place
+    [InlineData("new moved")]    // the new folder is in place, the old one not yet removed
+    public void Rerun_CrashMidSwap_RecoversNextRun(string step)
+    {
+        CrashAt(step);
+        Assert.Single(Rows("SELECT * FROM meta WHERE key='pending_swap:a.MPQ'"));
+
+        var next = Restore();
+
+        Assert.Empty(next.BrokenArchives);
+        Assert.Equal(0, next.Extracted);   // the swap was finished first, then the archive counted as unchanged
+        Assert.Equal("NEW-BODY-NEW-BODY", File.ReadAllText(Restored("same.bin")));
+        Assert.Equal("new", File.ReadAllText(Restored("new.txt")));
+        Assert.False(File.Exists(Restored("gone.txt")));
+        Assert.Empty(Rows("SELECT * FROM files WHERE path_lc='gone.txt'"));
+        Assert.Equal("ok", Row("new.txt")["status"]);
+        Assert.Equal(Second.Ticks, RecordedMtime());
+        Assert.Empty(Rows("SELECT * FROM meta WHERE key LIKE 'pending_swap:%'"));
+        Assert.False(Directory.Exists(Staging));
     }
 
     /// <summary>Random text, so it compresses but stays long enough that zeroed bytes land inside each file's data.</summary>
@@ -521,20 +632,70 @@ public class RestoreRerunTests : IDisposable
         var output = new StringWriter();
         var exit = MpqCli.Run("restore", ["--data", _data, "--out", _out, "--config", ConfigFile()], output, TextWriter.Null);
 
-        Assert.NotEqual(0, exit);
-        foreach (var (name, body) in bodies)
-            Assert.Equal(body, File.ReadAllText(Restored(name)));
-        var failed = Rows("SELECT * FROM files WHERE status='failed'");
-        Assert.NotEmpty(failed);
-        Assert.All(failed, r => Assert.Contains("older archive version", (string)r["reason"]!));
-        Assert.Equal(first.Entries, Rows("SELECT * FROM files").Count);
-        Assert.Equal(First.Ticks, Assert.Single(Rows("SELECT file_mtime FROM archives"))["file_mtime"]);
-        Assert.Contains("a.MPQ", output.ToString());
-        Assert.Contains("failed", output.ToString());
+        AssertRejectedAndIntact(first.Entries, bodies, exit, output.ToString());
+    }
+
+    /// <summary>Header, tables and archive size stay intact; every byte of file data, (listfile) and (attributes) included, becomes zero.</summary>
+    private void ZeroAllData(DateTime stamp)
+    {
+        var bytes = File.ReadAllBytes(ArchivePath());
+        var hashTable = BitConverter.ToInt32(bytes, 16);
+        Array.Clear(bytes, 32, hashTable - 32);
+        File.WriteAllBytes(ArchivePath(), bytes);
+        File.SetLastWriteTimeUtc(ArchivePath(), stamp);
+    }
+
+    /// <summary>Proof A: the replacement has no (listfile), another hash table size and zeroed data. Before, this deleted every file and exited 0.</summary>
+    [Fact]
+    public void Rerun_UnlistedZeroedReplacement_ChangesNothing()
+    {
+        var bodies = Bodies();
+        BuildFlagged(First, bodies, MpqFixture.Compress);
+        var first = Restore();
+        File.Delete(ArchivePath());
+        using (var f = new MpqFixture(ArchivePath(), listfile: false))
+            foreach (var (name, body) in bodies)
+                f.AddSectored(name, Encoding.ASCII.GetBytes(body), storedShift: 3, attributesCrc: null);
+        ZeroAllData(Second);
+        Assert.Null(ArchiveIntegrity.Check(ArchivePath()));
+
+        var output = new StringWriter();
+        var exit = MpqCli.Run("restore", ["--data", _data, "--out", _out, "--config", ConfigFile()], output, TextWriter.Null);
+
+        AssertRejectedAndIntact(first.Entries, bodies, exit, output.ToString());
+    }
+
+    /// <summary>Proof B: (attributes) and every stored file are zeroed, (listfile) is intact. Before, the zeros read without error and replaced every file as ok.</summary>
+    [Fact]
+    public void Rerun_AttributesAndStoredDataZeroed_ChangesNothing()
+    {
+        var bodies = Bodies();
+        BuildFlagged(First, bodies, 0);
+        var first = Restore();
+        var regions = new List<(long Offset, long Length)>();
+        using (var m = MpqArchive.Open(ArchivePath()))
+            foreach (var e in m.ReadEntries().Entries)
+            {
+                var name = bodies.Keys.Concat(["(attributes)"]).FirstOrDefault(k => MpqHash.Name1(k) == e.Name1 && MpqHash.Name2(k) == e.Name2);
+                if (name is null) continue;
+                var at = m.Locate(e, name);
+                regions.Add((at.Offset, at.CompressedSize));
+            }
+        Assert.Equal(bodies.Count + 1, regions.Count);
+        var bytes = File.ReadAllBytes(ArchivePath());
+        foreach (var (offset, length) in regions) Array.Clear(bytes, (int)offset, (int)length);
+        File.WriteAllBytes(ArchivePath(), bytes);
+        File.SetLastWriteTimeUtc(ArchivePath(), Second);
+        Assert.Null(ArchiveIntegrity.Check(ArchivePath()));
+
+        var output = new StringWriter();
+        var exit = MpqCli.Run("restore", ["--data", _data, "--out", _out, "--config", ConfigFile()], output, TextWriter.Null);
+
+        AssertRejectedAndIntact(first.Entries, bodies, exit, output.ToString());
     }
 
     [Fact]
-    public void Rerun_FailedEntries_RemoveNothingEvenIfUnlisted()
+    public void Rerun_RejectedReplacement_KeepsRowsOfEntriesItNoLongerLists()
     {
         var bodies = Bodies();
         bodies["only-in-old.txt"] = "old";
@@ -546,8 +707,10 @@ public class RestoreRerunTests : IDisposable
         ZeroDataRegion(Second);
         var second = Restore();
 
-        Assert.True(second.Failed > 0);
+        Assert.NotEmpty(second.BrokenArchives);
+        Assert.Equal(0, second.Failed);
         Assert.Equal("old", File.ReadAllText(Restored("only-in-old.txt")));
+        Assert.Equal("ok", Row("only-in-old.txt")["status"]);
         Assert.Equal(first.Entries, second.Entries);
     }
 
@@ -560,7 +723,7 @@ public class RestoreRerunTests : IDisposable
         BuildFlagged(First, bodies, flags);
         Restore();
         ZeroDataRegion(Second);
-        Assert.True(Restore().Failed > 0);
+        Assert.NotEmpty(Restore().BrokenArchives);
         var third = new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc);
 
         bodies[bodies.Keys.First()] = "a changed body";
@@ -568,15 +731,18 @@ public class RestoreRerunTests : IDisposable
         var good = Restore();
 
         Assert.Equal(0, good.Failed);
+        Assert.Empty(good.BrokenArchives);
         Assert.Equal(new[] { "a.MPQ" }, good.ChangedArchives);
         foreach (var (name, body) in bodies)
             Assert.Equal(body, File.ReadAllText(Restored(name)));
         Assert.Empty(Rows("SELECT * FROM files WHERE status='failed' OR reason IS NOT NULL"));
-        Assert.Equal(third.Ticks, Assert.Single(Rows("SELECT file_mtime FROM archives"))["file_mtime"]);
+        Assert.Equal(third.Ticks, RecordedMtime());
+        Assert.Null(Assert.Single(Rows("SELECT error FROM archives"))["error"]);
+        Assert.False(Directory.Exists(Staging));
     }
 
     [Fact]
-    public void Rerun_SameBadArchiveAgain_StillFailsAndKeepsFiles()
+    public void Rerun_SameBadArchiveAgain_StillRejectedAndKeepsFiles()
     {
         var bodies = Bodies();
         BuildFlagged(First, bodies, 0);
@@ -586,10 +752,38 @@ public class RestoreRerunTests : IDisposable
 
         var again = Restore();
 
-        Assert.True(again.Failed > 0);
-        Assert.Equal(new[] { "a.MPQ" }, again.ChangedArchives);
+        Assert.Contains("a.MPQ", Assert.Single(again.BrokenArchives));
+        Assert.Empty(again.ChangedArchives);
+        Assert.Equal(0, again.Failed);
         foreach (var (name, body) in bodies)
             Assert.Equal(body, File.ReadAllText(Restored(name)));
+        Assert.Equal(First.Ticks, RecordedMtime());
+    }
+
+    [Fact]
+    public void FreshRestore_UnnamedEntryThatCannotBeRead_IsFailedNotUnnamed()
+    {
+        using (var f = new MpqFixture(ArchivePath(), listfile: false))
+        {
+            f.Add("named.txt", "named");
+            f.AddSectored("secret.bin", Encoding.ASCII.GetBytes(new string('s', 3000)), storedShift: 3, attributesCrc: null);
+            f.Add("(listfile)", "named.txt\r\n");
+        }
+        MpqLocation secret;
+        using (var m = MpqArchive.Open(ArchivePath()))
+            secret = m.Locate(m.ReadEntries().Entries.Single(e => e.Name1 == MpqHash.Name1("secret.bin")), "secret.bin");
+        var bytes = File.ReadAllBytes(ArchivePath());
+        Array.Clear(bytes, (int)secret.Offset, (int)secret.CompressedSize);   // its sector table and data
+        File.WriteAllBytes(ArchivePath(), bytes);
+
+        var result = Restore();
+
+        Assert.Equal(1, result.Failed);
+        Assert.Equal(0, result.Unnamed);
+        var row = Assert.Single(Rows("SELECT * FROM files WHERE name IS NULL"));
+        Assert.Equal("failed", row["status"]);
+        Assert.False(File.Exists(Restored((string)row["path"]!)));
+        Assert.Equal("named", File.ReadAllText(Restored("named.txt")));
     }
 
     [Fact]
@@ -700,17 +894,20 @@ public class RestoreRerunTests : IDisposable
     }
 
     [Fact]
-    public void Rerun_OldManifest_StillDropsEntriesNoLongerInTheArchive()
+    public void Rerun_OldManifest_DropsRowsOfEntriesNoLongerInTheArchive()
     {
+        // With no recorded identity the archive counts as never finished, so it's restored in place. Rows follow the archive; no file is removed.
         Build(First, ("kept.txt", "kept"), ("gone.txt", "gone"));
         Restore();
         Sql("ALTER TABLE archives DROP COLUMN file_size");
         Sql("ALTER TABLE archives DROP COLUMN file_mtime");
 
         Build(Second, ("kept.txt", "kept"));
-        Restore();
+        var result = Restore();
 
         Assert.Empty(Rows("SELECT * FROM files WHERE path_lc='gone.txt'"));
-        Assert.False(File.Exists(Restored("gone.txt")));
+        Assert.Equal("kept", File.ReadAllText(Restored("kept.txt")));
+        Assert.Empty(result.ChangedArchives);
+        Assert.Equal(Second.Ticks, RecordedMtime());
     }
 }

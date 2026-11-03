@@ -93,10 +93,17 @@ public static class ListfileBuilder
         return (absolute.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase), relative.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase));
     }
 
-    /// <summary>Gives matched entries their names and moves their bytes to the real path, re-reading from the archive (encrypted bytes need the name).</summary>
+    /// <summary>
+    /// Gives matched entries their names and moves their bytes to the real path, re-reading from the archive (encrypted bytes
+    /// need the name). The rows describe the archive as it was restored, so an archive replaced since then is refused first.
+    /// </summary>
     private static void ApplyNames(RestoreManifest manifest, string data, string restored,
         Dictionary<(string, int), FileRow> unnamed, Dictionary<(string, int), (string Name, string Source)> found)
     {
+        foreach (var archive in found.Select(f => f.Key.Item1).Distinct())
+            if (manifest.IdentityOf(archive) is { } recorded && recorded != ArchiveIdentity.Of(Path.Combine(data, archive)))
+                throw new InvalidOperationException($"{archive} has changed since it was restored. Nothing was changed. Run restore first, then listfile.");
+
         foreach (var group in found.GroupBy(f => f.Key.Item1))
         {
             using var mpq = MpqArchive.Open(Path.Combine(data, group.Key));

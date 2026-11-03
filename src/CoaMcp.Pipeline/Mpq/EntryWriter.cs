@@ -5,9 +5,6 @@ namespace CoaMcp.Pipeline.Mpq;
 /// <summary>Decides one entry's status and path, and writes its bytes. Shared by restore and by listfile when an entry gains a name.</summary>
 public static class EntryWriter
 {
-    /// <summary>Marks a row that failed only because a file or folder is in the way, which removing stale files may clear.</summary>
-    public const string PathConflictPrefix = "path conflict:";
-
     private const string RecoveredPrefix = "recovered:";
 
     /// <summary>Where an entry belongs under its archive's folder. An unsafe name gets its literal form, which is only ever recorded.</summary>
@@ -18,12 +15,15 @@ public static class EntryWriter
         return lowestLocale ? path : $"(locale-{e.Locale:x4})/{path}";
     }
 
+    /// <summary>
+    /// Writes an entry under <paramref name="root"/>, unless a file there already has the right size and CRC. A read that fails
+    /// is <c>failed</c> whether or not the entry has a name, and never replaces or removes a file that's already there.
+    /// </summary>
     /// <param name="previous">This entry's row from an earlier run of the same archive contents, if any.</param>
-    /// <param name="trustDisk">False re-extracts even a file that looks right: the archive was replaced, so notes from the earlier read don't carry over.</param>
-    public static FileRow Write(MpqArchive mpq, string archive, string root, MpqEntry e, string? name, string? source, bool lowestLocale, FileRow? previous, Counters? progress, bool trustDisk = true)
+    public static FileRow Write(MpqArchive mpq, string archive, string root, MpqEntry e, string? name, string? source, bool lowestLocale, FileRow? previous, Counters? progress)
     {
         var path = PathFor(e, name, lowestLocale);
-        var unnamedStatus = name is null ? MpqRestorer.StatusUnnamed : null;
+        var readStatus = name is null ? MpqRestorer.StatusUnnamed : MpqRestorer.StatusOk;   // what a read that passed is called
 
         FileRow Row(string status, string? reason, uint? crc = null, uint? attr = null) => new(archive, e.HashIndex, e.BlockIndex, path, e.Size, crc, status, reason,
             e.Locale, e.Flags, e.Name1, e.Name2, name, source, attr);
@@ -31,7 +31,7 @@ public static class EntryWriter
         if (!e.BlockValid) return Row(MpqRestorer.StatusFailed, $"hash entry points at block {e.BlockIndex}, past the block table");
         var byFlags = MpqRestorer.StatusFromFlags(e.Flags);
         if (byFlags is MpqRestorer.StatusDeleteMarker or MpqRestorer.StatusPatchFile) return Row(byFlags, null);
-        if (byFlags == MpqRestorer.StatusFailed) return Row(unnamedStatus ?? byFlags, "block is marked free: no file data");
+        if (byFlags == MpqRestorer.StatusFailed) return Row(byFlags, "block is marked free: no file data");
         if (name is not null && SafePath.Normalize(name, out var bad) is null) return Row(MpqRestorer.StatusFailed, "unsafe name: " + bad);
         if (name is null && (e.Flags & MpqArchive.FlagEncrypted) != 0)
             return Row(MpqRestorer.StatusUnnamed, "encrypted: its key depends on the name, so the bytes can't be read yet");
@@ -42,7 +42,7 @@ public static class EntryWriter
         {
             full = SafePath.Under(root, path);
             attr = mpq.AttributesCrc(e, name);   // always the archive's current value, never an earlier run's
-            if (trustDisk && File.Exists(full))
+            if (File.Exists(full))
             {
                 // (attributes) outranks an earlier run's CRC: that run could have recorded wrong bytes.
                 var expected = attr ?? (previous is { Status: MpqRestorer.StatusOk or MpqRestorer.StatusUnnamed } && previous.Path == path ? previous.Crc : null);
@@ -50,13 +50,12 @@ public static class EntryWriter
                 {
                     progress?.CountSkipped();
                     var kept = previous?.Reason is { } note && note.StartsWith(RecoveredPrefix, StringComparison.Ordinal) && previous.Path == path ? note : null;
-                    return Row(unnamedStatus ?? MpqRestorer.StatusOk, kept, expected, attr);
+                    return Row(readStatus, kept, expected, attr);
                 }
             }
 
-            try { Directory.CreateDirectory(Path.GetDirectoryName(full)!); }
-            catch (IOException ex) { return Row(unnamedStatus ?? MpqRestorer.StatusFailed, $"{PathConflictPrefix} {ex.Message}", null, attr); }
-            if (Directory.Exists(full)) return Row(unnamedStatus ?? MpqRestorer.StatusFailed, $"{PathConflictPrefix} a folder has this file's name", null, attr);
+            Directory.CreateDirectory(Path.GetDirectoryName(full)!);   // fails if a file has the folder's name
+            if (Directory.Exists(full)) throw new IOException("a folder has this file's name");
 
             // The file in place is replaced only by a read that passed its checks. A failed read never costs what we already have.
             var part = full + ".part";
@@ -78,7 +77,7 @@ public static class EntryWriter
                 }
                 File.Move(part, full, overwrite: true);
                 progress?.CountExtracted(e.Size);
-                return Row(unnamedStatus ?? MpqRestorer.StatusOk, recoveredNote, actual, attr);
+                return Row(readStatus, recoveredNote, actual, attr);
             }
             catch
             {
@@ -88,8 +87,8 @@ public static class EntryWriter
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
-            var kept = full is not null && File.Exists(full) ? "; the on-disk copy is from an older archive version or an earlier run, and was kept" : "";
-            return Row(unnamedStatus ?? MpqRestorer.StatusFailed, ex.Message + kept, null, attr);
+            var kept = full is not null && File.Exists(full) ? "; the copy on disk is from an earlier run and was kept" : "";
+            return Row(MpqRestorer.StatusFailed, ex.Message + kept, null, attr);
         }
     }
 
