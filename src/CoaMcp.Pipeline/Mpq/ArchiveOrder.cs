@@ -39,12 +39,12 @@ public record ArchiveConfig(IReadOnlyDictionary<string, string> Rules, IReadOnly
 
 public static class ArchiveOrder
 {
-    /// <summary>The archives under <paramref name="dataDir"/>, highest priority first. An archive the config doesn't list is an error.</summary>
+    /// <summary>The archives under <paramref name="dataDir"/>, highest priority first. Finding none, or one the config doesn't list, is an error.</summary>
     public static IReadOnlyList<ArchiveInfo> Resolve(string dataDir, ArchiveConfig config)
     {
         var known = config.Archives.ToDictionary(a => a.Path, StringComparer.OrdinalIgnoreCase);
         var found = new List<ArchiveInfo>();
-        var options = new EnumerationOptions { RecurseSubdirectories = true, MatchCasing = MatchCasing.CaseInsensitive, AttributesToSkip = 0 };
+        var options = new EnumerationOptions { RecurseSubdirectories = true, MatchCasing = MatchCasing.CaseInsensitive, AttributesToSkip = 0, IgnoreInaccessible = false };   // a folder we can't read must fail, not look empty
         foreach (var file in Directory.EnumerateFiles(dataDir, "*.mpq", options))
         {
             var rel = Path.GetRelativePath(dataDir, file).Replace('\\', '/');
@@ -52,6 +52,7 @@ public static class ArchiveOrder
                 throw new InvalidDataException($"archive on disk is not listed in the archive config: {rel}");
             found.Add(new ArchiveInfo(entry.Path, entry.Priority, entry.Origin, entry.Realm));
         }
+        if (found.Count == 0) throw new InvalidDataException($"no archives found in {dataDir}: is --data the client's Data folder?");
         return found.OrderByDescending(a => a.Priority).ToList();
     }
 }

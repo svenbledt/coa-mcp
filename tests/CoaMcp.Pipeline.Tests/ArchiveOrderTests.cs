@@ -53,6 +53,39 @@ public class ArchiveOrderTests : IDisposable
     }
 
     [Fact]
+    public void Order_NoArchives_IsAnError()
+    {
+        var data = _dir.File("EmptyData");
+        Directory.CreateDirectory(data);
+
+        var ex = Assert.Throws<InvalidDataException>(() => ArchiveOrder.Resolve(data, RealConfig()));
+        Assert.Contains("no archives", ex.Message);
+    }
+
+    [Fact]
+    public void Order_UnreadableFolder_FailsLoudly()
+    {
+        if (!OperatingSystem.IsWindows()) return;   // the deny rule below is Windows-only
+        var data = DataWith("common.MPQ", "enUS/locale-enUS.MPQ");
+        var denied = new DirectoryInfo(Path.Combine(data, "enUS"));
+        var me = System.Security.Principal.WindowsIdentity.GetCurrent().User!;
+        var rule = new System.Security.AccessControl.FileSystemAccessRule(me,
+            System.Security.AccessControl.FileSystemRights.ListDirectory, System.Security.AccessControl.AccessControlType.Deny);
+        var acl = denied.GetAccessControl();
+        acl.AddAccessRule(rule);
+        denied.SetAccessControl(acl);
+        try
+        {
+            Assert.Throws<UnauthorizedAccessException>(() => ArchiveOrder.Resolve(data, RealConfig()));
+        }
+        finally
+        {
+            acl.RemoveAccessRule(rule);
+            denied.SetAccessControl(acl);
+        }
+    }
+
+    [Fact]
     public void Order_ArchiveNamesMatchIgnoringCase()
     {
         var order = ArchiveOrder.Resolve(DataWith("patch-p.MPQ"), RealConfig());

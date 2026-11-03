@@ -13,7 +13,13 @@ coamcp-pipeline restore --data D:\WoW\Coa\Data --out F:\WorkDir\CoaRestored
 coamcp-pipeline listfile --manifest F:\WorkDir\CoaRestored\manifest.sqlite --out D:\WoW\Coa\Listfiles
 ```
 
-A re-run skips files whose size and CRC are already correct, and re-verifies all of them in about 3 to 4 minutes. Expected CRCs always come from the archive as it is now. The manifest records each archive's size and modified time; when either changes (`patch-B.MPQ` does between client revisions), that archive is restored again from scratch, and its files and rows that no longer exist are removed. An archive gone from disk is dropped the same way. Re-run `listfile` afterwards to refresh the lists.
+A re-run skips files whose size and CRC are already correct, and re-verifies all of them in about 3 to 4 minutes. Expected CRCs always come from the archive as it is now. The manifest records each archive's size and modified time; when either changes (`patch-B.MPQ` does between client revisions), that archive is restored again from scratch, and its files and rows that no longer exist are removed. Re-run `listfile` afterwards to refresh the lists.
+
+What protects a finished restore:
+- **Wrong `--data`:** a manifest belongs to one client folder. Another folder is refused, and a folder with no archives is an error. Either way nothing changes.
+- **Archive gone from disk:** only reported, with its files and rows kept, and the run exits 1. `--prune-gone` removes them.
+- **Damaged or half-written archive:** if the header's size doesn't match the file, or any entry points past the block table or at a freed block, the archive is reported as broken and nothing is changed for it. `coamcp-pipeline archive-check --data <folder>` runs this check read-only; all 78 real archives pass.
+- **Failed run:** an archive's new size and date are recorded only after it finishes, so it still counts as changed next time.
 
 ## The 4,911 unresolved names are delete markers
 

@@ -32,7 +32,7 @@ public sealed class MpqFixture : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         if (!listfile) { _raw = []; return; }
         var flags = CreateListfile | (attributes ? CreateAttributes : 0);
-        if (!SFileCreateArchive(path, flags, 64, out _mpq)) throw new Win32Exception(Marshal.GetLastWin32Error(), "create " + path);
+        if (!SFileCreateArchive(path, flags, 1024, out _mpq)) throw new Win32Exception(Marshal.GetLastWin32Error(), "create " + path);
     }
 
     public MpqFixture Add(string name, byte[] data, uint flags = Compress, ushort locale = 0)

@@ -8,12 +8,13 @@ const string Usage = """
     Usage: coamcp-pipeline bisbeard --data <DataCOA\data> --out <layer.sqlite> [--guides <bisbeard-guides.json>] [--version <v>]
            coamcp-pipeline spells --dbc <dbc folder> --out <layer.sqlite> [--version <v>]
            coamcp-pipeline publish --layer <layer.sqlite> --host <ssh host> [--dry-run]
-           coamcp-pipeline restore --data <client Data folder> --out <dir> [--config <archives.json>] [--parallel <n>]
+           coamcp-pipeline restore --data <client Data folder> --out <dir> [--config <archives.json>] [--parallel <n>] [--prune-gone]
            coamcp-pipeline listfile --manifest <manifest.sqlite> --out <dir>
+           coamcp-pipeline archive-check --data <client Data folder> [--config <archives.json>]
     """;
 
 if (args.Length > 0 && args[0] == "publish") return await PublishCli.RunAsync(args[1..], Console.Out, Console.Error);
-if (args.Length > 0 && args[0] is "restore" or "listfile") return MpqCli.Run(args[0], args[1..], Console.Out, Console.Error);
+if (args.Length > 0 && args[0] is "restore" or "listfile" or "archive-check") return MpqCli.Run(args[0], args[1..], Console.Out, Console.Error);
 
 if (args.Length == 0 || args[0] is not ("bisbeard" or "spells")) { Console.Error.WriteLine(Usage); return 2; }
 

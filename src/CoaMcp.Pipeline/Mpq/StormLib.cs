@@ -34,6 +34,9 @@ public sealed class MpqArchive : IDisposable
 
     public string FilePath { get; }
 
+    /// <summary>Where the MPQ header starts in the file.</summary>
+    public long HeaderOffset => (long)FileInfoUInt64(_mpq, InfoClass.HeaderOffset);
+
     public static MpqArchive Open(string path)
     {
         lock (OpenLock)

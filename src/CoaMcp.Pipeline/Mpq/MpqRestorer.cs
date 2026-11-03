@@ -5,10 +5,10 @@ using System.Text;
 namespace CoaMcp.Pipeline.Mpq;
 
 public sealed record RestoreOptions(string DataDir, string OutDir, ArchiveConfig Config, int Parallelism = 1,
-    Func<string, long>? FreeBytes = null, Action<string>? Progress = null);
+    Func<string, long>? FreeBytes = null, Action<string>? Progress = null, bool PruneGone = false);
 
 public sealed record RestoreResult(int Archives, long Entries, long Ok, long Extracted, long Skipped, long Failed, long Unnamed,
-    long PatchFiles, long DeleteMarkers, long Recovered, IReadOnlyList<string> BrokenArchives, IReadOnlyList<string> ChangedArchives, TimeSpan Elapsed);
+    long PatchFiles, long DeleteMarkers, long Recovered, IReadOnlyList<string> BrokenArchives, IReadOnlyList<string> ChangedArchives, IReadOnlyList<string> GoneArchives, TimeSpan Elapsed);
 
 /// <summary>Restores every archive to &lt;out&gt;/&lt;archive&gt;/&lt;path&gt; and records every entry in manifest.sqlite. Archives are only read.</summary>
 public static class MpqRestorer
@@ -35,10 +35,11 @@ public static class MpqRestorer
         var data = Path.GetFullPath(o.DataDir);
         var output = Path.GetFullPath(o.OutDir);
         RefuseOutput(data, output);
-        var archives = ArchiveOrder.Resolve(data, o.Config);
+        var archives = ArchiveOrder.Resolve(data, o.Config);   // finding none is an error, before anything is touched
         var free = o.FreeBytes ?? (path => new DriveInfo(Path.GetPathRoot(path)!).AvailableFreeSpace);
 
         var manifestPath = Path.Combine(output, "manifest.sqlite");
+        RefuseOtherClient(data, output, manifestPath);
         CheckSpaceBeforeStart(data, output, manifestPath, archives, free);
 
         Directory.CreateDirectory(output);
@@ -47,14 +48,19 @@ public static class MpqRestorer
         manifest.SetMeta(RestoreManifest.OutDirKey, output);
 
         var onDisk = archives.Select(a => a.RelPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var gone in manifest.ArchiveNames().Where(a => !onDisk.Contains(a)))
-        {
-            var goneRoot = SafePath.Under(output, gone);
-            RestoredFiles.Remove(goneRoot, manifest.FilesOf(gone).Values.Select(r => r.Path));
-            RestoredFiles.PruneEmptyFolders(goneRoot, output);
-            manifest.DropArchive(gone);
-            o.Progress?.Invoke($"  dropped {gone}: no longer on disk");
-        }
+        var goneArchives = manifest.ArchiveNames().Where(a => !onDisk.Contains(a)).ToList();
+        if (o.PruneGone)
+            foreach (var gone in goneArchives)
+            {
+                if (SafePath.Normalize(gone, out _) == gone)   // an unsafe name never named a folder of ours: its rows go, no file does
+                {
+                    var goneRoot = SafePath.Under(output, gone);
+                    RestoredFiles.Remove(goneRoot, manifest.FilesOf(gone).Values.Select(r => r.Path));
+                    RestoredFiles.PruneEmptyFolders(goneRoot, output);
+                }
+                manifest.DropArchive(gone);
+                o.Progress?.Invoke($"  pruned {gone}: no longer on disk");
+            }
 
         var progress = new Counters();
         var broken = new List<string>();
@@ -87,7 +93,7 @@ public static class MpqRestorer
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 lock (broken) broken.Add($"{archive.RelPath}: {ex.Message}");
-                manifest.SaveArchive(archive, null, null, null, null, null, ex.Message, ArchiveIdentity.Of(Path.Combine(data, archive.RelPath)));
+                manifest.MarkBroken(archive, ex.Message);
             }
         });
         if (fatal is not null) throw new IOException(fatal.Message, fatal);
@@ -95,7 +101,7 @@ public static class MpqRestorer
         var byStatus = manifest.CountBy("SELECT status, count(*) FROM files GROUP BY status");
         long Of(string s) => byStatus.GetValueOrDefault(s);
         return new RestoreResult(archives.Count, byStatus.Values.Sum(), Of(StatusOk), progress.Extracted, progress.Skipped, Of(StatusFailed), Of(StatusUnnamed),
-            Of(StatusPatchFile), Of(StatusDeleteMarker), manifest.Count("SELECT count(*) FROM files WHERE status='ok' AND reason LIKE 'recovered:%'"), broken, changed.OrderBy(a => a, StringComparer.Ordinal).ToList(), clock.Elapsed);
+            Of(StatusPatchFile), Of(StatusDeleteMarker), manifest.Count("SELECT count(*) FROM files WHERE status='ok' AND reason LIKE 'recovered:%'"), broken, changed.OrderBy(a => a, StringComparer.Ordinal).ToList(), goneArchives, clock.Elapsed);
     }
 
     private static void RefuseOutput(string data, string output)
@@ -104,6 +110,16 @@ public static class MpqRestorer
         if (SafePath.IsInside(output, client) || SafePath.IsInside(client, output))
             throw new InvalidOperationException($"--out must be outside the client folder {client}: {output}");
         SafePath.RefuseRepo(output);
+    }
+
+    /// <summary>A manifest belongs to one client folder. Another folder's archives would look like changes and replace this restore.</summary>
+    private static void RefuseOtherClient(string data, string output, string manifestPath)
+    {
+        if (!File.Exists(manifestPath)) return;
+        using var old = RestoreManifest.OpenExisting(manifestPath);
+        var recorded = old.Meta(RestoreManifest.DataDirKey);
+        if (!Path.TrimEndingDirectorySeparator(Path.GetFullPath(recorded)).Equals(Path.TrimEndingDirectorySeparator(data), StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"--data is {data}, but the restore in {output} came from {recorded}. Nothing was changed. Use that --data, or another --out for a different client.");
     }
 
     private static void CheckSpaceBeforeStart(string data, string output, string manifestPath, IReadOnlyList<ArchiveInfo> archives, Func<string, long> free)
@@ -135,6 +151,8 @@ public static class MpqRestorer
         var identity = ArchiveIdentity.Of(Path.Combine(data, archive.RelPath));
         using var mpq = MpqArchive.Open(Path.Combine(data, archive.RelPath));
         var (entries, hashSlots, blockSlots) = mpq.ReadEntries();
+        if (ArchiveIntegrity.Problem(mpq, entries) is { } problem)
+            throw new IOException($"archive looks damaged or half-written, so nothing was changed for it: {problem}");
         var byName = entries.ToLookup(e => (e.Name1, e.Name2));
 
         var lines = ReadListfile(mpq, byName);
@@ -160,7 +178,8 @@ public static class MpqRestorer
         var lowest = entries.GroupBy(e => (e.Name1, e.Name2)).ToDictionary(g => g.Key, g => g.Min(e => e.Locale));
 
         // A replaced archive starts over. In this order a crash can only repeat the work, never strand a file.
-        var replaced = manifest.IdentityOf(archive.RelPath) is { } recorded && recorded != identity;
+        var recorded = manifest.IdentityOf(archive.RelPath);
+        var replaced = recorded is not null && recorded != identity;
         if (replaced) changedArchives.Add(archive.RelPath);
         var stillOnDisk = entries.Where(e => e.BlockValid && StatusFromFlags(e.Flags) == StatusOk)
             .Select(e => EntryWriter.PathFor(e, names.TryGetValue(e.HashIndex, out var n) ? n.Name : null, e.Locale == lowest[(e.Name1, e.Name2)]))
@@ -171,7 +190,7 @@ public static class MpqRestorer
         var prior = replaced ? [] : oldRows;
 
         manifest.SaveListfile(archive.RelPath, matchedLines);
-        manifest.SaveArchive(archive, hashSlots, blockSlots, entries.Count, lines.Count, matchedLines.Count(l => !l.Item2), null, identity);
+        manifest.SaveArchive(archive, hashSlots, blockSlots, entries.Count, lines.Count, matchedLines.Count(l => !l.Item2), null, recorded);   // the new identity waits until the archive has finished
 
         var batch = new List<FileRow>(BatchSize);
         var count = 0;
@@ -193,6 +212,7 @@ public static class MpqRestorer
             }
         }
         manifest.SaveFiles(batch);
+        manifest.SetIdentity(archive.RelPath, identity);
     }
 
     /// <summary>The lines of the archive's own (listfile), with each name's bytes kept as a Latin-1 string.</summary>

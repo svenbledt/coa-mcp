@@ -111,6 +111,20 @@ public sealed class RestoreManifest : IDisposable
             a.RelPath, a.Priority, a.Origin, a.Realm, hashSlots, blockSlots, hashEntries, listLines, staleLines, error, identity?.Size, identity?.ModifiedTicks);
     }
 
+    /// <summary>Records that an archive couldn't be restored, leaving what's known about it as it was, including its identity.</summary>
+    public void MarkBroken(ArchiveInfo a, string error)
+    {
+        lock (_gate) Run(
+            "INSERT INTO archives(archive, priority, origin, realm, error) VALUES($a,$b,$c,$d,$e) ON CONFLICT(archive) DO UPDATE SET error=excluded.error",
+            a.RelPath, a.Priority, a.Origin, a.Realm, error);
+    }
+
+    /// <summary>Records the identity of an archive that finished restoring.</summary>
+    public void SetIdentity(string archive, ArchiveIdentity identity)
+    {
+        lock (_gate) Run("UPDATE archives SET file_size=$a, file_mtime=$b WHERE archive=$c", identity.Size, identity.ModifiedTicks, archive);
+    }
+
     /// <summary>The identity recorded for an archive, or null if none is: a new archive, or a manifest from before identity existed.</summary>
     public ArchiveIdentity? IdentityOf(string archive)
     {
@@ -132,7 +146,7 @@ public sealed class RestoreManifest : IDisposable
         }
     }
 
-    /// <summary>Forgets an archive that's no longer on disk.</summary>
+    /// <summary>Forgets an archive the caller chose to prune.</summary>
     public void DropArchive(string archive)
     {
         lock (_gate)

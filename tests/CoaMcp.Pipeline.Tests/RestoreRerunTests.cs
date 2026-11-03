@@ -258,22 +258,271 @@ public class RestoreRerunTests : IDisposable
         Assert.Equal(body, File.ReadAllBytes(Restored("victim.bin")));
     }
 
+    private RestoreResult RestoreFrom(string data, bool prune, params string[] archives) => MpqRestorer.Run(new RestoreOptions(data, _out, new ArchiveConfig(
+        new Dictionary<string, string> { ["t"] = "fixture" },
+        archives.Select((a, i) => new ArchiveEntry(a, 100 - i, "unknown", null, "t")).ToList()), PruneGone: prune));
+
+    private void AssertRestoreIntact(string originalData, long entries)
+    {
+        Assert.Equal(entries, Rows("SELECT * FROM files").Count);
+        Assert.Equal(Path.GetFullPath(originalData), Assert.Single(Rows("SELECT value FROM meta WHERE key='data_dir'"))["value"]);
+        foreach (var row in Rows("SELECT archive, path FROM files WHERE status='ok'"))
+            Assert.True(File.Exists(Path.Combine(_out, (string)row["archive"]!, (string)row["path"]!)), (string)row["path"]!);
+    }
+
     [Fact]
-    public void Rerun_ArchiveGoneFromDisk_DropsItsRowsAndFiles()
+    public void Rerun_WrongDataFolder_ErrorsAndKeepsEverything()
+    {
+        Build(First, ("a.txt", "a"), ("b.txt", "b"));
+        var first = Restore();
+        // Another client's folder: it has an archive of the same name, with other contents.
+        var other = _dir.File("Other/Data");
+        Directory.CreateDirectory(other);
+        using (var f = new MpqFixture(Path.Combine(other, "a.MPQ"))) f.Add("different.txt", "different", 0);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => RestoreFrom(other, false, "a.MPQ"));
+
+        Assert.Contains("--data", ex.Message);
+        AssertRestoreIntact(_data, first.Entries);
+        Assert.False(File.Exists(Restored("different.txt")));
+    }
+
+    [Fact]
+    public void Rerun_EmptyDataFolder_ErrorsAndKeepsEverything()
+    {
+        Build(First, ("a.txt", "a"), ("b.txt", "b"));
+        var first = Restore();
+        var empty = _dir.File("Other/Data");
+        Directory.CreateDirectory(empty);
+
+        Assert.Throws<InvalidDataException>(() => RestoreFrom(empty, false, "a.MPQ"));
+        Assert.Throws<InvalidDataException>(() => RestoreFrom(empty, true, "a.MPQ"));
+
+        AssertRestoreIntact(_data, first.Entries);
+    }
+
+    [Fact]
+    public void Rerun_RightDataFolderEmptied_ErrorsAndKeepsEverything()
+    {
+        Build(First, ("a.txt", "a"));
+        var first = Restore();
+        File.Delete(ArchivePath());
+
+        Assert.Throws<InvalidDataException>(() => RestoreFrom(_data, true, "a.MPQ"));
+
+        AssertRestoreIntact(_data, first.Entries);
+    }
+
+    [Fact]
+    public void Rerun_GoneArchive_ReportedNotDeleted()
     {
         BuildNamed("a.MPQ", First, ("a.txt", "a"));
         BuildNamed("sub/b.MPQ", First, ("b.txt", "b"));
-        var first = Restore("a.MPQ", "sub/b.MPQ");
+        var first = RestoreFrom(_data, false, "a.MPQ", "sub/b.MPQ");
 
         File.Delete(ArchivePath("sub/b.MPQ"));
-        var second = Restore("a.MPQ");
+        var second = RestoreFrom(_data, false, "a.MPQ");
 
-        Assert.False(Directory.Exists(Restored("", "sub/b.MPQ")));
+        Assert.Equal(new[] { "sub/b.MPQ" }, second.GoneArchives);
+        Assert.Equal("b", File.ReadAllText(Restored("b.txt", "sub/b.MPQ")));
+        AssertRestoreIntact(_data, first.Entries);
+        Assert.Single(Rows("SELECT * FROM archives WHERE archive='sub/b.MPQ'"));
+    }
+
+    [Fact]
+    public void Rerun_GoneArchive_PruneFlag_Removes()
+    {
+        BuildNamed("a.MPQ", First, ("a.txt", "a"));
+        BuildNamed("sub/b.MPQ", First, ("b.txt", "b"));
+        var first = RestoreFrom(_data, false, "a.MPQ", "sub/b.MPQ");
+
+        File.Delete(ArchivePath("sub/b.MPQ"));
+        var second = RestoreFrom(_data, true, "a.MPQ");
+
+        Assert.Equal(new[] { "sub/b.MPQ" }, second.GoneArchives);
+        Assert.False(Directory.Exists(Path.Combine(_out, "sub")));
         Assert.Empty(Rows("SELECT * FROM files WHERE archive='sub/b.MPQ'"));
         Assert.Empty(Rows("SELECT * FROM archives WHERE archive='sub/b.MPQ'"));
         Assert.Empty(Rows("SELECT * FROM listfile_names WHERE archive='sub/b.MPQ'"));
         Assert.Equal("a", File.ReadAllText(Restored("a.txt")));
         Assert.True(second.Entries < first.Entries);
+    }
+
+    [Fact]
+    public void Rerun_PruneFlag_WrongDataFolder_Refused()
+    {
+        BuildNamed("a.MPQ", First, ("a.txt", "a"));
+        BuildNamed("b.MPQ", First, ("b.txt", "b"));
+        var first = RestoreFrom(_data, false, "a.MPQ", "b.MPQ");
+        var other = _dir.File("Other/Data");
+        Directory.CreateDirectory(other);
+        using (var f = new MpqFixture(Path.Combine(other, "a.MPQ"))) f.Add("a.txt", "a", 0);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => RestoreFrom(other, true, "a.MPQ"));
+
+        Assert.Contains("--data", ex.Message);
+        AssertRestoreIntact(_data, first.Entries);
+    }
+
+    [Theory]
+    [InlineData("x/../b.MPQ")]
+    [InlineData("../b.MPQ")]
+    public void Rerun_GoneArchiveWithUnsafeName_PruneTouchesNoFiles(string hostile)
+    {
+        BuildNamed("a.MPQ", First, ("a.txt", "a"));
+        BuildNamed("b.MPQ", First, ("b.txt", "precious"));
+        RestoreFrom(_data, false, "a.MPQ", "b.MPQ");
+        Sql($"INSERT INTO archives(archive, priority, origin) VALUES('{hostile}', 1, 'unknown')");
+        Sql($"INSERT INTO files(archive, path, path_lc, size, status, hash_index, block_index, locale, flags, name1, name2) VALUES('{hostile}', 'b.txt', 'b.txt', 8, 'ok', 1, 1, 0, 0, 1, 1)");
+        File.WriteAllText(_dir.File("b.txt"), "outside");
+
+        var result = RestoreFrom(_data, true, "a.MPQ", "b.MPQ");
+
+        Assert.Contains(hostile, result.GoneArchives);
+        Assert.Equal("precious", File.ReadAllText(Restored("b.txt", "b.MPQ")));
+        Assert.Equal("outside", File.ReadAllText(_dir.File("b.txt")));
+        Assert.Empty(Rows($"SELECT * FROM files WHERE archive='{hostile}'"));
+    }
+
+    private (string Name, string Body)[] ManyFiles() =>
+        Enumerable.Range(0, 42).Select(i => ($"dir{i % 3}\\file{i}.txt", new string((char)('a' + i % 26), 5000))).ToArray();
+
+    private void AssertBrokenAndIntact(RestoreResult result, long entries)
+    {
+        Assert.Contains("a.MPQ", Assert.Single(result.BrokenArchives));
+        AssertRestoreIntact(_data, entries);
+        Assert.Equal(First.Ticks, Assert.Single(Rows("SELECT file_mtime FROM archives"))["file_mtime"]);
+    }
+
+    [Fact]
+    public void Rerun_ZeroTailArchive_RemovesNothing()
+    {
+        Build(First, ManyFiles());
+        var first = Restore();
+        var bytes = File.ReadAllBytes(ArchivePath());
+        Array.Clear(bytes, bytes.Length / 2, bytes.Length - bytes.Length / 2);
+        File.WriteAllBytes(ArchivePath(), bytes);
+        File.SetLastWriteTimeUtc(ArchivePath(), Second);
+
+        AssertBrokenAndIntact(Restore(), first.Entries);
+    }
+
+    [Fact]
+    public void Rerun_TruncatedArchive_RemovesNothing()
+    {
+        Build(First, ManyFiles());
+        var first = Restore();
+        var bytes = File.ReadAllBytes(ArchivePath());
+        File.WriteAllBytes(ArchivePath(), bytes[..(bytes.Length - bytes.Length / 1000 - 1)]);
+        File.SetLastWriteTimeUtc(ArchivePath(), Second);
+
+        AssertBrokenAndIntact(Restore(), first.Entries);
+    }
+
+    [Fact]
+    public void Rerun_ZeroedBlockTableOnly_RemovesNothing()
+    {
+        // The hash table survives, so entries still point at real slots; only the blocks they describe are damaged.
+        Build(First, ManyFiles());
+        var first = Restore();
+        var bytes = File.ReadAllBytes(ArchivePath());
+        var blockTablePos = BitConverter.ToInt32(bytes, 20);
+        var blockCount = BitConverter.ToInt32(bytes, 28);
+        Array.Clear(bytes, blockTablePos, blockCount * 16);
+        File.WriteAllBytes(ArchivePath(), bytes);
+        File.SetLastWriteTimeUtc(ArchivePath(), Second);
+
+        AssertBrokenAndIntact(Restore(), first.Entries);
+    }
+
+    [Fact]
+    public void Rerun_FailedChangedArchive_StaysChangedNextRun()
+    {
+        Build(First, ("same.bin", "OLD-BODY-OLD-BODY"), ("gone.txt", "gone"));
+        Restore();
+        Build(Second, ("same.bin", "NEW-BODY-NEW-BODY"));
+
+        RestoreResult failed;
+        using (new FileStream(ArchivePath(), FileMode.Open, FileAccess.Read, FileShare.None))   // locked: can't open, though its identity can be read
+            failed = Restore();
+
+        Assert.Contains("a.MPQ", Assert.Single(failed.BrokenArchives));
+        Assert.Equal(First.Ticks, Assert.Single(Rows("SELECT file_mtime FROM archives"))["file_mtime"]);
+        Assert.False(string.IsNullOrEmpty((string?)Assert.Single(Rows("SELECT error FROM archives"))["error"]));
+        Assert.Equal("OLD-BODY-OLD-BODY", File.ReadAllText(Restored("same.bin")));
+
+        var next = Restore();
+
+        Assert.Equal(new[] { "a.MPQ" }, next.ChangedArchives);
+        Assert.Empty(next.BrokenArchives);
+        Assert.Equal("NEW-BODY-NEW-BODY", File.ReadAllText(Restored("same.bin")));
+        Assert.Empty(Rows("SELECT * FROM files WHERE path_lc='gone.txt'"));
+        Assert.Equal(Second.Ticks, Assert.Single(Rows("SELECT file_mtime FROM archives"))["file_mtime"]);
+        Assert.Null(Assert.Single(Rows("SELECT error FROM archives"))["error"]);
+    }
+
+    [Fact]
+    public void Run_NewIdentityWrittenOnlyAfterTheArchiveFinished()
+    {
+        Build(First, ("a.txt", "a"));
+        Restore();
+        Build(Second, ("a.txt", "a"), ("b.txt", "b"));
+
+        // Free space runs out partway through: the archive didn't finish, so it must still count as changed.
+        var calls = 0;
+        Build(Second, Enumerable.Range(0, 300).Select(i => ($"f{i}.txt", "x")).ToArray());
+        Assert.Throws<IOException>(() => MpqRestorer.Run(new RestoreOptions(_data, _out, new ArchiveConfig(
+            new Dictionary<string, string> { ["t"] = "fixture" }, [new ArchiveEntry("a.MPQ", 1, "unknown", null, "t")]),
+            FreeBytes: _ => ++calls == 1 ? long.MaxValue : 0)));
+
+        Assert.Equal(First.Ticks, Assert.Single(Rows("SELECT file_mtime FROM archives"))["file_mtime"]);
+        Assert.Equal(new[] { "a.MPQ" }, Restore().ChangedArchives);
+    }
+
+    private string ConfigFile()
+    {
+        var path = _dir.File("archives.json");
+        File.WriteAllText(path, """{"rules":{"t":"fixture"},"archives":[{"path":"a.MPQ","priority":1,"origin":"unknown","realm":null,"rule":"t"}]}""");
+        return path;
+    }
+
+    [Fact]
+    public void Cli_PruneFlag_IsAcceptedAndOffByDefault()
+    {
+        BuildNamed("a.MPQ", First, ("a.txt", "a"));
+        BuildNamed("b.MPQ", First, ("b.txt", "b"));
+        RestoreFrom(_data, false, "a.MPQ", "b.MPQ");
+        File.Delete(ArchivePath("b.MPQ"));
+        string[] common = ["--data", _data, "--out", _out, "--config", ConfigFile()];
+
+        var output = new StringWriter();
+        Assert.Equal(1, MpqCli.Run("restore", common, output, TextWriter.Null));   // gone archives aren't a clean run
+        Assert.Contains("b.MPQ", output.ToString());
+        Assert.Contains("--prune-gone", output.ToString());
+        Assert.True(File.Exists(Restored("b.txt", "b.MPQ")));
+
+        Assert.Equal(0, MpqCli.Run("restore", [.. common, "--prune-gone"], TextWriter.Null, TextWriter.Null));
+        Assert.False(File.Exists(Restored("b.txt", "b.MPQ")));
+    }
+
+    [Fact]
+    public void Cli_ArchiveCheck_ReportsAndWritesNothing()
+    {
+        Build(First, ManyFiles());
+        string[] args = ["--data", _data, "--config", ConfigFile()];
+        var hash = System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(ArchivePath()));
+
+        var good = new StringWriter();
+        Assert.Equal(0, MpqCli.Run("archive-check", args, good, TextWriter.Null));
+        Assert.Contains("1 of 1", good.ToString());
+        Assert.Equal(hash, System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(ArchivePath())));
+        Assert.False(Directory.Exists(_out));
+
+        var bytes = File.ReadAllBytes(ArchivePath());
+        File.WriteAllBytes(ArchivePath(), bytes[..^500]);
+        var bad = new StringWriter();
+        Assert.Equal(1, MpqCli.Run("archive-check", args, bad, TextWriter.Null));
+        Assert.Contains("a.MPQ", bad.ToString());
     }
 
     [Theory]
