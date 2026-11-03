@@ -16,12 +16,13 @@ public static class BisbeardImport
 
     public static RealmSet Proven(string realm) => new(new[] { realm }, true);
 
-    public static (int Items, int Classes, int Specs, int Markers, int Guides, int Talents, int Rules) Run(string dataDir, string guidesConfig, string outPath)
+    public static (int Items, int Classes, int Specs, int Markers, int Guides, int Talents, int Rules) Run(string dataDir, string guidesConfig, string outPath, string? version = null)
     {
+        version = LayerVersion.Resolve(version);
         // Validate the guide config before touching the output file.
         var guides = GuideImporter.Load(dataDir, guidesConfig);
 
-        using var w = new LayerWriter(outPath, "bisbeard", "1");
+        using var w = new LayerWriter(outPath, "bisbeard", version);
         var items = ItemImporter.Import(dataDir, w);
         var (classes, specs, talents, rules) = RealmImporter.Import(dataDir, w);
         var markers = MarkerImporter.Import(dataDir, w);

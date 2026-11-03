@@ -7,12 +7,13 @@ public sealed record SpellsImportResult(int Spells, int Enums, int FlagKinds, in
 /// <summary>Builds the spells layer from a client DBC folder by running Spellwork's spell logic at build time.</summary>
 public static class SpellsImport
 {
-    public static SpellsImportResult Run(string dbcDir, string outPath, Action<int, int>? progress = null) =>
-        Run(SpellSource.Open(dbcDir), outPath, progress);
+    public static SpellsImportResult Run(string dbcDir, string outPath, Action<int, int>? progress = null, string? version = null) =>
+        Run(SpellSource.Open(dbcDir), outPath, progress, version);
 
-    public static SpellsImportResult Run(SpellSource source, string outPath, Action<int, int>? progress = null)
+    public static SpellsImportResult Run(SpellSource source, string outPath, Action<int, int>? progress = null, string? version = null)
     {
-        using var w = new LayerWriter(outPath, "spells", "1");
+        version = LayerVersion.Resolve(version);
+        using var w = new LayerWriter(outPath, "spells", version);
         var spells = SpellExporter.Export(source, w, progress);
         var (members, kinds) = EnumExporter.Export(source, w);
         var (inputs, golden) = ScalingExporter.Export(source, source.DbcDir, w);

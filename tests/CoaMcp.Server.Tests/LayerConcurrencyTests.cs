@@ -11,7 +11,8 @@ public class LayerConcurrencyTests
     {
         var root = TestLayers.Publish(TestLayers.Build());
         using var layers = LayerSet.Open(root);
-        var layer = layers.Current("bisbeard")!;
+        using var lease = layers.Lease("bisbeard")!;
+        var layer = lease.Layer;
 
         var slow = Enumerable.Range(0, 3).Select(_ => Task.Run(() => layer.Query(Slow))).ToList();
         await Task.Delay(100);

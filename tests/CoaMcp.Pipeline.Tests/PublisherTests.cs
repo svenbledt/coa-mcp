@@ -51,6 +51,20 @@ public class PublisherTests : IDisposable
     }
 
     [Fact]
+    public async Task Publish_SetsModesExplicitly_AndCreatesTheWritableStoreForTheServerUid()
+    {
+        await Pub().PublishAsync(Layer("bisbeard", "7"), false, default);
+
+        Assert.Contains(_remote.Commands, c => c.StartsWith("mkdir -p '/data/coamcp/layers/bisbeard' && chmod 755 '/data/coamcp' '/data/coamcp/layers' '/data/coamcp/layers/bisbeard'"));
+        Assert.Contains(_remote.Commands, c => c.StartsWith("chmod 644 '/data/coamcp/layers/bisbeard/7.sqlite.tmp' && mv"));
+        Assert.Contains(_remote.Commands, c => c.Contains("chmod 644 '/data/coamcp/current.json.tmp'"));
+        Assert.Equal("10001:10001", _remote.Owners["/data/coamcp/writable"]);
+        Assert.Contains(_remote.Commands, c => c == "mkdir -p '/data/coamcp/writable' && chown 10001:10001 '/data/coamcp/writable' && chmod 750 '/data/coamcp/writable'");
+        // Layer files are never handed to the server's UID.
+        Assert.DoesNotContain(_remote.Commands, c => c.Contains("chown") && c.Contains("layers"));
+    }
+
+    [Fact]
     public async Task Publish_KeepsOtherLayersAndThePreviousVersionFile()
     {
         var b7 = Layer("bisbeard", "7");

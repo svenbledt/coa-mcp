@@ -84,28 +84,6 @@ public sealed partial class Manifest
         return Parse(reader.ReadToEnd());
     }
 
-    /// <summary>
-    /// Writes a temp file in the same folder, then renames it over <paramref name="path"/>. A reader sees the old file or the new one, never half of either.
-    /// </summary>
-    public static void WriteAtomic(string path, Manifest manifest)
-    {
-        var tmp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
-        try
-        {
-            File.WriteAllText(tmp, manifest.ToJson());
-            // POSIX rename never fails because a reader has the file open. Windows can refuse for a moment, so retry briefly.
-            for (var attempt = 0; ; attempt++)
-            {
-                try { File.Move(tmp, path, overwrite: true); break; }
-                catch (Exception ex) when (ex is UnauthorizedAccessException or IOException && attempt < 200) { Thread.Sleep(5); }
-            }
-        }
-        finally
-        {
-            if (File.Exists(tmp)) File.Delete(tmp);
-        }
-    }
-
     [GeneratedRegex("^[a-z0-9][a-z0-9_-]{0,31}$")] private static partial Regex NameRule();
     [GeneratedRegex(@"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")] private static partial Regex VersionRule();
     [GeneratedRegex("^[0-9a-f]{64}$")] private static partial Regex Sha256Rule();

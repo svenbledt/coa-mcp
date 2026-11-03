@@ -197,12 +197,13 @@ Agents holding a bearer token can write through the MCP, and writes go live imme
 
 **[Design call]** for everything below:
 
-- **Tokens:** one per person or agent, stored only as hashes, individually revocable. The server needs a simple admin way to issue and revoke them. No web UI required.
+- **Token:** the bearer token is defined as an environment variable on the Docker container (`COA_MCP_BEARER_TOKEN`), set as a Coolify secret. **[Owner]** It's never committed, stored in the database or logged. If it's unset or under 32 characters, writes are disabled and the server logs a warning, while reads keep working. To replace the token, change the variable and redeploy. There's no issue or revoke command. **[Design call]**
+- **Authors:** since one token is shared, each write must give an `author` name. It's shown on the entry and used for undo, but it's self-declared, not proven, and answers say so. **[Design call]**
 - **What can be written:** observations, notes, corrections, and curated pages. Extracted data (DBC rows, file paths) can't be changed, but can get a note saying a row looks wrong.
 - **Required on each write:** subject, content, trust level, and evidence. `observed` requires a link or description, with a timestamp for videos.
 - **Levels a token can claim:** only `observed` and `memory`. `client`, `derived` and `cache` come only from the pipeline, so a remembered fact can't outrank real evidence by being mislabeled.
 - **Player caches:** WDB files are collected by the owner and parsed by a pipeline step on the owner's machine, which is what produces level `cache`. Uploading WDB files through the MCP is out of scope for now.
-- **History:** nothing is truly deleted. Every change records author and time. A single write, or all writes by one token, can be undone.
+- **History:** nothing is truly deleted. Every change records author and time. A single write, or all writes by one author, can be undone.
 - **Limits:** size and rate limits per token.
 - **Untrusted text:** answers clearly separate written text from extracted data, name the author, and mark the text as data rather than instructions. Tool descriptions tell reading agents the same.
 - **Secrets:** tokens must never appear in logs or in responses.
@@ -212,6 +213,23 @@ Reads never need a token, and sending one doesn't change what a reader sees, apa
 ### Public reads
 
 The endpoint is open to the internet with no login, so it needs per-IP rate limits and result caps, to keep anyone from overloading the server or pulling the entire database through one query. **[Design call]**
+
+### Merging written data into the project
+
+What users feed in by hand should become part of the project source, from time to time. **[Owner]**
+
+**[Design call]** for the details:
+
+- **One command, run when wanted:** a pipeline command copies the production writable store over SSH (a consistent snapshot) and exports its entries to `knowledge/` in this repo, as readable Markdown with front matter. Nothing happens automatically, so a person reviews the diff and commits it.
+- **One direction:** production is the source for written entries. The export never changes production.
+- **Stable and repeatable:** one file per entry, named by entry id. Re-running produces no diff unless production changed. Undone and superseded entries are kept and marked, so the history survives.
+- **Trust doesn't change:** merging doesn't raise an entry's trust level, and its author stays self-declared.
+- **Untrusted content:** exported text came from outside, so it's treated as data, never executed, and a secret and path scan reports anything suspicious before commit.
+- **Recovery:** a matching restore command can rebuild an empty store from `knowledge/`, so the repo also works as an extra backup.
+
+### Production testing
+
+Once the server is up, it gets detailed testing against production, as a repeatable suite with a saved report. **[Owner]** It covers, through a real MCP client: every tool; accuracy against the sources; hostile input; rate limits; token enforcement; writes, undo and merging; a live layer swap; load; and connecting from Claude Code. Failures get fixed and the suite re-run before the work counts as finished. **[Design call]** The report shows the real requests and responses of each tool for several requests. **[Owner]**
 
 ## Technology
 

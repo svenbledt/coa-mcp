@@ -83,6 +83,65 @@ public class PublishGuardTests : IDisposable
         Assert.Contains(r.Problems, p => p.Contains("blob", StringComparison.OrdinalIgnoreCase) && p.Contains("enums"));
     }
 
+    [Theory]
+    [InlineData("entities_fts_content")]   // external-content FTS5 has no such table
+    public void Guard_RejectsFakeShadowTable(string name)
+    {
+        // A layer with its own plain table of an FTS shadow name, holding a raw "client file" blob.
+        var path = _dir.File($"fake-{Guid.NewGuid():N}.sqlite");
+        using (var w = new LayerWriter(path, "bisbeard", "7"))
+        {
+            w.Add(E("item:1", "A plain item.\n"));
+            w.Execute($"CREATE TABLE {name}(payload BLOB)");
+            w.Execute($"INSERT INTO {name} VALUES ($0)", new byte[] { (byte)'M', (byte)'P', (byte)'Q', 0x1A, 1, 2, 3 });
+            w.Finish();
+        }
+        SqliteConnection.ClearAllPools();
+        var r = PublishGuard.Check(path);
+        Assert.False(r.Ok);
+        Assert.Contains(r.Problems, p => p.Contains(name));
+    }
+
+    [Fact]
+    public void Guard_RejectsFakeShadowTable_WhenNoFtsVirtualTableExists()
+    {
+        // The real shadow definition, but copied into a layer whose entities_fts is gone.
+        var path = Layer();
+        RewriteSchema(path, "DROP TABLE entities_fts; CREATE TABLE 'entities_fts_data'(id INTEGER PRIMARY KEY, block BLOB)");
+        var r = PublishGuard.Check(path);
+        Assert.False(r.Ok);
+    }
+
+    [Fact]
+    public void Guard_RejectsShadowTableWithFts5NameButDifferentDefinition()
+    {
+        var path = Layer();
+        RewriteSchema(path, "PRAGMA writable_schema=ON; UPDATE sqlite_master SET sql = 'CREATE TABLE ''entities_fts_data''(id INTEGER PRIMARY KEY, block BLOB, extra BLOB)' WHERE name = 'entities_fts_data'");
+        var r = PublishGuard.Check(path);
+        Assert.False(r.Ok);
+        Assert.Contains(r.Problems, p => p.Contains("entities_fts_data"));
+    }
+
+    [Fact]
+    public void Guard_RejectsFts5TableWithADifferentDeclaration()
+    {
+        var path = Layer();
+        RewriteSchema(path, "PRAGMA writable_schema=ON; UPDATE sqlite_master SET sql = 'CREATE VIRTUAL TABLE entities_fts USING fts5(title, body_md, extra, content=''entities'', content_rowid=''rowid'')' WHERE name = 'entities_fts'");
+        Assert.False(PublishGuard.Check(path).Ok);
+    }
+
+    private static void RewriteSchema(string path, string sql)
+    {
+        using (var db = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = path, Pooling = false }.ToString()))
+        {
+            db.Open();
+            using var cmd = db.CreateCommand();
+            cmd.CommandText = sql;
+            cmd.ExecuteNonQuery();
+        }
+        SqliteConnection.ClearAllPools();
+    }
+
     [Fact]
     public void Guard_RejectsUnknownTable()
     {

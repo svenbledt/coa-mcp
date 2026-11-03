@@ -28,7 +28,7 @@
 2. Written text that contains a fake closing marker can't escape its "untrusted" wrapper. Tested in Task 10.
 3. Behind Coolify's proxy, rate limits apply per real client IP, and a spoofed `X-Forwarded-For` from outside can't bypass them. Tested in Task 4.
 4. A layer swap during live reads doesn't fail in-flight requests, and a corrupt or partial upload leaves the old version live. Tested in Task 5.
-5. A malformed, revoked or missing token still allows reads and refuses writes, with no token text in the error. Tested in Task 10.
+5. A malformed, wrong or missing token still allows reads and refuses writes, with no token text in the error. Tested in Task 10.
 
 ---
 
@@ -270,16 +270,16 @@ Row Markdown says `guessed` for inferred types. Filters never accept raw SQL: ta
 **Interfaces:**
 - Consumes: `LayerSet`, `Render`, `Trust`.
 - Produces:
-  - `/data/writable/store.sqlite`, with `tokens(id, name, sha256, created_at, revoked_at)` and append-only `entries(id, subject_id, kind, realm_json, trust, content_md, evidence_json, field, value, position_json, author_token_id, created_at, supersedes_id, undone_at, undone_by)`.
-  - Tools marked `[Authorize]`: `write_entry(subject, kind, realm, trust, content, evidence, field?, value?, position?)` with `kind` as `observation|note|correction|page`, and `undo_entry(id)`.
-  - Tokens are `coa_` + 32 random bytes in base64url; only the SHA-256 is stored, compared in constant time.
+  - `/data/writable/store.sqlite`, with append-only `entries(id, subject_id, kind, realm_json, trust, content_md, evidence_json, field, value, position_json, author, created_at, supersedes_id, undone_at, undone_by)`.
+  - Tools marked `[Authorize]`: `write_entry(author, subject, kind, realm, trust, content, evidence, field?, value?, position?)` with `kind` as `observation|note|correction|page`, and `undo_entry(id)`.
+  - The token comes from the environment variable `COA_MCP_BEARER_TOKEN`, is compared in constant time (hash both sides, then `CryptographicOperations.FixedTimeEquals`), and is never stored in the database.
   - `get` and `search` include entries through `WriteStore`.
 
 `position` is `{map, x?, y?, z?, leftPct?, topPct?}`.
 
 - [ ] **Step 1: Write the failing tests.**
-  - Auth: `Read_NoToken_Works`, `Read_InvalidToken_Works`, `Write_NoToken_Refused`, `Write_RevokedToken_Refused`, `Write_MalformedToken_Refused_NoTokenInError`, `Logs_NeverContainToken`.
-  - Rules: `Write_TrustClientOrDerivedOrCache_Refused`, `Write_ObservedWithoutEvidence_Refused`, `Write_VideoWithoutTimestamp_Refused`, `Write_Over32KB_Refused`, `Write_RateLimitedPerToken`, `Write_ToDbcSubject_StoredAsNote_RowUnchanged`.
+  - Auth: `Read_NoToken_Works`, `Read_InvalidToken_Works`, `Write_NoToken_Refused`, `Write_WrongToken_Refused`, `Write_MalformedToken_Refused_NoTokenInError`, `Logs_NeverContainToken`, `EnvUnset_WritesDisabled_ReadsWork`, `EnvUnderThirtyTwoChars_WritesDisabled_LogsWarning`.
+  - Rules: `Write_MissingAuthor_Refused`, `Entry_ShowsAuthorAsSelfDeclared`, `Write_TrustClientOrDerivedOrCache_Refused`, `Write_ObservedWithoutEvidence_Refused`, `Write_VideoWithoutTimestamp_Refused`, `Write_Over32KB_Refused`, `Write_RateLimitedPerToken`, `Write_ToDbcSubject_StoredAsNote_RowUnchanged`.
   - Merge: `Get_ShowsHigherTrustFirst`, `Get_StructuredConflict_ShowsNote`, `Get_FreeTextEntries_NoAutoConflict`, `Get_NewerDoesNotEraseOlder`, `Position_AlwaysLabeledApproximate`.
   - Untrusted text: `Entry_WrappedAsUntrusted_NamesAuthor`, `Entry_FakeClosingMarker_CannotEscape`.
   - History: `Undo_HidesEntry_KeepsHistory`, `Page_WriteSupersedes_HistoryKept`, `LayerSwap_LeavesEntries`.
@@ -297,11 +297,61 @@ Row Markdown says `guessed` for inferred types. Filters never accept raw SQL: ta
 
 **Interfaces:**
 - Consumes: `WriteStore`.
-- Produces: `coamcp admin token issue <name>` (prints the token once), `token list`, `token revoke <id>`, `undo-token <id>`. Run through `docker exec`, with no network endpoint.
+- Produces: `coamcp admin undo-author <name>` and `admin list-authors`. Run through `docker exec`, with no network endpoint.
 
-- [ ] **Step 1: Write the failing tests.** `Issue_PrintsOnce_StoresHashOnly`, `Revoke_BlocksWrites`, `UndoToken_HidesAllItsEntries_KeepsHistory`, `List_NeverShowsSecret`.
+- [ ] **Step 1: Write the failing tests.** `UndoAuthor_HidesAllItsEntries_KeepsHistory`, `ListAuthors_ShowsCounts`, `UndoAuthor_Unknown_CleanError`.
 - [ ] **Step 2: Run them.** Expected: FAIL.
 - [ ] **Step 3: Implement.** The backup script runs `VACUUM INTO` nightly via Coolify's scheduled task to `/data/coamcp/backups`, keeping 14 days.
 - [ ] **Step 4: Run all tests with `dotnet test CoaMcp.Pipeline.sln`.** Expected: PASS.
-- [ ] **Step 5: Deploy and verify end to end from outside.** Issue a test token. Without a token, `write_entry` is refused and reads work. With it, write an `observed` NPC position with a video link, read it back labeled approximate and untrusted, undo it, revoke the token, and confirm writes are refused. Restore a backup to a scratch file and read it.
-- [ ] **Step 6: Commit** `feat: add token admin and backups`.
+- [ ] **Step 5: Deploy and verify end to end from outside.** Generate a random token and set it as the Coolify secret `COA_MCP_BEARER_TOKEN`, without printing it to any log or commit. Add `COA_MCP_BEARER_TOKEN=${COA_MCP_BEARER_TOKEN}` to compose. Without a token, `write_entry` is refused and reads work. With it, write an `observed` NPC position with a video link, read it back labeled approximate and untrusted, and undo it. Change the variable, redeploy, and confirm the old token is refused. Restore a backup to a scratch file and read it. Tell the owner where the final token is set; don't paste it into chat.
+- [ ] **Step 6: Commit** `feat: add author admin and backups`.
+
+## Milestone 4: merging and production proof (Tasks 12-13)
+
+### Task 12: Merge written data into the project
+
+**Files:**
+- Create: `src/CoaMcp.Pipeline/Knowledge/{SnapshotPuller.cs,KnowledgeExporter.cs,KnowledgeRestorer.cs}`, `knowledge/README.md`
+- Test: `tests/CoaMcp.Pipeline.Tests/KnowledgeTests.cs`
+
+**Interfaces:**
+- Consumes: the `entries` schema from Task 10, `IRemote` from Task 5.
+- Produces:
+  - CLI `coamcp-pipeline pull-writes --host BledtIT --out knowledge`: takes a consistent snapshot on the server with `VACUUM INTO`, downloads it to a temp file outside the repo, exports it, deletes both copies, and prints a summary of added and changed entries and any scan warnings.
+  - `knowledge/entries/<id>.md`: YAML front matter with all entry fields, and the content as the body.
+  - CLI `coamcp-pipeline restore-writes --from knowledge --store <file>`: refuses a store that already has entries.
+
+- [ ] **Step 1: Write the failing tests.** `Export_WritesOneFilePerEntry`, `Export_Rerun_NoChanges` (byte-identical files, stable field order and line endings), `Export_KeepsUndoneAndSuperseded_Marked`, `Export_PreservesContentExactly`, including front-matter-like text and `---` in content, `Export_HostileId_CannotEscapeFolder`, `Export_ScanWarnsOnSecretOrLocalPath`, `Export_TokenNeverInOutput`, `Restore_RoundTrip_MatchesStore`, `Restore_NonEmptyStore_Refused`, `Pull_RemoteFailure_LeavesKnowledgeUntouched`, `Pull_RemovesTempSnapshot`.
+- [ ] **Step 2: Run them.** Expected: FAIL.
+- [ ] **Step 3: Implement.** Export to a temp folder and replace `knowledge/entries` only when the whole export succeeded. Don't commit automatically.
+- [ ] **Step 4: Run the tests.** Expected: PASS.
+- [ ] **Step 5: Commit** `feat: merge written data into the project`.
+
+### Task 13: Production acceptance testing
+
+**Files:**
+- Create: `tests/CoaMcp.Acceptance/` (xUnit, excluded from default solution test runs), `docs/acceptance-report.md`
+- Modify: code in whichever task's area a failure points to
+
+**Interfaces:**
+- Consumes: the live server at `https://coa-mcp.bledt.dev/mcp`; `COA_MCP_BEARER_TOKEN` from the environment for write tests only; local sources for accuracy checks.
+- Produces: `dotnet test tests/CoaMcp.Acceptance` with `COA_MCP_URL`; a saved report with date, layer versions, pass and fail per area, timings, and a **Tool responses** section. For each tool, it shows several real requests with their exact arguments and full responses in code blocks, including normal use, a not-found or error case, and a refused write. The suite captures these from the live server, so they're never written by hand. Very long responses are cut with a marker that states the full size, and the token is scrubbed from everything captured.
+
+Write tests use author `acceptance-test`, subjects under `test:`, and undo everything afterward. Load tests stay modest, since this is a shared server. The suite never prints the token.
+
+- [ ] **Step 1: Write the suite.** Through a real MCP client, covering:
+  - **Protocol:** initialize, tool list, HTTPS, stateless behavior, `/healthz`. Anonymous tool list contents match the design.
+  - **Every read tool:** normal use, paging, caps, sections, realm and topic filters, not-found.
+  - **Accuracy:** at least 100 random items against `items_all.json`, 100 random spells against the `spellwork-coa` tool output, 100 random DBC rows against the restored DBCs across at least 10 tables, 100 random paths and winners against the rebuilt listfile, 20 golden scaling spells, all row counts in `status`. Spot checks: `fireball` finds Fireball first, client and BisBeard realms label correctly, positions say approximate, a `project` archive file says so.
+  - **Hostile input:** SQL and FTS injection, wrong types, huge values, null bytes, path traversal in ids, oversized bodies. No faults, no stack traces, no paths leaked.
+  - **Limits:** rate limit triggers per client through the real proxy, and a spoofed `X-Forwarded-For` doesn't escape it.
+  - **Writes:** no token, wrong token and malformed token refused with reads still working. Valid token writes; evidence rules, trust limits, size limit; approximate label, untrusted wrapper and fake closing marker; conflict display; undo.
+  - **Merge:** `pull-writes` picks up a test entry, re-run is identical, and undo shows up on the next run.
+  - **Live update:** publish a new small layer version during concurrent reads with no failed requests, then roll back with the previous entry.
+  - **Restart:** written entries survive a redeploy.
+  - **Load:** 20 concurrent clients for 2 minutes of mixed reads, recording p50 and p95 and errors.
+  - **Real client:** connect Claude Code with `claude mcp add --transport http`, and answer one question each about a spell, an item and a client path, using only this server.
+- [ ] **Step 2: Run the suite against production.** Save results in `docs/acceptance-report.md`, including every failure.
+- [ ] **Step 3: For each failure,** write a failing test in the owning project, fix it, deploy, and re-run the affected area.
+- [ ] **Step 4: Run the full suite once more.** Expected: all pass, or each remaining failure is listed in the report with the reason. Confirm no `acceptance-test` entries remain visible, then commit a `pull-writes` result only if it contains real data.
+- [ ] **Step 5: Commit** `test: add production acceptance suite and report`.

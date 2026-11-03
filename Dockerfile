@@ -11,7 +11,7 @@ RUN dotnet publish src/CoaMcp.Server/CoaMcp.Server.csproj -c Release --no-restor
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 # A fixed UID so file ownership on the host does not depend on the image build.
-# The server only reads /data (layers and current.json), so it needs no write access there.
+# /data is the host volume. Layer files and current.json are root-owned and not writable by this user; only /data/writable is.
 RUN groupadd --gid 10001 coamcp && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin coamcp
 WORKDIR /app
 COPY --from=build /app .

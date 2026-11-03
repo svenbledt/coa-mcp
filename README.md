@@ -16,12 +16,16 @@ For Claude Code: `claude mcp add --transport http coa-knowledge https://coa-mcp.
 
 ## Publish a layer
 
-Layers are built locally, then pushed to the server with `scp` and `ssh` (so the ssh host, such as `BledtIT`, must already work without a password prompt).
+Layers are built locally, then pushed to the server with `scp` and `ssh` (so the ssh host, such as `BledtIT`, must already work without a password prompt, as a user that may `chown`, normally root).
 
 ```
 dotnet run --project src/CoaMcp.Pipeline -- bisbeard --data <DataCOA\data> --out bisbeard.sqlite
 dotnet run --project src/CoaMcp.Pipeline -- spells --dbc <dbc folder> --out spells.sqlite
+```
 
+Each build is versioned with its UTC build time (`yyyyMMddHHmmss`), because a published version never changes and every rebuild differs. Pass `--version <v>` to choose one (letters, digits, `.`, `_`, `-`). Then:
+
+```
 dotnet run --project src/CoaMcp.Pipeline -- publish --layer spells.sqlite --dry-run
 dotnet run --project src/CoaMcp.Pipeline -- publish --layer spells.sqlite --host BledtIT
 ```
@@ -30,7 +34,7 @@ dotnet run --project src/CoaMcp.Pipeline -- publish --layer spells.sqlite --host
 
 1. Runs the publish guard: only tables on the layer's allow-list (`src/CoaMcp.Pipeline/Publish/LayerAllowList.cs`), no BLOBs, and no text that starts with MPQ, DBC, BLP or M2 file signatures. A refused layer is never sent.
 2. Uploads to `/data/coamcp/layers/<name>/<version>.sqlite.tmp` and checks the SHA-256 on the server.
-3. Renames it to `<version>.sqlite` (read-only) and rewrites `/data/coamcp/current.json` atomically. Other layers keep their entries.
+3. Renames it to `<version>.sqlite` (mode 0644) and rewrites `/data/coamcp/current.json` atomically. Other layers keep their entries.
 
 The server re-reads `current.json` every 30 seconds, verifies the new file (SHA-256, metadata, `PRAGMA quick_check`) and swaps it in. Requests already running finish on the old version. A file that fails verification is logged and the old version stays live.
 
@@ -51,4 +55,4 @@ dotnet test CoaMcp.sln
 
 Settings (environment variables): `Layers__Root` (data root), `Layers__ReloadSeconds` (default 30), `RateLimit__PerMinute` (default 120), `Network__TrustedProxies__0` (CIDR of the reverse proxy whose `X-Forwarded-For` is believed; empty means trust nothing).
 
-Deployment is `docker-compose.yml` on Coolify, with the domain set in Coolify. The host folder `/data/coamcp` is mounted read-only at `/data`; it must be readable by UID 10001.
+Deployment is `docker-compose.yml` on Coolify, with the domain set in Coolify. The host folder `/data/coamcp` is mounted at `/data`. The publisher sets modes explicitly: layer folders 0755 and files 0644 (root-owned, so the server can read but not write them), and `writable/` owned by UID 10001 with mode 0750 for the future writable store. The server never opens layer files for writing.

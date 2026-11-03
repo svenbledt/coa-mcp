@@ -13,6 +13,9 @@ public sealed partial class Publisher
 {
     public const string DefaultRemoteRoot = "/data/coamcp";
 
+    /// <summary>The UID the server container runs as (see the Dockerfile).</summary>
+    public const int ServerUid = 10001;
+
     private readonly IRemote _remote;
     private readonly TextWriter _out;
     private readonly string _root;
@@ -41,7 +44,7 @@ public sealed partial class Publisher
         var tmp = final + ".tmp";
         var current = $"{_root}/{Manifest.FileName}";
 
-        _out.WriteLine($"Plan:\n  upload   {layerPath} -> {tmp}\n  sha256   {sha}\n  rename   {tmp} -> {final} (read-only)\n  point    {current} at {name} v{version}; other layers and older versions stay");
+        _out.WriteLine($"Plan:\n  upload   {layerPath} -> {tmp}\n  sha256   {sha}\n  rename   {tmp} -> {final} (mode 0644, owned by the publishing user)\n  point    {current} at {name} v{version}; other layers and older versions stay");
         if (dryRun)
         {
             _out.WriteLine("Dry run: nothing was sent.");
@@ -60,7 +63,9 @@ public sealed partial class Publisher
             throw new PublishException($"{current} on the server is not valid; refusing to overwrite it. Fix it by hand first: {ex.Message}", ex);
         }
 
-        await RunOk(RemoteCommands.MakeDirectory(dir), null, ct);
+        // Modes are set explicitly, not left to the umask: layer folders 0755 and files 0644, so the server (UID 10001) can read but never write them.
+        await RunOk(RemoteCommands.MakeLayerDirectory(dir, _root, $"{_root}/layers"), null, ct);
+        await RunOk(RemoteCommands.MakeWritableDirectory($"{_root}/writable", ServerUid), null, ct);
 
         var already = ParseSha((await RunOk(RemoteCommands.Sha256IfPresent(final), null, ct)).Stdout);
         if (already is not null && already != sha)

@@ -78,40 +78,4 @@ public class ManifestTests
         Assert.False(Manifest.IsSafeVersion("1;rm"));
         Assert.False(Manifest.IsSafeVersion(".."));
     }
-
-    [Fact]
-    public async Task ConcurrentReader_NeverSeesAPartialFile()
-    {
-        var dir = Path.Combine(Path.GetTempPath(), "coamcp-manifest-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        try
-        {
-            var path = Path.Combine(dir, "current.json");
-            var big = new Manifest(new Dictionary<string, ManifestEntry>());
-            for (var i = 0; i < 60; i++) big = big.With($"layer{i}", ManifestEntry.For($"layer{i}", "1", Sha));
-            Manifest.WriteAtomic(path, big);
-
-            using var stop = new CancellationTokenSource();
-            var failures = new List<string>();
-            var reads = 0;
-            var reader = Task.Run(() =>
-            {
-                while (!stop.IsCancellationRequested)
-                {
-                    try { Manifest.ReadFile(path); Interlocked.Increment(ref reads); }
-                    catch (Exception ex) when (ex is JsonException or InvalidDataException) { lock (failures) failures.Add(ex.Message); }
-                    catch (IOException) { /* Windows may briefly refuse a read mid-rename; the content is never partial */ }
-                }
-            });
-            for (var v = 0; v < 300; v++)
-                Manifest.WriteAtomic(path, big.With("layer0", ManifestEntry.For("layer0", v.ToString(), Sha)));
-            await stop.CancelAsync();
-            await reader;
-
-            Assert.Empty(failures);
-            Assert.True(reads > 0, "the reader never got a read in");
-            Assert.Empty(Directory.GetFiles(dir, "*.tmp"));
-        }
-        finally { Directory.Delete(dir, true); }
-    }
 }

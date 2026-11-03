@@ -98,13 +98,23 @@ public static class PublishGuard
                 case "table":
                     if (!LayerAllowList.IsAllowedTable(layer, name))
                         problems.Add($"Table '{name}' is not allowed in the {layer} layer.");
-                    else if (sql.StartsWith("CREATE VIRTUAL TABLE", StringComparison.OrdinalIgnoreCase))
+                    else if (LayerAllowList.IsFtsTable(name))
                     {
                         // The one full-text table indexes entities; its own rows are an index, not content.
-                        if (!LayerAllowList.IsFtsTable(name) || !sql.Contains("fts5", StringComparison.OrdinalIgnoreCase))
-                            problems.Add($"Virtual table '{name}' is not allowed.");
+                        if (!SameSql(sql, LayerAllowList.FtsSql))
+                            problems.Add($"Table '{name}' must be exactly: {LayerAllowList.FtsSql}");
                     }
-                    else if (!LayerAllowList.IsFtsShadow(name) && !LayerAllowList.IsSqliteInternal(name))
+                    else if (LayerAllowList.IsFtsShadow(name))
+                    {
+                        // Exempt from the BLOB scan only because FTS5 itself defines it. A look-alike plain table would hide anything.
+                        if (!SameSql(sql, LayerAllowList.ShadowSql[name]))
+                            problems.Add($"Table '{name}' is not FTS5's own shadow table (its definition differs); it could hide client data.");
+                        else if (!objects.Any(o => o.Type == "table" && o.Name == "entities_fts" && SameSql(o.Sql, LayerAllowList.FtsSql)))
+                            problems.Add($"Table '{name}' exists without the entities_fts virtual table, so it is not an FTS5 shadow table.");
+                    }
+                    else if (sql.StartsWith("CREATE VIRTUAL TABLE", StringComparison.OrdinalIgnoreCase))
+                        problems.Add($"Virtual table '{name}' is not allowed.");
+                    else
                         content.Add(name);
                     break;
                 default:
@@ -166,6 +176,9 @@ public static class PublishGuard
         }
         return n;
     }
+
+    private static bool SameSql(string actual, string expected) =>
+        string.Join(' ', actual.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)) == expected;
 
     private static string Ident(string name) => "\"" + name.Replace("\"", "\"\"") + "\"";
     private static string Literal(string name) => "'" + name.Replace("'", "''") + "'";

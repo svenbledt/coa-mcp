@@ -13,4 +13,6 @@ services:
       # Coolify's Docker network. X-Forwarded-For is believed only from Traefik on this network.
       Network__TrustedProxies__0: 10.0.1.0/24
     volumes:
-      - /data/coamcp:/data:ro
+      # Read-write: the writable store lives at /data/writable (owned by UID 10001). Layer files are root-owned 0644 under 0755 folders,
+      # so the server can read them but not change them, and it never opens them for writing.
+      - /data/coamcp:/data

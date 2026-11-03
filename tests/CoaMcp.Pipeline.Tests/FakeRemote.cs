@@ -11,6 +11,7 @@ public sealed class FakeRemote : IRemote
 {
     public Dictionary<string, byte[]> Files { get; } = new();
     public HashSet<string> Dirs { get; } = new();
+    public Dictionary<string, string> Owners { get; } = new();
     public List<string> Commands { get; } = new();
     public List<string> Uploads { get; } = new();
     public bool FailUpload { get; set; }
@@ -35,13 +36,17 @@ public sealed class FakeRemote : IRemote
         var w = Words(command);
         switch (w[0])
         {
-            case "mkdir" when w is ["mkdir", "-p", var d]:
+            case "mkdir" when w is ["mkdir", "-p", var d, "&&", "chmod", "755", ..]:
                 Dirs.Add(d);
+                return Ok("");
+            case "mkdir" when w is ["mkdir", "-p", var d, "&&", "chown", var owner, var d2, "&&", "chmod", "750", var d3] && d == d2 && d == d3:
+                Dirs.Add(d);
+                Owners[d] = owner;
                 return Ok("");
             case "rm" when w is ["rm", "-f", var p]:
                 Files.Remove(p);
                 return Ok("");
-            case "chmod" when w is ["chmod", "444", var from, "&&", "mv", var from2, var to] && from == from2:
+            case "chmod" when w is ["chmod", "644", var from, "&&", "mv", var from2, var to] && from == from2:
                 return Move(from, to);
             case "if" when w is ["if", "[", "-f", var p, "]", ";", "then", var tool, var p2, ";", "fi"] && p == p2:
                 if (!Files.TryGetValue(p, out var data)) return Ok("");

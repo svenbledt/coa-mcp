@@ -32,7 +32,7 @@ public class LayerSwapTests : IDisposable
             try { Directory.Delete(d, true); } catch (IOException) { /* temp data */ }
     }
 
-    private LayerSet Open() => LayerSet.Open(_root, _log, retireGrace: TimeSpan.Zero);
+    private LayerSet Open() => LayerSet.Open(_root, _log);
 
     private string NewBisbeard(string version, Action<LayerWriter>? extra = null)
     {
@@ -41,7 +41,7 @@ public class LayerSwapTests : IDisposable
         return path;
     }
 
-    private static string VersionOf(LayerSet s, string name) => s.Current(name)!.Meta.Version;
+    private static string VersionOf(LayerSet s, string name) => s.Status().Single(x => x.Name == name).Layer!.Meta.Version;
 
     [Fact]
     public void Open_LoadsTheVersionsNamedInCurrentJson()
@@ -99,18 +99,19 @@ public class LayerSwapTests : IDisposable
     public void Reload_WithNothingNew_KeepsTheSameLayerObjects()
     {
         using var layers = Open();
-        var before = layers.Current("bisbeard");
+        var before = layers.Status().Single(s => s.Name == "bisbeard").Layer;
         layers.Reload();
-        Assert.Same(before, layers.Current("bisbeard"));
+        Assert.Same(before, layers.Status().Single(s => s.Name == "bisbeard").Layer);
     }
 
     [Fact]
     public async Task Swap_InFlightRequestSurvives()
     {
         using var layers = Open();
-        var old = layers.Current("bisbeard")!;
+        var lease = layers.Lease("bisbeard")!;
+        var old = lease.Layer;
         var inFlight = Task.Run(() => old.Query(Slow));
-        await WaitUntil(() => old.ActiveRequests > 0);
+        await WaitUntil(() => old.ActiveRequests > 1);
 
         TestLayers.PublishFile(_root, "bisbeard", NewBisbeard("8"));
         layers.Reload();
@@ -120,6 +121,8 @@ public class LayerSwapTests : IDisposable
         Assert.False(inFlight.IsCompleted, "the slow query ended before the swap, so this proves nothing");
         var rows = await inFlight;
         Assert.Equal(30_000_000L, rows[0]["n"]);
+        Assert.False(old.IsDisposed, "the request's lease is still held");
+        lease.Dispose();
         await WaitUntil(() => old.IsDisposed);
         Assert.True(old.IsDisposed, "the old layer should be released once its last request finished");
     }
@@ -128,7 +131,7 @@ public class LayerSwapTests : IDisposable
     public void Swap_OldLayerWithNoRequestsIsReleasedAtOnce()
     {
         using var layers = Open();
-        var old = layers.Current("bisbeard")!;
+        var old = layers.Status().Single(s => s.Name == "bisbeard").Layer!;
         TestLayers.PublishFile(_root, "bisbeard", NewBisbeard("8"));
         layers.Reload();
         Assert.True(old.IsDisposed);
@@ -151,6 +154,35 @@ public class LayerSwapTests : IDisposable
         var err = Assert.Single(_log.Errors);
         Assert.Contains("bisbeard", err);
         Assert.Contains("8", err);
+
+    }
+
+    [Fact]
+    public async Task Swap_CorruptLayer_KeepsOldVersion()
+    {
+        using var h = new ServerHarness(settings: new Dictionary<string, string?> { ["Layers:ReloadSeconds"] = "1" });
+        await using var client = await h.ConnectAsync();
+        var (before, _) = await ServerHarness.CallAsync(client, "status");
+        Assert.Contains("bisbeard: v7", before);
+
+        var good = NewBisbeard("8");
+        var bytes = File.ReadAllBytes(good);
+        var truncated = Path.Combine(_scratch, "truncated2.sqlite");
+        File.WriteAllBytes(truncated, bytes.AsSpan(0, bytes.Length / 3).ToArray());
+        TestLayers.PublishFile(h.Root, "bisbeard", truncated, version: "8");
+
+        // Wait for the server's own reload to look at it and report the failure.
+        string text = before;
+        var sw = Stopwatch.StartNew();
+        while (sw.Elapsed < TimeSpan.FromSeconds(15) && !text.Contains("failed verification"))
+        {
+            await Task.Delay(250);
+            (text, _) = await ServerHarness.CallAsync(client, "status");
+        }
+        Assert.Contains("bisbeard: v7", text);
+        Assert.Contains("version 8 was published but failed verification", text);
+        var (hit, _) = await ServerHarness.CallAsync(client, "get", new Dictionary<string, object?> { ["id"] = "item:10531" });
+        Assert.Contains("Epic Libram", hit);
     }
 
     [Fact]
@@ -266,6 +298,67 @@ public class LayerSwapTests : IDisposable
             (after, _) = await ServerHarness.CallAsync(client, "status");
         }
         Assert.Contains("bisbeard: v8", after);
+    }
+
+    [Fact]
+    public async Task Swap_SearchQueuedForASlot_SurvivesTheSwap_WithDefaultSettings()
+    {
+        using var layers = Open();
+        var old = layers.Status().Single(s => s.Name == "bisbeard").Layer!;
+        using var release = new ManualResetEventSlim();
+        // Occupy both search slots of the old layer, so the search below has to wait for one.
+        var blockers = Enumerable.Range(0, 2).Select(_ => Task.Run(() => old.Searching(() => { release.Wait(); return 0; }))).ToList();
+        await Task.Delay(200);
+        var search = Task.Run(() => layers.Search("fireball", null, null, 10, 0));
+        await Task.Delay(300);
+        Assert.False(search.IsCompleted, "the search should be queued behind the blockers");
+
+        TestLayers.PublishFile(_root, "bisbeard", NewBisbeard("8"));
+        layers.Reload();
+        Assert.Equal("8", VersionOf(layers, "bisbeard"));
+        Assert.False(old.IsDisposed, "a queued search holds a lease on the old layer");
+
+        release.Set();
+        var hits = await search;
+        Assert.NotEmpty(hits);
+        await Task.WhenAll(blockers);
+        await WaitUntil(() => old.IsDisposed);
+        Assert.True(old.IsDisposed);
+    }
+
+    [Fact]
+    public async Task Swap_LeasesNeverSeeAClosedLayer_WhileVersionsKeepChanging()
+    {
+        using var layers = Open();
+        using var stop = new CancellationTokenSource();
+        var errors = new ConcurrentQueue<string>();
+        var done = 0L;
+        var workers = Enumerable.Range(0, 6).Select(_ => Task.Run(() =>
+        {
+            while (!stop.IsCancellationRequested)
+            {
+                try
+                {
+                    using var lease = layers.Lease("bisbeard");
+                    if (lease is null) { errors.Enqueue("no layer"); continue; }
+                    for (var i = 0; i < 5; i++) lease.Layer.Get("item:10531");   // several statements under one lease
+                    Interlocked.Increment(ref done);
+                }
+                catch (Exception ex) { errors.Enqueue(ex.GetType().Name + ": " + ex.Message); }
+            }
+        })).ToList();
+
+        for (var v = 8; v < 16; v++)
+        {
+            TestLayers.PublishFile(_root, "bisbeard", NewBisbeard(v.ToString()));
+            layers.Reload();
+        }
+        await stop.CancelAsync();
+        await Task.WhenAll(workers);
+
+        Assert.Empty(errors);
+        Assert.True(done > 0);
+        Assert.Equal("15", VersionOf(layers, "bisbeard"));
     }
 
     private static async Task WaitUntil(Func<bool> cond)

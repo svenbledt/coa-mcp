@@ -19,7 +19,7 @@ dotnet test CoaMcp.Pipeline.sln    # also needs the local SpellWork worktree
 
 - **Client files stay on this machine.** Only paths and parsed data reach the server. Never commit, upload or serve MPQ, DBC, BLP, M2 or other client file content. The publish guard must stay on.
 - **Never write into `D:\WoW\Coa\Data` or modify an MPQ.**
-- **Tokens stay secret.** Store only hashes. Tokens never appear in logs, errors, responses, tests' output or commits.
+- **The token stays secret.** It lives only in the `COA_MCP_BEARER_TOKEN` environment variable on the container. It never appears in the database, logs, errors, responses, tests' output or commits.
 - **Reads stay login-free, writes stay token-only.** Every new tool must have a test proving which side it's on.
 - **No user text in SQL.** Bind values as parameters, and check table and field names against known lists. Search input goes through `FtsQuery.FromUser`.
 - **Keep excluded data out:** the emulator's world database, decompiled code, and private player or account data.

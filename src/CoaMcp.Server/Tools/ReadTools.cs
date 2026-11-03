@@ -75,7 +75,7 @@ public sealed class ReadTools
 
         var found = _layers.Get(id.Trim());
         if (found.Count == 0) return NotFound(id.Trim());
-        return string.Join("\n\n---\n\n", found.Select(f => Render.Entity(f.Entity, f.Layer.Meta, sections)));
+        return string.Join("\n\n---\n\n", found.Select(f => Render.Entity(f.Entity, f.Meta, sections)));
     }
 
     private string NotFound(string id)

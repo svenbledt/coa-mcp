@@ -19,8 +19,9 @@ public sealed partial class SpellHelperTools
 
     public SpellHelperTools(LayerSet layers) => _layers = layers;
 
-    private Layer Spells() =>
-        _layers.Current("spells") ?? throw new McpException("The spells layer is not loaded on this server. See the status tool.");
+    /// <summary>Leases the spells layer for the whole tool call; dispose it when done.</summary>
+    private LayerLease Spells() =>
+        _layers.Lease("spells") ?? throw new McpException("The spells layer is not loaded on this server. See the status tool.");
 
     [GeneratedRegex(@"^(?:spell:)?(\d{1,10})$", RegexOptions.IgnoreCase)]
     private static partial Regex SpellIdPattern();
@@ -43,7 +44,8 @@ public sealed partial class SpellHelperTools
         [Description("First spell, e.g. spell:133 or 133.")] string idA,
         [Description("Second spell.")] string idB)
     {
-        var layer = Spells();
+        using var lease = Spells();
+        var layer = lease.Layer;
         var a = Spell(layer, SpellId(idA));
         var b = Spell(layer, SpellId(idB));
         var fa = Flatten(a.DataJson);
@@ -101,7 +103,8 @@ public sealed partial class SpellHelperTools
         [Description("Flag enum name; an unknown name lists the valid ones.")] string kind,
         [Description("The mask, decimal or 0x hex.")] string value)
     {
-        var layer = Spells();
+        using var lease = Spells();
+        var layer = lease.Layer;
         var kinds = layer.Query("SELECT kind, enum_name FROM flag_kinds ORDER BY kind");
         var match = kinds.FirstOrDefault(k => string.Equals((string)k["kind"]!, (kind ?? "").Trim(), StringComparison.OrdinalIgnoreCase));
         if (match is null)
@@ -140,7 +143,8 @@ public sealed partial class SpellHelperTools
         [Description("Caster level, 1 to 100.")] long level,
         [Description("Accepted for compatibility; it does not change the result.")] long? itemLevel = null)
     {
-        var layer = Spells();
+        using var lease = Spells();
+        var layer = lease.Layer;
         var spell = Spell(layer, SpellId(id));
         var notes = new List<string>();
         var lvl = level;

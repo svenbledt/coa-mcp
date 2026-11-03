@@ -71,8 +71,27 @@ public static class TestLayers
         File.Copy(file, dest, overwrite: true);
         var manifestPath = Path.Combine(root, "current.json");
         var manifest = File.Exists(manifestPath) ? Manifest.Parse(File.ReadAllText(manifestPath)) : new Manifest(new Dictionary<string, ManifestEntry>());
-        Manifest.WriteAtomic(manifestPath, manifest.With(name, entry));
+        WriteManifestAtomic(manifestPath, manifest.With(name, entry));
         return entry;
+    }
+
+    /// <summary>
+    /// Replaces current.json the way the publisher does on the server: write a temp file in the same folder, then rename it over the target.
+    /// POSIX rename never fails because a reader has the file open; Windows can refuse for a moment, so retry briefly.
+    /// </summary>
+    public static void WriteManifestAtomic(string path, Manifest manifest)
+    {
+        var tmp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            File.WriteAllText(tmp, manifest.ToJson());
+            for (var attempt = 0; ; attempt++)
+            {
+                try { File.Move(tmp, path, overwrite: true); break; }
+                catch (Exception ex) when (ex is UnauthorizedAccessException or IOException && attempt < 200) { Thread.Sleep(5); }
+            }
+        }
+        finally { if (File.Exists(tmp)) File.Delete(tmp); }
     }
 
     private static string? TryReadVersion(string file)

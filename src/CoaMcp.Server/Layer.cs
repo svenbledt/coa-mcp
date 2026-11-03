@@ -6,7 +6,7 @@ namespace CoaMcp.Server;
 /// <summary>
 /// One layer file with a small pool of read-only connections, so a slow search never holds up other requests.
 /// At most <see cref="SearchSlots"/> searches run at once per layer, which leaves connections free for lookups.
-/// A layer that has been swapped out is <see cref="Retire"/>d: its connections close once the requests running on it finish.
+/// A layer that has been swapped out is <see cref="Retire"/>d: its connections close once every lease and statement on it has finished.
 /// </summary>
 public sealed class Layer : IDisposable
 {
@@ -22,6 +22,7 @@ public sealed class Layer : IDisposable
     private int _active;
     private bool _retired;
     private bool _disposed;
+    private bool _readersClosed;
 
     public LayerMeta Meta { get; }
     public IReadOnlyDictionary<string, long> CountsByType { get; }
@@ -45,39 +46,58 @@ public sealed class Layer : IDisposable
         }
     }
 
-    /// <summary>Queries running right now. A retired layer stays open until this is zero.</summary>
+    /// <summary>Leases held plus statements running. A retired layer stays open until this is zero.</summary>
     public int ActiveRequests { get { lock (_gate) return _active; } }
 
     public bool IsDisposed { get { lock (_gate) return _disposed; } }
 
     /// <summary>
-    /// Marks the layer as replaced. After <paramref name="grace"/> (time for a request that already fetched this layer to start its query)
-    /// the connections close as soon as no query is running.
+    /// Takes a lease for a whole operation (a search, a tool call), so the layer cannot close between its statements.
+    /// Returns null when the layer is already closed; the caller then fetches the current layer again.
     /// </summary>
-    public void Retire(TimeSpan grace)
+    internal LayerLease? TryLease() => TryAcquire() ? new LayerLease(this) : null;
+
+    private bool TryAcquire()
     {
-        if (grace <= TimeSpan.Zero) { RetireNow(); return; }
-        _ = Task.Delay(grace).ContinueWith(_ => RetireNow(), TaskScheduler.Default);
+        lock (_gate)
+        {
+            if (_disposed) return false;
+            _active++;
+            return true;
+        }
     }
 
-    private void RetireNow()
+    internal void Release()
+    {
+        bool close;
+        lock (_gate)
+        {
+            _active--;
+            close = _retired && _active == 0 && !_disposed;
+            if (close) _disposed = true;
+        }
+        if (close) CloseReaders();
+    }
+
+    /// <summary>
+    /// Marks the layer as replaced. It closes at once if nothing is using it, otherwise when the last lease or statement ends.
+    /// There is no timer: running work is never cut off.
+    /// </summary>
+    public void Retire()
     {
         bool close;
         lock (_gate)
         {
             _retired = true;
             close = _active == 0 && !_disposed;
+            if (close) _disposed = true;   // decided and recorded under one lock, so no new user can slip in
         }
-        if (close) Dispose();
+        if (close) CloseReaders();
     }
 
     private T Use<T>(Func<LayerReader, T> work)
     {
-        lock (_gate)
-        {
-            if (_disposed) throw new ObjectDisposedException(nameof(Layer), "This layer version was replaced and released.");
-            _active++;
-        }
+        if (!TryAcquire()) throw new ObjectDisposedException(nameof(Layer), "This layer version was replaced and released.");
         try
         {
             _pool.Wait();
@@ -86,23 +106,18 @@ public sealed class Layer : IDisposable
                 if (!_idle.TryTake(out var reader))
                 {
                     reader = new LayerReader(_path);
-                    lock (_all) _all.Add(reader);
+                    lock (_all)
+                    {
+                        if (_readersClosed) { reader.Dispose(); throw new ObjectDisposedException(nameof(Layer)); }
+                        _all.Add(reader);
+                    }
                 }
                 try { return work(reader); }
                 finally { _idle.Add(reader); }
             }
             finally { _pool.Release(); }
         }
-        finally
-        {
-            bool close;
-            lock (_gate)
-            {
-                _active--;
-                close = _retired && _active == 0 && !_disposed;
-            }
-            if (close) Dispose();
-        }
+        finally { Release(); }
     }
 
     public Entity? Get(string id) => Use(r => r.Get(id));
@@ -119,6 +134,7 @@ public sealed class Layer : IDisposable
         finally { _searches.Release(); }
     }
 
+    /// <summary>Closes the layer now, even under running work. Only for shutdown; swaps use <see cref="Retire"/>.</summary>
     public void Dispose()
     {
         lock (_gate)
@@ -126,6 +142,24 @@ public sealed class Layer : IDisposable
             if (_disposed) return;
             _disposed = true;
         }
-        lock (_all) foreach (var r in _all) r.Dispose();
+        CloseReaders();
     }
+
+    private void CloseReaders()
+    {
+        lock (_all)
+        {
+            _readersClosed = true;
+            foreach (var r in _all) r.Dispose();
+        }
+    }
+}
+
+/// <summary>Keeps a <see cref="Layer"/> open for the length of one operation. Dispose it when the operation ends.</summary>
+public sealed class LayerLease : IDisposable
+{
+    private Layer? _layer;
+    internal LayerLease(Layer layer) => _layer = layer;
+    public Layer Layer => _layer ?? throw new ObjectDisposedException(nameof(LayerLease));
+    public void Dispose() => Interlocked.Exchange(ref _layer, null)?.Release();
 }

@@ -12,38 +12,33 @@ public sealed record LayerState(string Name, Layer? Layer, string? Problem, stri
 
 /// <summary>
 /// The layers the server answers from, by name. A missing or broken layer is reported, never fatal.
-/// <see cref="Reload"/> re-reads current.json and swaps in new versions: requests started afterwards use the new
-/// <see cref="Layer"/>, requests already running finish on the old one, which is released when they are done.
+/// <see cref="Reload"/> re-reads current.json and swaps in new versions: operations started afterwards use the new
+/// <see cref="Layer"/>; operations that already hold a <see cref="LayerLease"/> on the old one finish on it, and it is released when the last lease ends.
 /// </summary>
 public sealed class LayerSet : IDisposable
 {
     /// <summary>Layers the server expects. Later tasks add to this list.</summary>
     public static readonly string[] ExpectedLayers = { "bisbeard", "spells" };
 
-    /// <summary>How long a replaced layer stays usable for requests that fetched it just before the swap.</summary>
-    public static readonly TimeSpan DefaultRetireGrace = TimeSpan.FromSeconds(30);
-
     private readonly string _root;
     private readonly ILogger? _log;
-    private readonly TimeSpan _retireGrace;
     private readonly object _reloadLock = new();
     private readonly Dictionary<string, ManifestEntry> _live = new();
     private readonly Dictionary<string, (string Key, string Notice)> _failed = new();
     private string? _lastManifestError;
     private volatile IReadOnlyList<LayerState> _layers;
 
-    private LayerSet(string root, ILogger? log, TimeSpan retireGrace)
+    private LayerSet(string root, ILogger? log)
     {
         _root = root;
         _log = log;
-        _retireGrace = retireGrace;
         _layers = ExpectedLayers.Select(n => new LayerState(n, null, "missing: no layer file found")).ToList();
     }
 
     /// <summary>Loads every expected layer named in <c>current.json</c> under <paramref name="root"/>. Nothing here throws for a bad layer.</summary>
-    public static LayerSet Open(string root, ILogger? log = null, TimeSpan? retireGrace = null)
+    public static LayerSet Open(string root, ILogger? log = null)
     {
-        var set = new LayerSet(root, log, retireGrace ?? DefaultRetireGrace);
+        var set = new LayerSet(root, log);
         set.Reload();
         return set;
     }
@@ -111,7 +106,7 @@ public sealed class LayerSet : IDisposable
                 }
             }
             _layers = next;
-            foreach (var old in retired) old.Retire(_retireGrace);
+            foreach (var old in retired) old.Retire();
         }
     }
 
@@ -123,14 +118,43 @@ public sealed class LayerSet : IDisposable
 
     public IReadOnlyList<LayerState> Status() => _layers;
 
-    public Layer? Current(string name) => _layers.FirstOrDefault(l => l.Name == name)?.Layer;
+    /// <summary>
+    /// Leases the layer currently serving <paramref name="name"/> for one whole operation, or null if none is loaded.
+    /// Dispose the lease when the operation is done; a swapped-out layer stays open until then.
+    /// </summary>
+    public LayerLease? Lease(string name)
+    {
+        while (true)
+        {
+            var snapshot = _layers;
+            var layer = snapshot.FirstOrDefault(l => l.Name == name)?.Layer;
+            if (layer is null) return null;
+            var lease = layer.TryLease();
+            if (lease is not null) return lease;
+            // The layer was swapped out and released between the read and the lease: fetch the new one.
+            if (ReferenceEquals(snapshot, _layers)) return null;   // closed for shutdown
+        }
+    }
+
+    private List<(string Name, LayerLease Lease)> LeaseAll()
+    {
+        var leases = new List<(string, LayerLease)>();
+        foreach (var name in ExpectedLayers)
+            if (Lease(name) is { } l) leases.Add((name, l));
+        return leases;
+    }
 
     /// <summary>Every layer that holds <paramref name="id"/>. More than one is possible, and none are merged.</summary>
-    public IReadOnlyList<(string LayerName, Layer Layer, Entity Entity)> Get(string id) =>
-        _layers.Where(l => l.Layer is not null)
-            .Select(l => (l.Name, Layer: l.Layer!, Entity: l.Layer!.Get(id)))
-            .Where(x => x.Entity is not null)
-            .Select(x => (x.Name, x.Layer, x.Entity!)).ToList();
+    public IReadOnlyList<(string LayerName, LayerMeta Meta, Entity Entity)> Get(string id)
+    {
+        var found = new List<(string, LayerMeta, Entity)>();
+        foreach (var name in ExpectedLayers)
+        {
+            using var lease = Lease(name);
+            if (lease?.Layer.Get(id) is { } e) found.Add((name, lease.Layer.Meta, e));
+        }
+        return found;
+    }
 
     /// <summary>
     /// Searches all layers and orders the hits: exact title match, then entity type priority, then bm25 within a type.
@@ -143,15 +167,20 @@ public sealed class LayerSet : IDisposable
         var lower = string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)).ToLowerInvariant();
 
         var all = new List<Candidate>();
-        foreach (var state in _layers.Where(l => l.Layer is not null))
-            all.AddRange(LayerSearch.Run(state.Layer!, state.Name, q, lower, types, realm, limit + offset));
+        var leases = LeaseAll();   // held until the hits are built (snippets query the layer too), across any wait for a search slot
+        try
+        {
+            foreach (var (name, lease) in leases)
+                all.AddRange(LayerSearch.Run(lease.Layer, name, q, lower, types, realm, limit + offset));
 
-        return all.OrderByDescending(c => c.Exact).ThenBy(c => LayerSearch.Priority(c.Type)).ThenBy(c => c.Rank)
-            .ThenBy(c => c.Id, StringComparer.Ordinal)
-            .Skip(offset).Take(limit)
-            .Select(c => new LayerHit(c.LayerName, c.Id, c.Type, c.Title, c.Count == 1 ? LayerSearch.Snippet(c, q) : "",
-                c.Realm, c.Trust, c.Source, c.SourceDate, c.Count, c.Zones))
-            .ToList();
+            return all.OrderByDescending(c => c.Exact).ThenBy(c => LayerSearch.Priority(c.Type)).ThenBy(c => c.Rank)
+                .ThenBy(c => c.Id, StringComparer.Ordinal)
+                .Skip(offset).Take(limit)
+                .Select(c => new LayerHit(c.LayerName, c.Id, c.Type, c.Title, c.Count == 1 ? LayerSearch.Snippet(c, q) : "",
+                    c.Realm, c.Trust, c.Source, c.SourceDate, c.Count, c.Zones))
+                .ToList();
+        }
+        finally { foreach (var (_, lease) in leases) lease.Dispose(); }
     }
 
     public void Dispose()
