@@ -1,1 +1,9 @@
 .superpowers/
+bin/
+obj/
+*.MPQ
+*.mpq
+*.dbc
+*.blp
+*.m2
+*.sqlite
