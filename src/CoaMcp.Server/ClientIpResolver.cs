@@ -4,41 +4,29 @@ using System.Net.Sockets;
 namespace CoaMcp.Server;
 
 /// <summary>
-/// Works out the real client address for rate limiting. The path is: client, Cloudflare, cloudflared, Traefik, this app,
-/// and Traefik can also be reached straight from the internet, so a header is only believed when the hop that wrote it is trusted.
+/// Works out the real client address for rate limiting. The path is: client, Cloudflare edge, Traefik, this app. Traefik replaces
+/// <c>X-Forwarded-For</c> with its immediate peer, and its port is also reachable straight from the internet, where any header can be forged.
 /// <list type="number">
-/// <item>The peer must be in the trusted networks (<c>Network:TrustedProxies</c>); otherwise every header is ignored.
-/// An address listed in <c>Network:UntrustedAddresses</c> is never trusted, even inside a trusted network: Docker's gateway is the
-/// apparent client of direct IPv6 requests, so it must count as the client and not as a proxy hop.</item>
-/// <item>Walk <c>X-Forwarded-For</c> from the right while entries are trusted. The first untrusted address is the client:
-/// Traefik wrote the rightmost entry, so a direct request resolves to its real public address whatever the client put further left.</item>
-/// <item>If only trusted addresses were found, the request came through cloudflared (Traefik replaces the header with its peer).
-/// Then <c>CF-Connecting-IP</c> is used if it is one valid address; otherwise the rightmost address.</item>
+/// <item>The peer must be inside <c>Network:PeerNetworks</c> (default none); otherwise every header is ignored and the peer is the client.</item>
+/// <item>The rightmost <c>X-Forwarded-For</c> entry is what Traefik wrote. If it is a Cloudflare edge address and <c>CF-Connecting-IP</c>
+/// is one valid address, that is the client (Cloudflare sets the header itself and rejects requests that bring their own).</item>
+/// <item>Otherwise the rightmost entry is the client: a direct connection, identified by its real address. Missing or invalid: the peer.</item>
 /// </list>
 /// Addresses are normalised first: IPv4-mapped IPv6 becomes IPv4, ports and zone ids are dropped.
 /// </summary>
 public static class ClientIpResolver
 {
-    public static IPAddress Resolve(IPAddress peer, string? forwardedFor, string? cfConnectingIp, IReadOnlyList<IPNetwork> trusted, IReadOnlyList<IPAddress>? untrusted = null)
+    public static IPAddress Resolve(IPAddress peer, string? forwardedFor, string? cfConnectingIp,
+        IReadOnlyList<IPNetwork> peerNetworks, CloudflareRanges cloudflare)
     {
-        untrusted ??= Array.Empty<IPAddress>();
         var self = Normalize(peer);
-        if (trusted.Count == 0 || !IsTrusted(self, trusted, untrusted)) return self;
+        if (!InAny(self, peerNetworks)) return self;
 
-        var chain = (forwardedFor ?? "").Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-        if (chain.Length == 0) return self;
+        var last = (forwardedFor ?? "").Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
+        if (last is null || !TryParse(last, out var edge)) return self;
 
-        IPAddress? rightmost = null;
-        for (var i = chain.Length - 1; i >= 0; i--)
-        {
-            if (!TryParse(chain[i], out var address))
-                return rightmost ?? self;   // garbage is never the client; stop at the last address a trusted hop vouched for
-            if (!IsTrusted(address, trusted, untrusted)) return address;
-            rightmost ??= address;
-        }
-
-        // Every entry is a trusted hop: the request came through cloudflared.
-        return TryParseSingle(cfConnectingIp, out var cf) ? cf : rightmost ?? self;
+        if (cloudflare.Contains(edge) && TryParseSingle(cfConnectingIp, out var client)) return client;
+        return edge;
     }
 
     /// <summary>The rate-limit bucket for an address. An IPv6 client can pick any address in its /64, so the whole /64 shares one bucket.</summary>
@@ -51,11 +39,9 @@ public static class ClientIpResolver
         return new IPAddress(bytes) + "/64";
     }
 
-    private static bool IsTrusted(IPAddress address, IReadOnlyList<IPNetwork> trusted, IReadOnlyList<IPAddress> untrusted)
+    private static bool InAny(IPAddress address, IReadOnlyList<IPNetwork> networks)
     {
-        foreach (var u in untrusted)
-            if (Normalize(u).Equals(address)) return false;
-        foreach (var n in trusted)
+        foreach (var n in networks)
             if (n.Contains(address) || (address.AddressFamily == AddressFamily.InterNetwork && n.Contains(address.MapToIPv6()))) return true;
         return false;
     }

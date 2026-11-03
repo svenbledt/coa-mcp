@@ -32,7 +32,7 @@ public class LimitTests
     private static ServerHarness Limited() => new(settings: new Dictionary<string, string?>
     {
         ["RateLimit:PerMinute"] = "3",
-        ["Network:TrustedProxies:0"] = "10.0.0.0/8",
+        ["Network:PeerNetworks:0"] = "10.0.0.0/8",
     });
 
     [Fact]

@@ -10,12 +10,10 @@ services:
       - "8080"
     environment:
       Layers__Root: /data
-      # Coolify's Docker network. Forwarded client addresses (X-Forwarded-For, and CF-Connecting-IP when the request came through
-      # cloudflared) are believed only from peers on this network.
-      Network__TrustedProxies__0: 10.0.1.0/24
-      # The network's gateway is never trusted: direct IPv6 clients reach Traefik through docker-proxy and appear to come from it,
-      # so they share one rate-limit bucket and cannot pick their own with a forged CF-Connecting-IP.
-      Network__UntrustedAddresses__0: 10.0.1.1
+      # Traefik reaches the app from a private address (10.0.13.x on the app's own network). Forwarded headers are believed only
+      # from peers in these networks. Behind Traefik, X-Forwarded-For is Traefik's immediate peer; if that is a Cloudflare edge
+      # address, CF-Connecting-IP is the client, otherwise the X-Forwarded-For address itself is (a direct connection).
+      Network__PeerNetworks__0: 10.0.0.0/8
     volumes:
       # Read-write: the writable store lives at /data/writable (owned by UID 10001). Layer files are root-owned 0644 under 0755 folders,
       # so the server can read them but not change them, and it never opens them for writing.

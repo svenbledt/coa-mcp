@@ -16,9 +16,10 @@ builder.Services.AddSingleton(sp =>
 builder.Services.AddHostedService<LayerReloader>();
 
 // The real client address (used for rate limiting) comes from ClientIpResolver, which believes forwarded headers
-// only from peers in Network:TrustedProxies (CIDR list). The default list is empty: trust nothing.
-var trusted = TrustedProxies.Read(config);
-var untrusted = TrustedProxies.ReadUntrusted(config);
+// only from peers in Network:PeerNetworks (CIDR list, default none: trust nothing) and uses Cloudflare's published ranges
+// (Network:CloudflareRanges overrides them) to tell a Cloudflare request from a direct one.
+var peerNetworks = PeerNetworks.Read(config);
+var cloudflare = CloudflareRanges.FromConfig(config);
 
 var perMinute = config.GetValue("RateLimit:PerMinute", 120);
 builder.Services.AddRateLimiter(o =>
@@ -39,7 +40,7 @@ builder.Services.AddMcpServer(o => o.ServerInstructions =
 
 var app = builder.Build();
 
-TrustedProxies.Log(app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Network"), trusted, untrusted);
+PeerNetworks.Log(app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Network"), peerNetworks, cloudflare);
 // Load and verify the layers before the server starts listening, so the first request never waits for it.
 app.Services.GetRequiredService<LayerSet>();
 
@@ -47,7 +48,7 @@ app.Use((ctx, next) =>
 {
     if (ctx.Connection.RemoteIpAddress is { } peer)
         ctx.Connection.RemoteIpAddress = ClientIpResolver.Resolve(peer,
-            ctx.Request.Headers["X-Forwarded-For"].ToString(), ctx.Request.Headers["CF-Connecting-IP"].ToString(), trusted, untrusted);
+            ctx.Request.Headers["X-Forwarded-For"].ToString(), ctx.Request.Headers["CF-Connecting-IP"].ToString(), peerNetworks, cloudflare);
     return next(ctx);
 });
 app.UseRateLimiter();
