@@ -7,3 +7,4 @@ obj/
 *.blp
 *.m2
 *.sqlite
+tools/stormlib/

@@ -27,6 +27,13 @@
 
   <ItemGroup>
     <Content Include="..\..\config\bisbeard-guides.json" Link="config\bisbeard-guides.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\config\archives.json" Link="config\archives.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Built by tools/build-stormlib.ps1. Only restore and listfile load it. -->
+    <None Include="..\..\tools\stormlib\bin\StormLib.dll" Link="StormLib.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\tools\stormlib\bin\StormLib.dll')" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.IO.Hashing" Version="10.0.0" />
   </ItemGroup>
 
 </Project>

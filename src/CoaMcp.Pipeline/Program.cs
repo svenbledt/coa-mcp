@@ -1,5 +1,6 @@
 using CoaMcp.Pipeline;
 using CoaMcp.Pipeline.Bisbeard;
+using CoaMcp.Pipeline.Mpq;
 using CoaMcp.Pipeline.Publish;
 using CoaMcp.Pipeline.Spells;
 
@@ -7,9 +8,12 @@ const string Usage = """
     Usage: coamcp-pipeline bisbeard --data <DataCOA\data> --out <layer.sqlite> [--guides <bisbeard-guides.json>] [--version <v>]
            coamcp-pipeline spells --dbc <dbc folder> --out <layer.sqlite> [--version <v>]
            coamcp-pipeline publish --layer <layer.sqlite> --host <ssh host> [--dry-run]
+           coamcp-pipeline restore --data <client Data folder> --out <dir> [--config <archives.json>] [--parallel <n>]
+           coamcp-pipeline listfile --manifest <manifest.sqlite> --out <dir>
     """;
 
 if (args.Length > 0 && args[0] == "publish") return await PublishCli.RunAsync(args[1..], Console.Out, Console.Error);
+if (args.Length > 0 && args[0] is "restore" or "listfile") return MpqCli.Run(args[0], args[1..], Console.Out, Console.Error);
 
 if (args.Length == 0 || args[0] is not ("bisbeard" or "spells")) { Console.Error.WriteLine(Usage); return 2; }
 
