@@ -1,0 +1,3 @@
+{"realmId":"coa","classData":{"barbarian":{"name":"Barbarian","icon":"class-barbarian","specs":{"headhunting":{"id":1,"name":"Headhunting","icon":"x"},"brutality":{"id":2,"name":"Brutality","icon":"y"}}}},
+"classSpecs":[{"className":"Barbarian","specName":"Headhunting","defaultWeights":{"agility":1.473,"attackPower":1},"scaler":"[function Zq]"},{"className":"Barbarian","specName":"Brutality","defaultWeights":{"strength":2}}],
+"coaTalentData":{"getSpecTalentEssenceBudget":"[function Qe]"}}
