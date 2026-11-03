@@ -23,6 +23,13 @@ public class ManifestTests
     }
 
     [Fact]
+    public void ToJson_UsesLineFeedsOnly_OnEveryPlatform()
+    {
+        var m = new Manifest(new Dictionary<string, ManifestEntry>()).With("bisbeard", ManifestEntry.For("bisbeard", "7", Sha));
+        Assert.DoesNotContain('\r', m.ToJson());
+    }
+
+    [Fact]
     public void With_ReplacesOneLayerAndKeepsTheOthers()
     {
         var m = new Manifest(new Dictionary<string, ManifestEntry>())

@@ -70,7 +70,7 @@ public sealed partial class Manifest
     {
         var layers = Layers.OrderBy(l => l.Key, StringComparer.Ordinal).ToDictionary(
             l => l.Key, l => new Dictionary<string, string> { ["version"] = l.Value.Version, ["file"] = l.Value.File, ["sha256"] = l.Value.Sha256 });
-        return JsonSerializer.Serialize(new { layers }, new JsonSerializerOptions { WriteIndented = true });
+        return JsonSerializer.Serialize(new { layers }, new JsonSerializerOptions { WriteIndented = true, NewLine = "\n" });   // line feeds only, so a file written on Windows is the same bytes
     }
 
     /// <summary>

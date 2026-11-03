@@ -1,7 +1,6 @@
 using System.Threading.RateLimiting;
 using CoaMcp.Server;
 using CoaMcp.Server.Tools;
-using Microsoft.AspNetCore.HttpOverrides;
 using ModelContextProtocol.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,17 +15,9 @@ builder.Services.AddSingleton(sp =>
     LayerSet.Open(config["Layers:Root"] ?? "/data", sp.GetRequiredService<ILoggerFactory>().CreateLogger("Layers")));
 builder.Services.AddHostedService<LayerReloader>();
 
-// The real client address is only taken from X-Forwarded-For when the peer is in Network:TrustedProxies (CIDR list).
-// The default list is empty: trust nothing. With both known lists empty the middleware would trust every peer,
-// so it is only added when at least one network is configured.
+// The real client address (used for rate limiting) comes from ClientIpResolver, which believes forwarded headers
+// only from peers in Network:TrustedProxies (CIDR list). The default list is empty: trust nothing.
 var trusted = TrustedProxies.Read(config);
-builder.Services.Configure<ForwardedHeadersOptions>(o =>
-{
-    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    o.KnownProxies.Clear();
-    o.KnownIPNetworks.Clear();
-    foreach (var n in trusted) o.KnownIPNetworks.Add(n);
-});
 
 var perMinute = config.GetValue("RateLimit:PerMinute", 120);
 builder.Services.AddRateLimiter(o =>
@@ -35,7 +26,7 @@ builder.Services.AddRateLimiter(o =>
     o.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
         ctx.Request.Path == "/healthz"
             ? RateLimitPartition.GetNoLimiter("health")
-            : RateLimitPartition.GetFixedWindowLimiter(ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            : RateLimitPartition.GetFixedWindowLimiter(ctx.Connection.RemoteIpAddress is { } ip ? ClientIpResolver.RateKey(ip) : "unknown",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = perMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
 
@@ -51,7 +42,13 @@ TrustedProxies.Log(app.Services.GetRequiredService<ILoggerFactory>().CreateLogge
 // Load and verify the layers before the server starts listening, so the first request never waits for it.
 app.Services.GetRequiredService<LayerSet>();
 
-if (trusted.Count > 0) app.UseForwardedHeaders();
+app.Use((ctx, next) =>
+{
+    if (ctx.Connection.RemoteIpAddress is { } peer)
+        ctx.Connection.RemoteIpAddress = ClientIpResolver.Resolve(peer,
+            ctx.Request.Headers["X-Forwarded-For"].ToString(), ctx.Request.Headers["CF-Connecting-IP"].ToString(), trusted);
+    return next(ctx);
+});
 app.UseRateLimiter();
 app.MapGet("/healthz", () => Results.Ok());
 app.MapMcp("/mcp");

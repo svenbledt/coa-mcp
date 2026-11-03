@@ -16,7 +16,7 @@ For Claude Code: `claude mcp add --transport http coa-knowledge https://coa-mcp.
 
 ## Publish a layer
 
-Layers are built locally, then pushed to the server with `scp` and `ssh` (so the ssh host, such as `BledtIT`, must already work without a password prompt, as a user that may `chown`, normally root).
+Layers are built locally, then pushed to the server with `scp` and `ssh` (the server's login shell does not matter: commands run under `sh -s`; the ssh host, such as `BledtIT`, must already work without a password prompt, as a user that may `chown`, normally root).
 
 ```
 dotnet run --project src/CoaMcp.Pipeline -- bisbeard --data <DataCOA\data> --out bisbeard.sqlite
@@ -53,6 +53,6 @@ dotnet run --project src/CoaMcp.Server      # reads layers from Layers__Root (de
 dotnet test CoaMcp.sln
 ```
 
-Settings (environment variables): `Layers__Root` (data root), `Layers__ReloadSeconds` (default 30), `RateLimit__PerMinute` (default 120), `Network__TrustedProxies__0` (CIDR of the reverse proxy whose `X-Forwarded-For` is believed; empty means trust nothing).
+Settings (environment variables): `Layers__Root` (data root), `Layers__ReloadSeconds` (default 30), `RateLimit__PerMinute` (default 120), `Network__TrustedProxies__0` (CIDR of the proxy network; forwarded headers are believed only from peers in it, empty means trust nothing). The rate limit keys on the real client: the rightmost untrusted `X-Forwarded-For` address, or `CF-Connecting-IP` when the request came through cloudflared (all addresses trusted).
 
 Deployment is `docker-compose.yml` on Coolify, with the domain set in Coolify. The host folder `/data/coamcp` is mounted at `/data`. The publisher sets modes explicitly: layer folders 0755 and files 0644 (root-owned, so the server can read but not write them), and `writable/` owned by UID 10001 with mode 0750 for the future writable store. The server never opens layer files for writing.

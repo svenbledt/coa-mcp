@@ -229,7 +229,68 @@ public class PublisherTests : IDisposable
         Assert.Equal("--", scp[^3]);
         Assert.Equal("a b.sqlite", scp[^2]);
         Assert.Equal("BledtIT:/data/coamcp/layers/spells/3.sqlite.tmp", scp[^1]);
-        var ssh = r.SshArguments("cat > 'x'");
-        Assert.Equal(new[] { "--", "BledtIT", "cat > 'x'" }, ssh.TakeLast(3));
+        Assert.Equal(new[] { "-o", "BatchMode=yes", "--", "BledtIT", "sh -s" }, r.SshArguments());
+    }
+
+    [Fact]
+    public void SshRemote_RemoteCommandIsSafeForAnyLoginShell()
+    {
+        // The login shell on the server may be fish. The only text it parses is the ssh argument, so that argument must contain
+        // nothing either shell treats specially: no quotes, backslashes, $, ;, &, |, (, ), <, >, *, ?, or ~. The real script travels on stdin to sh.
+        foreach (var arg in new SshRemote("BledtIT").SshArguments().Skip(4))
+            Assert.Matches(@"^[A-Za-z0-9 -]+$", arg);
+    }
+
+    [Fact]
+    public void SshRemote_Script_QuotesPathsForSh_AndHasNoCarriageReturns()
+    {
+        const string odd = @"/data/co amcp's/back\slash";
+        var script = SshRemote.BuildScript(RemoteCommands.Sha256IfPresent(odd + "/x"), null);
+        Assert.Contains(Shell.Quote(odd + "/x"), script);
+        Assert.DoesNotContain('\r', script);
+        Assert.EndsWith("\n", script);
+
+        var withData = SshRemote.BuildScript(RemoteCommands.ReplaceFromStdin("/d/t", "/d/c"), "{\r\n  \"layers\": {}\r\n}");
+        Assert.DoesNotContain('\r', withData);
+        Assert.Contains("<<'COAMCP_DATA_END'", withData);
+        Assert.Contains("{\n  \"layers\": {}\n}\nCOAMCP_DATA_END\n", withData);
+    }
+
+    [Fact]
+    public void SshRemote_Script_RefusesDataThatCouldEndTheHeredocEarly() =>
+        Assert.Throws<ArgumentException>(() => SshRemote.BuildScript("cat", "a\nCOAMCP_DATA_END\nrm -rf /"));
+
+    [Fact]
+    public async Task SshRemote_Script_RunsUnderRealSh_WithAwkwardPathsAndData()
+    {
+        var sh = FindSh();
+        if (sh is null) return;   // no POSIX sh on this machine; the argument tests above still apply
+        using var dir = new TempDir();
+        const string odd = "d o'ir";      // relative to the working folder, so no Windows drive letters get in the way
+        var tmp = $"{odd}/current.json.tmp";
+        var target = $"{odd}/current.json";
+        var script = SshRemote.BuildScript(RemoteCommands.MakeLayerDirectory(odd), null)
+            + SshRemote.BuildScript(RemoteCommands.ReplaceFromStdin(tmp, target), "{\r\n \"k\": \"it's\"\r\n}\r\n")
+            + SshRemote.BuildScript(RemoteCommands.CatIfPresent(target), null);
+        var psi = new System.Diagnostics.ProcessStartInfo(sh, "-s") { WorkingDirectory = dir.Path, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
+        using var p = System.Diagnostics.Process.Start(psi)!;
+        await p.StandardInput.WriteAsync(script);
+        p.StandardInput.Close();
+        var stdout = await p.StandardOutput.ReadToEndAsync();
+        var stderr = await p.StandardError.ReadToEndAsync();
+        await p.WaitForExitAsync();
+        Assert.True(p.ExitCode == 0, stderr);
+        Assert.Equal("{\n \"k\": \"it's\"\n}\n", File.ReadAllText(Path.Combine(dir.Path, odd, "current.json")));
+        Assert.Equal("{\n \"k\": \"it's\"\n}\n", stdout);
+    }
+
+    private static string? FindSh()
+    {
+        foreach (var d in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator))
+        {
+            var f = Path.Combine(d, OperatingSystem.IsWindows() ? "sh.exe" : "sh");
+            if (File.Exists(f)) return f;
+        }
+        return null;
     }
 }
