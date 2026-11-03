@@ -22,9 +22,9 @@ public static class TestLayers
         string[] realms, bool proven, string? data = null, params Link[] links) =>
         new(id, type, title, new RealmSet(realms, proven), trust, source, Date, body, data, links);
 
-    private static void BuildBisbeard(string path)
+    public static void BuildBisbeard(string path, string version = "7", Action<LayerWriter>? extra = null)
     {
-        using var w = new LayerWriter(path, "bisbeard", "7");
+        using var w = new LayerWriter(path, "bisbeard", version);
         w.Add(E("item:10531", "item", "Libram of the Dawn", "Epic Libram Ranged\nItem level: 65\n", "BisBeard", Trust.Derived, new[] { "coa" }, true));
         w.Add(E("item:wotlk:10531", "item", "Libram of the Dawn", "Wotlk copy of the libram.\n", "BisBeard", Trust.Derived, new[] { "wotlk" }, true));
         w.Add(E("class:coa:barbarian", "class", "Barbarian", "Barbarian class, a melee class.\n", "BisBeard", Trust.Derived, new[] { "coa" }, true));
@@ -44,7 +44,42 @@ public static class TestLayers
         w.Add(E(TrickyPageId, "guide", "Tricky guide",
             "Preamble line.\n\n## Real\nreal text\n```\n## Fake fenced\nfenced text\n```\n    ## Fake indented\nindented text\n### Sub heading\nsub text\n\n## Other\nother text\n",
             "BisBeard", Trust.Derived, new[] { "coa" }, false));
+        extra?.Invoke(w);
         w.Finish();
+    }
+
+    /// <summary>
+    /// Lays the flat layer files of <paramref name="staging"/> out the way the server expects them:
+    /// layers/&lt;name&gt;/&lt;version&gt;.sqlite plus current.json. Returns the new data root.
+    /// </summary>
+    public static string Publish(string staging)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "coamcp-root-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        foreach (var file in Directory.GetFiles(staging, "*.sqlite"))
+            PublishFile(root, Path.GetFileNameWithoutExtension(file), file);
+        return root;
+    }
+
+    /// <summary>Copies one layer file into the data root and points current.json at it. A file that is not a layer gets version 0.</summary>
+    public static ManifestEntry PublishFile(string root, string name, string file, string? version = null)
+    {
+        version ??= TryReadVersion(file) ?? "0";
+        var entry = ManifestEntry.For(name, version, Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(file))));
+        var dest = Path.Combine(root, entry.File);
+        Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+        File.Copy(file, dest, overwrite: true);
+        var manifestPath = Path.Combine(root, "current.json");
+        var manifest = File.Exists(manifestPath) ? Manifest.Parse(File.ReadAllText(manifestPath)) : new Manifest(new Dictionary<string, ManifestEntry>());
+        Manifest.WriteAtomic(manifestPath, manifest.With(name, entry));
+        return entry;
+    }
+
+    private static string? TryReadVersion(string file)
+    {
+        try { using var r = new LayerReader(file); return r.Meta.Version; }
+        catch (Exception) { return null; }
+        finally { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); }
     }
 
     private static void BuildSpells(string path)

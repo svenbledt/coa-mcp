@@ -1,0 +1,6 @@
+# Send nothing to the build except the two projects the server needs.
+*
+!src/CoaMcp.Core/**
+!src/CoaMcp.Server/**
+**/bin
+**/obj

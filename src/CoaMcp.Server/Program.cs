@@ -10,14 +10,16 @@ var config = builder.Configuration;
 // Request bodies for the tools are tiny; refuse anything big before it is read.
 builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 64 * 1024);
 
+// Layers live under Layers:Root as layers/<name>/<version>.sqlite, and current.json names the live versions.
+// The server only reads there. LayerReloader re-reads current.json every Layers:ReloadSeconds (default 30).
 builder.Services.AddSingleton(sp =>
-    LayerSet.Open(config["Layers:Dir"] ?? "layers", sp.GetRequiredService<ILoggerFactory>().CreateLogger("Layers")));
+    LayerSet.Open(config["Layers:Root"] ?? "/data", sp.GetRequiredService<ILoggerFactory>().CreateLogger("Layers")));
+builder.Services.AddHostedService<LayerReloader>();
 
 // The real client address is only taken from X-Forwarded-For when the peer is in Network:TrustedProxies (CIDR list).
 // The default list is empty: trust nothing. With both known lists empty the middleware would trust every peer,
 // so it is only added when at least one network is configured.
-var trusted = (config.GetSection("Network:TrustedProxies").Get<string[]>() ?? Array.Empty<string>())
-    .Select(System.Net.IPNetwork.Parse).ToList();
+var trusted = TrustedProxies.Read(config);
 builder.Services.Configure<ForwardedHeadersOptions>(o =>
 {
     o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -44,6 +46,10 @@ builder.Services.AddMcpServer(o => o.ServerInstructions =
     .WithTools<SpellHelperTools>();
 
 var app = builder.Build();
+
+TrustedProxies.Log(app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Network"), trusted);
+// Load and verify the layers before the server starts listening, so the first request never waits for it.
+app.Services.GetRequiredService<LayerSet>();
 
 if (trusted.Count > 0) app.UseForwardedHeaders();
 app.UseRateLimiter();

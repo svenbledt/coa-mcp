@@ -1,10 +1,14 @@
 using CoaMcp.Pipeline.Bisbeard;
+using CoaMcp.Pipeline.Publish;
 using CoaMcp.Pipeline.Spells;
 
 const string Usage = """
     Usage: coamcp-pipeline bisbeard --data <DataCOA\data> --out <layer.sqlite> [--guides <bisbeard-guides.json>]
            coamcp-pipeline spells --dbc <dbc folder> --out <layer.sqlite>
+           coamcp-pipeline publish --layer <layer.sqlite> --host <ssh host> [--dry-run]
     """;
+
+if (args.Length > 0 && args[0] == "publish") return await PublishCli.RunAsync(args[1..], Console.Out, Console.Error);
 
 if (args.Length == 0 || args[0] is not ("bisbeard" or "spells")) { Console.Error.WriteLine(Usage); return 2; }
 

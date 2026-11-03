@@ -9,8 +9,8 @@ public class LayerConcurrencyTests
     [Fact]
     public async Task Get_IsNotBlockedWhileOtherQueriesRunOnTheSameLayer()
     {
-        var dir = TestLayers.Build();
-        using var layers = LayerSet.Open(dir);
+        var root = TestLayers.Publish(TestLayers.Build());
+        using var layers = LayerSet.Open(root);
         var layer = layers.Current("bisbeard")!;
 
         var slow = Enumerable.Range(0, 3).Select(_ => Task.Run(() => layer.Query(Slow))).ToList();
