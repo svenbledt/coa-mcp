@@ -1,3 +1,13 @@
 {"realmId":"coa","classData":{"barbarian":{"name":"Barbarian","icon":"class-barbarian","specs":{"headhunting":{"id":1,"name":"Headhunting","icon":"x"},"brutality":{"id":2,"name":"Brutality","icon":"y"}}}},
 "classSpecs":[{"className":"Barbarian","specName":"Headhunting","defaultWeights":{"agility":1.473,"attackPower":1},"scaler":"[function Zq]"},{"className":"Barbarian","specName":"Brutality","defaultWeights":{"strength":2}}],
-"coaTalentData":{"getSpecTalentEssenceBudget":"[function Qe]"}}
+"coaTalentData":{
+ "classes":[{"id":12,"name":"Barbarian","key":"barbarian","tabs":[{"id":31,"name":"Brutality","key":"brutality","tabKey":"12:31","kind":"spec","specKey":"brutality"},{"id":32,"name":"Headhunting","key":"headhunting","tabKey":"12:32","kind":"spec","specKey":"headhunting"}]}],
+ "essenceByClass":{"12":{"abilityEssence":26,"talentEssence":25}},
+ "nodesByTab":{"12:31":[{"id":6742,"name":"Pure Power","spellId":6742,"nodeType":"SpendSquare","maxPoints":3,"requiredLevel":11,"cost":{"abilityEssence":0,"talentEssence":1},"description":"Increases your strength by 3%.","hook":"[function h]"}],"12:32":[]},
+ "passivesByTab":{"12:31":[{"id":9171,"name":"Body Builder","spellId":9171,"level":10,"description":"Your stamina is increased.\nStacks."}],"12:32":[]},
+ "specRolesByClassSpec":{"barbarian":{"brutality":"melee-dps","headhunting":"ranged-dps"}},
+ "specRoleMeta":{"melee-dps":{"label":"Melee Damage Dealer"},"ranged-dps":{"label":"Ranged Damage Dealer"}},
+ "getSpecTalentEssenceBudget":"[function Qe]"},
+"raceRules":{"races":[{"key":"human","name":"Human","faction":"alliance"},{"key":"orc","name":"Orc","faction":"horde"}],"allowedClassesByRace":{"Human":["Barbarian"],"Orc":["Barbarian"]},"allowedRacesByClass":{"Barbarian":["Human","Orc"]}},
+"equipmentRules":{"armorPermissions":{"Barbarian":["Cloth","Leather"]},"weaponPermissions":{"Barbarian":{"dualWield":true,"shield":false,"allowedTypes":["Axe","Mace"]}}},
+"statScaling":{"source":"coa-text","level":60,"ratingConversions":{"CRIT_RATING_TO_PERCENT":14}}}

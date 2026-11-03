@@ -1,50 +1,182 @@
 {
-  "AboutPage": { "realms": ["octo"] },
-  "ContactPage": { "excluded": "site contact page, not game knowledge" },
-  "GuidePage": { "excluded": "empty page template, no guide content" },
-  "GuidesIndex": { "excluded": "site index of guide links, no game facts" },
-  "PrivacyPolicy": { "excluded": "site policy, not game knowledge" },
-  "TermsOfService": { "excluded": "site policy, not game knowledge" },
-  "affliction-warlock-bis-phase-2": { "realms": ["coa", "classic", "s10"] },
-  "arcane-mage-guide": { "realms": ["coa", "classic", "s10"] },
-  "best-class-wow-classic-plus": { "realms": ["coa", "classic", "s10"] },
-  "best-gaming-laptop-settings-world-of-warcraft-mmorpgs": { "excluded": "general hardware advice, not game knowledge" },
-  "best-gaming-mouse-keybinds-world-of-warcraft": { "excluded": "general hardware advice, not game knowledge" },
-  "best-internet-settings-for-online-gaming": { "excluded": "general networking advice, not game knowledge" },
-  "best-mmorpgs-like-world-of-warcraft": { "excluded": "general MMORPG listicle, not game knowledge" },
-  "best-monitor-settings-world-of-warcraft-mmorpgs": { "excluded": "general hardware advice, not game knowledge" },
-  "best-vpn-online-games-world-of-warcraft": { "excluded": "general VPN advice, not game knowledge" },
-  "best-world-of-warcraft-addons": { "realms": ["coa", "classic", "s10"] },
-  "combat-rogue-bis-phase-2": { "realms": ["coa", "classic", "s10"] },
-  "dps-tier-list-phase-1": { "realms": ["coa", "classic", "s10"] },
-  "dps-tier-list-phase-2": { "realms": ["coa", "classic", "s10"] },
-  "dps-warrior-guide": { "realms": ["coa", "classic", "s10"] },
-  "druid-talent-builds": { "realms": ["coa", "classic", "s10"] },
-  "elemental-shaman-bis-phase-2": { "realms": ["coa", "classic", "s10"] },
-  "fire-mage-bis-phase-2": { "realms": ["coa", "classic", "s10"] },
-  "fury-warrior-bis-phase-2": { "realms": ["coa", "classic", "s10"] },
-  "holy-paladin-bis-phase-2": { "realms": ["coa", "classic", "s10"] },
-  "how-to-use-bisbeard": { "realms": ["coa", "classic", "s10"] },
-  "hunter-talent-builds": { "realms": ["coa", "classic", "s10"] },
-  "mage-talent-builds": { "realms": ["coa", "classic", "s10"] },
-  "marksmanship-hunter-bis-phase-2": { "realms": ["coa", "classic", "s10"] },
-  "molten-core-loot-guide": { "realms": ["coa", "classic", "s10"] },
-  "mystic-enchants-guide": { "realms": ["coa", "classic", "s10"] },
-  "onyxia-loot-guide": { "realms": ["coa", "classic", "s10"] },
-  "paladin-talent-builds": { "realms": ["coa", "classic", "s10"] },
-  "priest-talent-builds": { "realms": ["coa", "classic", "s10"] },
-  "project-ascension-builds-guide": { "realms": ["coa", "classic", "s10"] },
-  "protection-warrior-bis-phase-2": { "realms": ["coa", "classic", "s10"] },
-  "reduce-lag-improve-fps-world-of-warcraft": { "excluded": "general performance advice, not game knowledge" },
-  "restoration-druid-bis-phase-2": { "realms": ["coa", "classic", "s10"] },
-  "rogue-talent-builds": { "realms": ["coa", "classic", "s10"] },
-  "shadow-priest-bis-phase-2": { "realms": ["coa", "classic", "s10"] },
-  "shaman-talent-builds": { "realms": ["coa", "classic", "s10"] },
-  "understanding-stat-weights": { "realms": ["coa", "classic", "s10"] },
-  "warlock-talent-builds": { "realms": ["coa", "classic", "s10"] },
-  "warlock-tank-guide": { "realms": ["coa", "classic", "s10"] },
-  "warrior-talent-builds": { "realms": ["coa", "classic", "s10"] },
-  "world-of-warcraft-classes-explained": { "realms": ["coa", "classic", "s10"] },
-  "wow-classic-plus-beginners-guide": { "realms": ["coa", "classic", "s10"] },
-  "zul-gurub-loot-guide": { "realms": ["coa", "classic", "s10"] }
+  "AboutPage": {
+    "realms": ["octo"],
+    "note": "text says BisBeard Octo is a planner for Octo 1.18.1"
+  },
+  "ContactPage": {
+    "excluded": "site contact page, not game knowledge"
+  },
+  "GuidePage": {
+    "excluded": "empty page template, no guide content"
+  },
+  "GuidesIndex": {
+    "excluded": "site index of guide links, no game facts"
+  },
+  "PrivacyPolicy": {
+    "excluded": "site policy, not game knowledge"
+  },
+  "TermsOfService": {
+    "excluded": "site policy, not game knowledge"
+  },
+  "affliction-warlock-bis-phase-2": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "arcane-mage-guide": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "best-class-wow-classic-plus": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "best-gaming-laptop-settings-world-of-warcraft-mmorpgs": {
+    "excluded": "general hardware advice, not game knowledge"
+  },
+  "best-gaming-mouse-keybinds-world-of-warcraft": {
+    "excluded": "general hardware advice, not game knowledge"
+  },
+  "best-internet-settings-for-online-gaming": {
+    "excluded": "general networking advice, not game knowledge"
+  },
+  "best-mmorpgs-like-world-of-warcraft": {
+    "excluded": "general MMORPG listicle, not game knowledge"
+  },
+  "best-monitor-settings-world-of-warcraft-mmorpgs": {
+    "excluded": "general hardware advice, not game knowledge"
+  },
+  "best-vpn-online-games-world-of-warcraft": {
+    "excluded": "general VPN advice, not game knowledge"
+  },
+  "best-world-of-warcraft-addons": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "combat-rogue-bis-phase-2": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "dps-tier-list-phase-1": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "dps-tier-list-phase-2": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "dps-warrior-guide": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "druid-talent-builds": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "elemental-shaman-bis-phase-2": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "fire-mage-bis-phase-2": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "fury-warrior-bis-phase-2": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "holy-paladin-bis-phase-2": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "how-to-use-bisbeard": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "hunter-talent-builds": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "mage-talent-builds": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "marksmanship-hunter-bis-phase-2": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "molten-core-loot-guide": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "mystic-enchants-guide": {
+    "realms": ["classic"],
+    "note": "text says Mystic Enchants are exclusive to the Classic realm"
+  },
+  "onyxia-loot-guide": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "paladin-talent-builds": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "priest-talent-builds": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "project-ascension-builds-guide": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "protection-warrior-bis-phase-2": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "reduce-lag-improve-fps-world-of-warcraft": {
+    "excluded": "general performance advice, not game knowledge"
+  },
+  "restoration-druid-bis-phase-2": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "rogue-talent-builds": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "shadow-priest-bis-phase-2": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "shaman-talent-builds": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "understanding-stat-weights": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "warlock-talent-builds": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "warlock-tank-guide": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "warrior-talent-builds": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "world-of-warcraft-classes-explained": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "wow-classic-plus-beginners-guide": {
+    "realms": [],
+    "note": "no realm stated"
+  },
+  "zul-gurub-loot-guide": {
+    "realms": [],
+    "note": "no realm stated"
+  }
 }

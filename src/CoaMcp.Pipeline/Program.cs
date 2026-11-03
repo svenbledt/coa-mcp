@@ -22,7 +22,7 @@ if (data is null || output is null) { Console.Error.WriteLine(Usage); return 2; 
 try
 {
     var n = BisbeardImport.Run(data, guides, output);
-    Console.WriteLine($"bisbeard layer written to {output}: {n.Items} items, {n.Classes} classes, {n.Specs} specs, {n.Markers} markers, {n.Guides} guides");
+    Console.WriteLine($"bisbeard layer written to {output}: {n.Items} items, {n.Classes} classes, {n.Specs} specs, {n.Markers} markers, {n.Guides} guides, {n.Talents} talents pages, {n.Rules} rules pages");
     return 0;
 }
 catch (Exception ex) when (ex is InvalidOperationException or InvalidDataException or IOException or System.Text.Json.JsonException)

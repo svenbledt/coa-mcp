@@ -119,6 +119,74 @@ public sealed class BisbeardTests : IDisposable
     }
 
     [Fact]
+    public void Guide_NoRealmInConfig_IsUnknown()
+    {
+        using var r = Import();
+
+        var g = r.Get("guide:arcane-mage-guide");
+        Assert.NotNull(g);
+        Assert.Empty(g.Realm.Realms);
+        Assert.False(g.Realm.Proven);
+        Assert.Equal("unknown", g.Realm.Label());
+        Assert.Equal("Classic", r.Get("guide:mystic-enchants-guide")!.Realm.Label());
+    }
+
+    [Fact]
+    public void Talents_CoaClassPage_HasNodes()
+    {
+        using var r = Import();
+
+        var t = r.Get("talents:coa:barbarian");
+        Assert.NotNull(t);
+        Assert.Equal("talents", t.Type);
+        Assert.Equal(Trust.Derived, t.Trust);
+        Assert.Equal(new[] { "coa" }, t.Realm.Realms);
+        Assert.Contains("Brutality", t.BodyMd);
+        Assert.Contains("Melee Damage Dealer", t.BodyMd);
+        Assert.Contains("Pure Power", t.BodyMd);
+        Assert.Contains("Increases your strength by 3%.", t.BodyMd);
+        Assert.Contains("Body Builder", t.BodyMd);
+        Assert.Contains("25", t.BodyMd);
+        Assert.Contains(BisbeardImport.Credit, t.BodyMd);
+        Assert.Contains("\"nodesByTab\"", t.DataJson);
+        Assert.DoesNotContain("[function", t.DataJson);
+        Assert.Contains(r.Get("class:coa:barbarian")!.Links, l => l.ToId == "talents:coa:barbarian");
+        Assert.Contains(t.Links, l => l.ToId == "class:coa:barbarian");
+    }
+
+    [Fact]
+    public void Talents_OtherRealmGrid_ImportedOnlyWherePopulated()
+    {
+        using var r = Import();
+
+        var t = r.Get("talents:wotlk:mage");
+        Assert.NotNull(t);
+        Assert.Contains("Improved Fire Blast", t.BodyMd);
+        Assert.Contains("2 sec", t.BodyMd);
+        Assert.Null(r.Get("talents:wotlk:warrior"));
+        Assert.DoesNotContain(r.Get("class:wotlk:warrior")!.Links, l => l.Kind == "has-talents");
+    }
+
+    [Fact]
+    public void Rules_RacePage_Exists()
+    {
+        using var r = Import();
+
+        var races = r.Get("rules:coa:races");
+        Assert.NotNull(races);
+        Assert.Equal("rules", races.Type);
+        Assert.Equal(Trust.Derived, races.Trust);
+        Assert.Contains("Orc", races.BodyMd);
+        Assert.Contains("horde", races.BodyMd);
+        Assert.Contains(BisbeardImport.Credit, races.BodyMd);
+        Assert.NotNull(r.Get("rules:coa:equipment"));
+        Assert.Contains("Cloth", r.Get("rules:coa:equipment")!.BodyMd);
+        Assert.NotNull(r.Get("rules:coa:stat-scaling"));
+        Assert.NotNull(r.Get("rules:wotlk:stat-scaling"));
+        Assert.Null(r.Get("rules:wotlk:races"));
+    }
+
+    [Fact]
     public void Guide_NotInConfig_FailsTheBuild()
     {
         File.WriteAllText(Path.Combine(_data, "guides_text", "brand-new-guide.txt"), "Fresh page.");

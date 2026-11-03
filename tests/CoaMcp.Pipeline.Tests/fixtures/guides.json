@@ -1,4 +1,5 @@
 {
-  "arcane-mage-guide": { "realms": ["coa", "classic", "s10"] },
+  "arcane-mage-guide": { "realms": [], "note": "no realm stated" },
+  "mystic-enchants-guide": { "realms": ["classic"], "note": "text says exclusive to the Classic realm" },
   "best-vpn-online-games-world-of-warcraft": { "excluded": "general VPN advice, not game knowledge" }
 }

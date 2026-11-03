@@ -28,7 +28,7 @@ public static class GuideImporter
             var slug = Path.GetFileNameWithoutExtension(file);
             var rule = config[slug];
             if (!string.IsNullOrWhiteSpace(rule.Excluded)) continue;
-            if (rule.Realms is not { Count: > 0 })
+            if (rule.Realms is null)
                 throw new InvalidOperationException($"Guide '{slug}' has neither realms nor an exclusion reason.");
             guides.Add(new Guide(slug, File.ReadAllText(file).Replace("\r\n", "\n").Trim(), rule.Realms));
         }
@@ -53,5 +53,6 @@ public static class GuideImporter
     {
         public List<string>? Realms { get; set; }
         public string? Excluded { get; set; }
+        public string? Note { get; set; }
     }
 }
