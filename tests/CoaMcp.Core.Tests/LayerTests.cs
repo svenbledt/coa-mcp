@@ -82,8 +82,11 @@ public sealed class LayerTests : IDisposable
         Assert.Equal(new[] { "a", "c" }, r.Search(q, null, "coa", 10, 0).Select(h => h.Id).OrderBy(x => x));
         Assert.Equal(new[] { "a" }, r.Search(q, "spell", "coa", 10, 0).Select(h => h.Id));
         Assert.Equal(new[] { "b" }, r.Search(q, "spell", "classic", 10, 0).Select(h => h.Id));
-        Assert.Single(r.Search(q, null, null, 1, 0));
-        Assert.Single(r.Search(q, null, null, 10, 2));
+        var all = r.Search(q, null, null, 10, 0);
+        Assert.Equal(3, all.Count);
+        Assert.Equal(all[0].Id, Assert.Single(r.Search(q, null, null, 1, 0)).Id);
+        Assert.Equal(all[1].Id, Assert.Single(r.Search(q, null, null, 1, 1)).Id);
+        Assert.Equal(all[2].Id, Assert.Single(r.Search(q, null, null, 10, 2)).Id);
     }
 
     [Fact]
@@ -115,6 +118,38 @@ public sealed class LayerTests : IDisposable
 
         Assert.NotNull(hits);
         Assert.NotNull(r.Get("a"));
+    }
+
+    [Fact]
+    public void Open_UnfinishedBuild_ThrowsClearErrorAndReleasesFile()
+    {
+        var path = Path.Combine(_dir, "unfinished.sqlite");
+        using (var w = new LayerWriter(path, "test", "1.0"))
+            w.Add(Make("a", "spell", "Fireball", "x", "coa"));
+
+        var ex = Assert.Throws<InvalidDataException>(() => new LayerReader(path));
+        Assert.Contains("not a finished layer file", ex.Message);
+        File.Delete(path);
+        Assert.False(File.Exists(path));
+    }
+
+    [Fact]
+    public void Open_NonSqliteFile_ThrowsClearError()
+    {
+        var path = Path.Combine(_dir, "junk.sqlite");
+        File.WriteAllText(path, "this is not a database, just some text padding to be long enough");
+        var ex = Assert.Throws<InvalidDataException>(() => new LayerReader(path));
+        Assert.Contains("not a layer file", ex.Message);
+        File.Delete(path);
+    }
+
+    [Fact]
+    public void Add_DuplicateId_ThrowsNamingTheId()
+    {
+        using var w = new LayerWriter(Path.Combine(_dir, "dup.sqlite"), "test", "1.0");
+        w.Add(Make("spell:1", "spell", "A", "x", "coa"));
+        var ex = Assert.Throws<InvalidOperationException>(() => w.Add(Make("spell:1", "spell", "B", "y", "coa")));
+        Assert.Contains("spell:1", ex.Message);
     }
 
     [Fact]

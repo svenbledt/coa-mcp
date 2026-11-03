@@ -19,9 +19,33 @@ public sealed class LayerReader : IDisposable
             Mode = SqliteOpenMode.ReadOnly,
             Pooling = false,
         }.ToString());
-        _db.Open();
-        var m = Query("SELECT name, version, built_at, source_date FROM layer_meta").Single();
-        Meta = new LayerMeta((string)m["name"]!, (string)m["version"]!,
+        try
+        {
+            _db.Open();
+            Meta = ReadMeta(path);
+        }
+        catch
+        {
+            _db.Dispose();
+            throw;
+        }
+    }
+
+    private LayerMeta ReadMeta(string path)
+    {
+        IReadOnlyList<IReadOnlyDictionary<string, object?>> rows;
+        try
+        {
+            rows = Query("SELECT name, version, built_at, source_date FROM layer_meta");
+        }
+        catch (SqliteException ex)
+        {
+            throw new InvalidDataException($"'{path}' is not a layer file (no readable layer_meta).", ex);
+        }
+        if (rows.Count != 1)
+            throw new InvalidDataException($"'{path}' is not a finished layer file (layer_meta has {rows.Count} rows).");
+        var m = rows[0];
+        return new LayerMeta((string)m["name"]!, (string)m["version"]!,
             DateTimeOffset.Parse((string)m["built_at"]!, CultureInfo.InvariantCulture),
             DateOnly.ParseExact((string)m["source_date"]!, "yyyy-MM-dd", CultureInfo.InvariantCulture));
     }

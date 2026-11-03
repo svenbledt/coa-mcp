@@ -17,6 +17,20 @@ public sealed class LayerWriter : IDisposable
         _name = name;
         _version = version;
         _db = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = path, Pooling = false }.ToString());
+        try
+        {
+            Init();
+        }
+        catch
+        {
+            _tx?.Dispose();
+            _db.Dispose();
+            throw;
+        }
+    }
+
+    private void Init()
+    {
         _db.Open();
         Run("""
             CREATE TABLE entities(
@@ -34,6 +48,18 @@ public sealed class LayerWriter : IDisposable
     }
 
     public void Add(Entity e)
+    {
+        try
+        {
+            AddEntity(e);
+        }
+        catch (SqliteException ex) when (ex.SqliteExtendedErrorCode is 1555 or 2067)
+        {
+            throw new InvalidOperationException($"Duplicate entity id '{e.Id}'.", ex);
+        }
+    }
+
+    private void AddEntity(Entity e)
     {
         Run("INSERT INTO entities VALUES ($0,$1,$2,$3,$4,$5,$6,$7,$8,$9)",
             e.Id, e.Type, e.Title, JsonSerializer.Serialize(e.Realm.Realms), e.Realm.Proven ? 1L : 0L,
