@@ -7,6 +7,7 @@ public static class MpqCli
         Usage: coamcp-pipeline restore --data <client Data folder> --out <dir> [--config <archives.json>] [--parallel <n>] [--prune-gone] [--allow-empty]
                coamcp-pipeline listfile --manifest <manifest.sqlite> --out <dir>
                coamcp-pipeline archive-check --data <client Data folder> [--config <archives.json>]
+               coamcp-pipeline paths --manifest <manifest.sqlite> --out <layer.sqlite> [--config <archives.json>] [--version <v>]
         """;
 
     public static int Run(string command, string[] args, TextWriter output, TextWriter error)
@@ -27,6 +28,7 @@ public static class MpqCli
             {
                 "restore" => Restore(values, pruneGone, allowEmpty, output, error),
                 "archive-check" => ArchiveCheck(values, output, error),
+                "paths" => Paths(values, output, error),
                 _ => Listfile(values, output, error),
             };
         }
@@ -77,6 +79,20 @@ public static class MpqCli
         foreach (var gone in r.GoneArchives)
             output.WriteLine(pruneGone ? "pruned, no longer on disk: " + gone : $"no longer on disk, kept (remove with --prune-gone): {gone}");
         return r.Failed == 0 && r.BrokenArchives.Count == 0 && (pruneGone || r.GoneArchives.Count == 0) ? 0 : 1;
+    }
+
+    /// <summary>Builds the paths layer from a finished restore's manifest. Reads the manifest only.</summary>
+    private static int Paths(Dictionary<string, string> v, TextWriter output, TextWriter error)
+    {
+        if (!v.TryGetValue("--manifest", out var manifest) || !v.TryGetValue("--out", out var layer)
+            || v.Keys.Except(["--manifest", "--out", "--config", "--version"]).Any()) { error.WriteLine(Usage); return 2; }
+        var config = ArchiveConfig.Load(v.GetValueOrDefault("--config") ?? Path.Combine(AppContext.BaseDirectory, "config", "archives.json"));
+        var version = LayerVersion.Resolve(v.GetValueOrDefault("--version"));
+
+        var started = DateTime.UtcNow;
+        var r = PathExporter.Run(manifest, config, layer, version, progress: n => output.WriteLine($"  {n:N0} paths ({DateTime.UtcNow - started:hh\\:mm\\:ss})"));
+        output.WriteLine($"paths layer v{version} written to {layer}: {r.Paths:N0} paths in {r.Folders:N0} folders, {r.Deleted:N0} removed by a later patch, {r.Unavailable:N0} not in the default client, {r.ProjectWinners:N0} won by a project archive; {r.Unnamed:N0} unnamed entries left out, {r.InternalSkipped:N0} archive internals left out, from {r.Entries:N0} manifest entries");
+        return 0;
     }
 
     private static int Listfile(Dictionary<string, string> v, TextWriter output, TextWriter error)

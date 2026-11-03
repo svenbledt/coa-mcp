@@ -11,10 +11,11 @@ const string Usage = """
            coamcp-pipeline restore --data <client Data folder> --out <dir> [--config <archives.json>] [--parallel <n>] [--prune-gone]
            coamcp-pipeline listfile --manifest <manifest.sqlite> --out <dir>
            coamcp-pipeline archive-check --data <client Data folder> [--config <archives.json>]
+           coamcp-pipeline paths --manifest <manifest.sqlite> --out <layer.sqlite> [--config <archives.json>] [--version <v>]
     """;
 
 if (args.Length > 0 && args[0] == "publish") return await PublishCli.RunAsync(args[1..], Console.Out, Console.Error);
-if (args.Length > 0 && args[0] is "restore" or "listfile" or "archive-check") return MpqCli.Run(args[0], args[1..], Console.Out, Console.Error);
+if (args.Length > 0 && args[0] is "restore" or "listfile" or "archive-check" or "paths") return MpqCli.Run(args[0], args[1..], Console.Out, Console.Error);
 
 if (args.Length == 0 || args[0] is not ("bisbeard" or "spells")) { Console.Error.WriteLine(Usage); return 2; }
 

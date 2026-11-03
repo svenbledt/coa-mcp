@@ -9,12 +9,13 @@ public static class TestLayers
     public static readonly string BigPageId = "talents:coa:testclass";
     public static readonly string TrickyPageId = "guide:coa:tricky";
 
-    public static string Build(bool withSpells = true, bool withBisbeard = true)
+    public static string Build(bool withSpells = true, bool withBisbeard = true, bool withPaths = true)
     {
         var dir = Path.Combine(Path.GetTempPath(), "coamcp-test-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         if (withBisbeard) BuildBisbeard(Path.Combine(dir, "bisbeard.sqlite"));
         if (withSpells) BuildSpells(Path.Combine(dir, "spells.sqlite"));
+        if (withPaths) BuildPaths(Path.Combine(dir, "paths.sqlite"));
         return dir;
     }
 
@@ -99,6 +100,40 @@ public static class TestLayers
         try { using var r = new LayerReader(file); return r.Meta.Version; }
         catch (Exception) { return null; }
         finally { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); }
+    }
+
+    private static string H(params (string Archive, string Origin, long? Size, bool Deleted, string? Realm)[] holders) =>
+        System.Text.Json.JsonSerializer.Serialize(holders.Select(h => new Dictionary<string, object?>
+        {
+            ["a"] = h.Archive, ["o"] = h.Origin, ["s"] = h.Size, ["d"] = h.Deleted ? 1 : null, ["r"] = h.Realm,
+        }.Where(kv => kv.Value is not null).ToDictionary(kv => kv.Key, kv => kv.Value)));
+
+    /// <summary>A small paths layer built with the same builder the pipeline uses.</summary>
+    public static void BuildPaths(string path)
+    {
+        using var w = new LayerWriter(path, "paths", "2");
+        var b = new PathsLayerBuilder(w);
+        b.Add(new PathRecord("DBFilesClient/Map.dbc", 900, "patch-S.MPQ", "unknown", false, null, null,
+            H(("patch-S.MPQ", "unknown", 900, false, null), ("common.MPQ", "unknown", 800, false, null))));
+        b.Add(new PathRecord("DBFilesClient/Spell.dbc", 4096, "patch-S.MPQ", "unknown", false, null, null,
+            H(("patch-S.MPQ", "unknown", 4096, false, null))));
+        b.Add(new PathRecord("DBFilesClient/SpellVisual.dbc", 2962964, "patch-3.MPQ", "unknown", false, null, null,
+            H(("patch-3.MPQ", "unknown", 2962964, false, null))));
+        b.Add(new PathRecord("Interface/Icons/Spell_Fire_Fireball.blp", 300, "patch-T.MPQ", "project", false, "patch-3.MPQ", 250,
+            H(("patch-T.MPQ", "project", 300, false, null), ("patch-3.MPQ", "unknown", 250, false, null))));
+        b.Add(new PathRecord("Interface/Icons/Spell_Frost_FrostBolt.blp", 310, "patch-3.MPQ", "unknown", false, null, null,
+            H(("patch-3.MPQ", "unknown", 310, false, null))));
+        b.Add(new PathRecord("Interface/Icons/Old/Retired.blp", null, "patch-X.MPQ", "unknown", true, null, null,
+            H(("patch-X.MPQ", "unknown", null, true, null), ("common.MPQ", "unknown", 120, false, null))));
+        b.Add(new PathRecord("Realm/Only.txt", null, null, null, false, null, null,
+            H(("area-52/patch-D.MPQ", "unknown", 5, false, "area-52"))));
+        b.Add(new PathRecord("Sound/Music/Theme.mp3", 5000, "common.MPQ", "unknown", false, null, null,
+            H(("area-52/patch-D.MPQ", "unknown", 6000, false, "area-52"), ("common.MPQ", "unknown", 5000, false, null))));
+        b.Add(new PathRecord("readme.txt", 10, "common.MPQ", "unknown", false, null, null, H(("common.MPQ", "unknown", 10, false, null))));
+        b.Finish(new Dictionary<string, string>
+        {
+            ["restore_date"] = "2026-11-03", ["ok"] = "9", ["delete_marker"] = "1", ["unnamed"] = "0", ["failed"] = "0", ["internal_skipped"] = "2",
+        }, new DateOnly(2026, 11, 3));
     }
 
     private static void BuildSpells(string path)

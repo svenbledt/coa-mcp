@@ -100,17 +100,18 @@ public static class PublishGuard
                         problems.Add($"Table '{name}' is not allowed in the {layer} layer.");
                     else if (LayerAllowList.IsFtsTable(name))
                     {
-                        // The one full-text table indexes entities; its own rows are an index, not content.
-                        if (!SameSql(sql, LayerAllowList.FtsSql))
-                            problems.Add($"Table '{name}' must be exactly: {LayerAllowList.FtsSql}");
+                        // A full-text table indexes another table; its own rows are an index, not content.
+                        if (!SameSql(sql, LayerAllowList.FtsSql[name]))
+                            problems.Add($"Table '{name}' must be exactly: {LayerAllowList.FtsSql[name]}");
                     }
                     else if (LayerAllowList.IsFtsShadow(name))
                     {
                         // Exempt from the BLOB scan only because FTS5 itself defines it. A look-alike plain table would hide anything.
                         if (!SameSql(sql, LayerAllowList.ShadowSql[name]))
                             problems.Add($"Table '{name}' is not FTS5's own shadow table (its definition differs); it could hide client data.");
-                        else if (!objects.Any(o => o.Type == "table" && o.Name == "entities_fts" && SameSql(o.Sql, LayerAllowList.FtsSql)))
-                            problems.Add($"Table '{name}' exists without the entities_fts virtual table, so it is not an FTS5 shadow table.");
+                        else if (LayerAllowList.FtsOwner(name) is not { } owner
+                                 || !objects.Any(o => o.Type == "table" && o.Name == owner && SameSql(o.Sql, LayerAllowList.FtsSql[owner])))
+                            problems.Add($"Table '{name}' exists without the {LayerAllowList.FtsOwner(name)} virtual table, so it is not an FTS5 shadow table.");
                     }
                     else if (sql.StartsWith("CREATE VIRTUAL TABLE", StringComparison.OrdinalIgnoreCase))
                         problems.Add($"Virtual table '{name}' is not allowed.");

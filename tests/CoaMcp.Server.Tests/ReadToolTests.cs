@@ -30,10 +30,10 @@ public class ReadToolTests : IClassFixture<ReadFixture>
     private static Dictionary<string, object?> A(params (string, object?)[] pairs) => pairs.ToDictionary(p => p.Item1, p => p.Item2);
 
     [Fact]
-    public async Task ListsOnlyTheSixReadTools()
+    public async Task ListsOnlyTheSevenReadTools()
     {
         var tools = await _f.Client.ListToolsAsync();
-        Assert.Equal(new[] { "decode_flags", "get", "search", "spell_compare", "spell_scaling", "status" },
+        Assert.Equal(new[] { "client_paths", "decode_flags", "get", "search", "spell_compare", "spell_scaling", "status" },
             tools.Select(t => t.Name).Order().ToArray());
     }
 
