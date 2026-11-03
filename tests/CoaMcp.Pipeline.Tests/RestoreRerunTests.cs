@@ -507,9 +507,74 @@ public class RestoreRerunTests : IDisposable
         Assert.False(Directory.Exists(Staging));
     }
 
-    private RestoreResult RestoreWith(Func<string, long>? FreeBytes = null, Action<string>? Checkpoint = null) => MpqRestorer.Run(new RestoreOptions(_data, _out,
+    private RestoreResult RestoreWith(Func<string, long>? FreeBytes = null, Action<string>? Checkpoint = null, bool AllowEmpty = false) => MpqRestorer.Run(new RestoreOptions(_data, _out,
         new ArchiveConfig(new Dictionary<string, string> { ["t"] = "fixture" }, [new ArchiveEntry("a.MPQ", 1, "unknown", null, "t")]),
-        FreeBytes: FreeBytes, Checkpoint: Checkpoint));
+        FreeBytes: FreeBytes, Checkpoint: Checkpoint, AllowEmpty: AllowEmpty));
+
+    /// <summary>A replacement holding only (listfile) and (attributes): what a failed rebuild leaves behind. Every other rule passes on it vacuously.</summary>
+    private void BuildHollow(DateTime stamp)
+    {
+        File.Delete(ArchivePath());
+        using (new MpqFixture(ArchivePath())) { }
+        File.SetLastWriteTimeUtc(ArchivePath(), stamp);
+    }
+
+    [Fact]
+    public void Rerun_HollowReplacement_ChangesNothing()
+    {
+        var bodies = Bodies();
+        BuildFlagged(First, bodies, 0);
+        var first = Restore();
+        BuildHollow(Second);
+        Assert.Null(ArchiveIntegrity.Check(ArchivePath()));
+
+        var output = new StringWriter();
+        var exit = MpqCli.Run("restore", ["--data", _data, "--out", _out, "--config", ConfigFile()], output, TextWriter.Null);
+
+        AssertRejectedAndIntact(first.Entries, bodies, exit, output.ToString());
+        Assert.Contains("--allow-empty", output.ToString());
+    }
+
+    [Fact]
+    public void Rerun_HollowReplacement_AllowEmpty_Replaces()
+    {
+        var bodies = Bodies();
+        BuildFlagged(First, bodies, 0);
+        Restore();
+        BuildHollow(Second);
+
+        var output = new StringWriter();
+        var exit = MpqCli.Run("restore", ["--data", _data, "--out", _out, "--config", ConfigFile(), "--allow-empty"], output, TextWriter.Null);
+
+        Assert.Equal(0, exit);
+        Assert.Contains("restored again as a whole: a.MPQ", output.ToString());
+        foreach (var name in bodies.Keys) Assert.False(File.Exists(Restored(name)));
+        Assert.Equal(new[] { "(attributes)", "(listfile)" }, Rows("SELECT name FROM files ORDER BY name").Select(r => (string)r["name"]!));
+        Assert.Equal(Second.Ticks, RecordedMtime());
+        Assert.False(Directory.Exists(Staging));
+    }
+
+    [Fact]
+    public void Startup_NoNote_LiveMissing_RestoresOld()
+    {
+        // A power cut after "old moved" that also lost the pending note: the live folder is gone, .old holds the only copies, .staging holds a half copy.
+        Build(First, ("a.txt", "a"), (@"deep\b.txt", "b"));
+        var first = Restore();
+        Directory.CreateDirectory(Staging);
+        Directory.Move(Restored(""), Path.Combine(Staging, "a.MPQ.old"));
+        Directory.CreateDirectory(Path.Combine(Staging, "a.MPQ"));
+        File.WriteAllText(Path.Combine(Staging, "a.MPQ", "a.txt"), "half");
+        Assert.False(Directory.Exists(Restored("")));
+
+        var next = Restore();
+
+        Assert.Equal("a", File.ReadAllText(Restored("a.txt")));
+        Assert.Equal("b", File.ReadAllText(Restored(@"deep\b.txt")));
+        Assert.Equal(0, next.Extracted);
+        Assert.Equal(first.Ok, next.Skipped);
+        Assert.Empty(next.BrokenArchives);
+        Assert.False(Directory.Exists(Staging));
+    }
 
     [Fact]
     public void Rerun_InsufficientSpaceForStaging_ChangesNothing()

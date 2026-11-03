@@ -17,6 +17,7 @@ A re-run of an unchanged archive skips files whose size and CRC are already corr
 
 A changed archive counts as good only if all of these hold:
 - the integrity check passes (header size, block table, no freed blocks);
+- it isn't a hollow shell: if the previous version had entries besides `(listfile)` and `(attributes)` and the new one has none, it is refused (that is what a failed rebuild leaves behind), unless `--allow-empty` is passed. Shrinking to fewer entries is fine;
 - every entry read successfully (a failed read, named or not, is `failed`);
 - every entry is named, or no more entries are unnamed than in the previous version;
 - when the previous version's rows had `(attributes)` CRCs, every non-empty, non-internal entry of the new version has one and matched it. This is what catches zeroed or wrong bytes that read without error, and what a damaged `(attributes)` would otherwise hide.
@@ -28,7 +29,7 @@ What protects a finished restore:
 - **Archive gone from disk:** only reported, with its files and rows kept, and the run exits 1. `--prune-gone` removes them.
 - **Damaged or half-written archive:** if the header's size doesn't match the file, or any entry points past the block table or at a freed block, the archive is reported as broken and nothing is changed for it. `coamcp-pipeline archive-check --data <folder>` runs this check read-only; all 78 real archives pass.
 - **Changed archive that doesn't pass:** reported as broken with the reason, exit 1, and its folder, rows and recorded identity are untouched. The summary says the on-disk copy is from the older version of the archive. No per-entry `failed` rows are written for it, because the old data is still valid.
-- **Crash during a swap:** the new rows and identity are committed together with a pending-swap note before any folder is renamed. On the next start, a pending swap is finished (old folder aside, new folder in, old removed); anything else left under `.staging` never reached the manifest and is deleted. A crash before the commit leaves the old state untouched.
+- **Crash during a swap:** the new rows and identity are committed together with a pending-swap note before any folder is renamed, with `synchronous=FULL` for that one commit so a power cut can't keep the renames and lose the note. On the next start, a pending swap is finished (old folder aside, new folder in, old removed). If an archive's live folder is missing and its set-aside `.old` folder exists with no note, the `.old` folder is put back: it holds the only copies. Anything else left under `.staging` never reached the manifest and is deleted. A crash before the commit leaves the old state untouched.
 - **Failed read on an unchanged or first restore:** an existing file is replaced only by a read that passed its checks. If a read fails, the file from the earlier run stays and the row is `failed` with a reason that says so. A `failed` row's file must not be used as this archive's current content.
 - **Failed run:** an archive's new size and date are recorded only after it finishes with no failed entries, so it still counts as changed next time.
 - **Exit code:** `restore` exits 1 if any entry failed or any archive is broken or gone, and names what needs attention.

@@ -123,13 +123,19 @@ public sealed class RestoreManifest : IDisposable
     {
         lock (_gate)
         {
-            using var tx = _db.BeginTransaction();
-            Run("DELETE FROM files WHERE archive=$a", a.RelPath);
-            WriteFiles(rows);
-            WriteListfile(a.RelPath, lines);
-            WriteArchive(a, facts, identity);
-            Run("INSERT OR REPLACE INTO meta(key, value) VALUES($a, $b)", PendingSwapPrefix + a.RelPath, "1");
-            tx.Commit();
+            // The folder renames that follow must never survive a power cut that this commit didn't.
+            Run("PRAGMA synchronous=FULL;");
+            try
+            {
+                using var tx = _db.BeginTransaction();
+                Run("DELETE FROM files WHERE archive=$a", a.RelPath);
+                WriteFiles(rows);
+                WriteListfile(a.RelPath, lines);
+                WriteArchive(a, facts, identity);
+                Run("INSERT OR REPLACE INTO meta(key, value) VALUES($a, $b)", PendingSwapPrefix + a.RelPath, "1");
+                tx.Commit();
+            }
+            finally { Run("PRAGMA synchronous=NORMAL;"); }
         }
     }
 

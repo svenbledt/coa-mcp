@@ -4,9 +4,10 @@ using System.Text;
 
 namespace CoaMcp.Pipeline.Mpq;
 
+/// <param name="AllowEmpty">Lets a changed archive that now holds only internal files replace a restore that had real entries.</param>
 /// <param name="Checkpoint">For tests: called at each step of a changed archive's swap, as "&lt;archive&gt;: staged|committed|old moved|new moved", so a crash there can be simulated.</param>
 public sealed record RestoreOptions(string DataDir, string OutDir, ArchiveConfig Config, int Parallelism = 1,
-    Func<string, long>? FreeBytes = null, Action<string>? Progress = null, bool PruneGone = false, Action<string>? Checkpoint = null);
+    Func<string, long>? FreeBytes = null, Action<string>? Progress = null, bool PruneGone = false, bool AllowEmpty = false, Action<string>? Checkpoint = null);
 
 public sealed record RestoreResult(int Archives, long Entries, long Ok, long Extracted, long Skipped, long Failed, long Unnamed,
     long PatchFiles, long DeleteMarkers, long Recovered, IReadOnlyList<string> BrokenArchives, IReadOnlyList<string> ChangedArchives, IReadOnlyList<string> GoneArchives,
@@ -54,7 +55,7 @@ public static class MpqRestorer
         using var manifest = RestoreManifest.OpenForRestore(manifestPath);
         manifest.SetMeta(RestoreManifest.DataDirKey, data);
         manifest.SetMeta(RestoreManifest.OutDirKey, output);
-        FinishPendingSwaps(output, manifest, o.Progress);
+        FinishPendingSwaps(output, manifest, archives.Select(a => a.RelPath).Concat(manifest.ArchiveNames()).Distinct(StringComparer.OrdinalIgnoreCase).ToList(), o.Progress);
 
         var onDisk = archives.Select(a => a.RelPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var goneArchives = manifest.ArchiveNames().Where(a => !onDisk.Contains(a)).ToList();
@@ -82,7 +83,7 @@ public static class MpqRestorer
             if (stop.IsCancellationRequested) return;
             try
             {
-                var run = new ArchiveRun(data, output, archive, manifest, free, progress, stop.Token, o.Checkpoint, () =>
+                var run = new ArchiveRun(data, output, archive, manifest, free, progress, stop.Token, o.AllowEmpty, o.Checkpoint, () =>
                 {
                     if (o.Progress is null || nextReport.Elapsed.TotalSeconds < 30) return;
                     lock (nextReport)
@@ -164,15 +165,25 @@ public static class MpqRestorer
 
     /// <summary>
     /// Every swap the manifest says is pending has new rows committed and a complete staged folder, so it is finished here.
+    /// A set-aside folder with no note whose live folder is missing holds the only copies, so it goes back where it was.
     /// Whatever else is under .staging never reached the manifest and is removed.
     /// </summary>
-    private static void FinishPendingSwaps(string output, RestoreManifest manifest, Action<string>? progress)
+    private static void FinishPendingSwaps(string output, RestoreManifest manifest, IReadOnlyList<string> archiveNames, Action<string>? progress)
     {
         foreach (var archive in manifest.PendingSwaps())
         {
             if (SafePath.Normalize(archive, out _) == archive) SwapIntoPlace(output, archive, manifest, null);
             else manifest.ClearPendingSwap(archive);   // never one of ours: nothing on disk belongs to it
             progress?.Invoke($"  finished the interrupted swap of {archive}");
+        }
+        foreach (var archive in archiveNames.Where(a => SafePath.Normalize(a, out _) == a))
+        {
+            var root = SafePath.Under(output, archive);
+            var old = StagingDir(output, archive) + ".old";
+            if (!Directory.Exists(old) || Directory.Exists(root)) continue;
+            Directory.CreateDirectory(Path.GetDirectoryName(root)!);
+            Directory.Move(old, root);
+            progress?.Invoke($"  put {archive}'s set-aside folder back: its swap never reached the manifest");
         }
         var staging = Path.Combine(output, StagingFolder);
         if (Directory.Exists(staging)) Directory.Delete(staging, true);
@@ -224,7 +235,7 @@ public static class MpqRestorer
 
     /// <summary>One archive's restore: reads its tables and names, then writes it in place or stages and swaps it.</summary>
     private sealed class ArchiveRun(string data, string output, ArchiveInfo archive, RestoreManifest manifest, Func<string, long> free,
-        Counters progress, CancellationToken stop, Action<string>? checkpoint, Action tick)
+        Counters progress, CancellationToken stop, bool allowEmpty, Action<string>? checkpoint, Action tick)
     {
         /// <summary>Returns true if the archive had changed and its new version was swapped in.</summary>
         public bool Restore()
@@ -349,8 +360,13 @@ public static class MpqRestorer
             $"changed since the last run, but its new version can't be restored whole: {why}. The restored copy and its rows are from the older version of the archive and were kept.");
 
         /// <summary>Why a changed archive's staging copy can't replace the restore, or null if it can.</summary>
-        private static string? WhyNotWhole(Dictionary<int, FileRow> oldRows, List<FileRow> rows)
+        private string? WhyNotWhole(Dictionary<int, FileRow> oldRows, List<FileRow> rows)
         {
+            // A shell with only internal files is what a failed rebuild leaves behind; every rule below would pass on it.
+            static bool Real(FileRow r) => r.Name is null || !InternalNames.Contains(r.Name);
+            var oldReal = oldRows.Values.Count(Real);
+            if (!allowEmpty && oldReal > 0 && rows.Count(Real) == 0)
+                return $"it holds no entries besides internal files, where the previous version had {oldReal}; pass --allow-empty if that is intended";
             var failed = rows.Count(r => r.Status == StatusFailed);
             if (failed > 0) return $"{failed} of {rows.Count} entries failed to read";
             var unnamed = rows.Count(r => r.Name is null);
