@@ -7,12 +7,19 @@ public static class EntryWriter
 {
     private const string RecoveredPrefix = "recovered:";
 
-    public static FileRow Write(MpqArchive mpq, string archive, string root, MpqEntry e, string? name, string? source, bool lowestLocale, FileRow? previous, Counters? progress)
+    /// <summary>Where an entry belongs under its archive's folder. An unsafe name gets its literal form, which is only ever recorded.</summary>
+    public static string PathFor(MpqEntry e, string? name, bool lowestLocale)
     {
-        var path = name is null
-            ? $"(unnamed)/File{e.BlockIndex:D8}.xxx"
-            : SafePath.Normalize(name, out _) ?? name.Replace('\\', '/');
-        if (name is not null && !lowestLocale) path = $"(locale-{e.Locale:x4})/{path}";
+        if (name is null) return $"(unnamed)/File{e.BlockIndex:D8}.xxx";
+        var path = SafePath.Normalize(name, out _) ?? name.Replace('\\', '/');
+        return lowestLocale ? path : $"(locale-{e.Locale:x4})/{path}";
+    }
+
+    /// <param name="previous">This entry's row from an earlier run of the same archive contents, if any.</param>
+    /// <param name="trustDisk">False re-extracts even a file that looks right: the archive was replaced, so notes from the earlier read don't carry over.</param>
+    public static FileRow Write(MpqArchive mpq, string archive, string root, MpqEntry e, string? name, string? source, bool lowestLocale, FileRow? previous, Counters? progress, bool trustDisk = true)
+    {
+        var path = PathFor(e, name, lowestLocale);
         var unnamedStatus = name is null ? MpqRestorer.StatusUnnamed : null;
 
         FileRow Row(string status, string? reason, uint? crc = null, uint? attr = null) => new(archive, e.HashIndex, e.BlockIndex, path, e.Size, crc, status, reason,
@@ -26,12 +33,12 @@ public static class EntryWriter
         if (name is null && (e.Flags & MpqArchive.FlagEncrypted) != 0)
             return Row(MpqRestorer.StatusUnnamed, "encrypted: its key depends on the name, so the bytes can't be read yet");
 
-        uint? attr = previous?.AttrCrc;
+        uint? attr = null;
         try
         {
             var full = SafePath.Under(root, path);
-            attr ??= mpq.AttributesCrc(e, name);
-            if (File.Exists(full))
+            attr = mpq.AttributesCrc(e, name);   // always the archive's current value, never an earlier run's
+            if (trustDisk && File.Exists(full))
             {
                 // (attributes) outranks an earlier run's CRC: that run could have recorded wrong bytes.
                 var expected = attr ?? (previous is { Status: MpqRestorer.StatusOk or MpqRestorer.StatusUnnamed } && previous.Path == path ? previous.Crc : null);

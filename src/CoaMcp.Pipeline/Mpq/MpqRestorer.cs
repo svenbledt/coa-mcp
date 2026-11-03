@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
 
@@ -7,7 +8,7 @@ public sealed record RestoreOptions(string DataDir, string OutDir, ArchiveConfig
     Func<string, long>? FreeBytes = null, Action<string>? Progress = null);
 
 public sealed record RestoreResult(int Archives, long Entries, long Ok, long Extracted, long Skipped, long Failed, long Unnamed,
-    long PatchFiles, long DeleteMarkers, long Recovered, IReadOnlyList<string> BrokenArchives, TimeSpan Elapsed);
+    long PatchFiles, long DeleteMarkers, long Recovered, IReadOnlyList<string> BrokenArchives, IReadOnlyList<string> ChangedArchives, TimeSpan Elapsed);
 
 /// <summary>Restores every archive to &lt;out&gt;/&lt;archive&gt;/&lt;path&gt; and records every entry in manifest.sqlite. Archives are only read.</summary>
 public static class MpqRestorer
@@ -45,8 +46,19 @@ public static class MpqRestorer
         manifest.SetMeta(RestoreManifest.DataDirKey, data);
         manifest.SetMeta(RestoreManifest.OutDirKey, output);
 
+        var onDisk = archives.Select(a => a.RelPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var gone in manifest.ArchiveNames().Where(a => !onDisk.Contains(a)))
+        {
+            var goneRoot = SafePath.Under(output, gone);
+            RestoredFiles.Remove(goneRoot, manifest.FilesOf(gone).Values.Select(r => r.Path));
+            RestoredFiles.PruneEmptyFolders(goneRoot, output);
+            manifest.DropArchive(gone);
+            o.Progress?.Invoke($"  dropped {gone}: no longer on disk");
+        }
+
         var progress = new Counters();
         var broken = new List<string>();
+        var changed = new ConcurrentBag<string>();
         using var stop = new CancellationTokenSource();
         Exception? fatal = null;
         var nextReport = Stopwatch.StartNew();
@@ -55,7 +67,7 @@ public static class MpqRestorer
             if (stop.IsCancellationRequested) return;
             try
             {
-                RestoreArchive(data, output, archive, manifest, free, progress, stop.Token, () =>
+                RestoreArchive(data, output, archive, manifest, free, progress, changed, stop.Token, () =>
                 {
                     if (o.Progress is null || nextReport.Elapsed.TotalSeconds < 30) return;
                     lock (nextReport)
@@ -75,7 +87,7 @@ public static class MpqRestorer
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 lock (broken) broken.Add($"{archive.RelPath}: {ex.Message}");
-                manifest.SaveArchive(archive, null, null, null, null, null, ex.Message);
+                manifest.SaveArchive(archive, null, null, null, null, null, ex.Message, ArchiveIdentity.Of(Path.Combine(data, archive.RelPath)));
             }
         });
         if (fatal is not null) throw new IOException(fatal.Message, fatal);
@@ -83,7 +95,7 @@ public static class MpqRestorer
         var byStatus = manifest.CountBy("SELECT status, count(*) FROM files GROUP BY status");
         long Of(string s) => byStatus.GetValueOrDefault(s);
         return new RestoreResult(archives.Count, byStatus.Values.Sum(), Of(StatusOk), progress.Extracted, progress.Skipped, Of(StatusFailed), Of(StatusUnnamed),
-            Of(StatusPatchFile), Of(StatusDeleteMarker), manifest.Count("SELECT count(*) FROM files WHERE status='ok' AND reason LIKE 'recovered:%'"), broken, clock.Elapsed);
+            Of(StatusPatchFile), Of(StatusDeleteMarker), manifest.Count("SELECT count(*) FROM files WHERE status='ok' AND reason LIKE 'recovered:%'"), broken, changed.OrderBy(a => a, StringComparer.Ordinal).ToList(), clock.Elapsed);
     }
 
     private static void RefuseOutput(string data, string output)
@@ -118,8 +130,9 @@ public static class MpqRestorer
     }
 
     private static void RestoreArchive(string data, string output, ArchiveInfo archive, RestoreManifest manifest, Func<string, long> free,
-        Counters progress, CancellationToken stop, Action tick)
+        Counters progress, ConcurrentBag<string> changedArchives, CancellationToken stop, Action tick)
     {
+        var identity = ArchiveIdentity.Of(Path.Combine(data, archive.RelPath));
         using var mpq = MpqArchive.Open(Path.Combine(data, archive.RelPath));
         var (entries, hashSlots, blockSlots) = mpq.ReadEntries();
         var byName = entries.ToLookup(e => (e.Name1, e.Name2));
@@ -137,25 +150,38 @@ public static class MpqRestorer
             foreach (var hit in byName[(MpqHash.Name1(name), MpqHash.Name2(name))])
                 names.TryAdd(hit.HashIndex, (name, SourceInternal));
 
-        var prior = manifest.FilesOf(archive.RelPath);
-        foreach (var e in entries)   // names a later listfile run recovered survive a restore re-run
-            if (!names.ContainsKey(e.HashIndex) && prior.TryGetValue(e.HashIndex, out var old) && old.Name is not null && old.NameSource is not null
+        var oldRows = manifest.FilesOf(archive.RelPath);
+        foreach (var e in entries)   // a name a listfile run recovered is still right if it still matches both hashes
+            if (!names.ContainsKey(e.HashIndex) && oldRows.TryGetValue(e.HashIndex, out var old) && old.Name is not null && old.NameSource is not null
                 && MpqHash.Name1(old.Name) == e.Name1 && MpqHash.Name2(old.Name) == e.Name2)
                 names[e.HashIndex] = (old.Name, old.NameSource);
 
-        manifest.SaveListfile(archive.RelPath, matchedLines);
-        manifest.SaveArchive(archive, hashSlots, blockSlots, entries.Count, lines.Count, matchedLines.Count(l => !l.Item2), null);
-
         var root = Path.Combine(output, archive.RelPath);
         var lowest = entries.GroupBy(e => (e.Name1, e.Name2)).ToDictionary(g => g.Key, g => g.Min(e => e.Locale));
+
+        // A replaced archive starts over. In this order a crash can only repeat the work, never strand a file.
+        var replaced = manifest.IdentityOf(archive.RelPath) is { } recorded && recorded != identity;
+        if (replaced) changedArchives.Add(archive.RelPath);
+        var stillOnDisk = entries.Where(e => e.BlockValid && StatusFromFlags(e.Flags) == StatusOk)
+            .Select(e => EntryWriter.PathFor(e, names.TryGetValue(e.HashIndex, out var n) ? n.Name : null, e.Locale == lowest[(e.Name1, e.Name2)]))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        RestoredFiles.Remove(root, oldRows.Values.Select(r => r.Path).Where(p => !stillOnDisk.Contains(p)));
+        var live = entries.Select(e => e.HashIndex).ToHashSet();
+        manifest.DropFiles(archive.RelPath, oldRows.Keys.Where(k => replaced || !live.Contains(k)));
+        var prior = replaced ? [] : oldRows;
+
+        manifest.SaveListfile(archive.RelPath, matchedLines);
+        manifest.SaveArchive(archive, hashSlots, blockSlots, entries.Count, lines.Count, matchedLines.Count(l => !l.Item2), null, identity);
+
         var batch = new List<FileRow>(BatchSize);
         var count = 0;
         foreach (var e in entries)
         {
             if (stop.IsCancellationRequested) throw new OutOfSpaceException("stopped: another archive hit the free-space limit");
-            var named = names.TryGetValue(e.HashIndex, out var n) ? n : default;
-            prior.TryGetValue(e.HashIndex, out var previous);
-            var row = EntryWriter.Write(mpq, archive.RelPath, root, e, named.Name, named.Source, e.Locale == lowest[(e.Name1, e.Name2)], previous, progress);
+            var named = names.TryGetValue(e.HashIndex, out var found) ? found : default;
+            // Identity can't see every replacement, so a row must also describe this entry to count.
+            var previous = prior.TryGetValue(e.HashIndex, out var p) && p.Name1 == e.Name1 && p.Name2 == e.Name2 && p.Locale == e.Locale && p.Size == e.Size ? p : null;
+            var row = EntryWriter.Write(mpq, archive.RelPath, root, e, named.Name, named.Source, e.Locale == lowest[(e.Name1, e.Name2)], previous, progress, trustDisk: !replaced);
             batch.Add(row);
             progress.CountEntry();
             if (batch.Count >= BatchSize) { manifest.SaveFiles(batch); batch.Clear(); }

@@ -10,6 +10,16 @@ public sealed record FileRow(
     public MpqEntry ToEntry() => new(HashIndex, Name1, Name2, Locale, BlockIndex, (uint)Size, Flags, true);
 }
 
+/// <summary>What tells us an archive file was replaced: its size and last-modified time.</summary>
+public readonly record struct ArchiveIdentity(long Size, long ModifiedTicks)
+{
+    public static ArchiveIdentity Of(string path)
+    {
+        var file = new FileInfo(path);
+        return new ArchiveIdentity(file.Length, file.LastWriteTimeUtc.Ticks);
+    }
+}
+
 /// <summary>manifest.sqlite: every entry of every archive, plus each listfile line and per-archive facts. Calls are serialized.</summary>
 public sealed class RestoreManifest : IDisposable
 {
@@ -29,7 +39,7 @@ public sealed class RestoreManifest : IDisposable
         CREATE INDEX IF NOT EXISTS idx_listfile_archive ON listfile_names(archive);
         CREATE TABLE IF NOT EXISTS archives(
             archive TEXT PRIMARY KEY, priority INTEGER NOT NULL, origin TEXT NOT NULL, realm TEXT, hash_slots INTEGER, block_slots INTEGER,
-            hash_entries INTEGER, listfile_lines INTEGER, stale_lines INTEGER, error TEXT);
+            hash_entries INTEGER, listfile_lines INTEGER, stale_lines INTEGER, error TEXT, file_size INTEGER, file_mtime INTEGER);
         CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
         """;
 
@@ -50,6 +60,10 @@ public sealed class RestoreManifest : IDisposable
         var m = new RestoreManifest(path);
         m.Run("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;");
         m.Run(Schema);
+        // A manifest from before archive identity existed: its archives count as unchanged and get verified by CRC.
+        var columns = m.Strings("SELECT name FROM pragma_table_info('archives')");
+        foreach (var column in new[] { "file_size", "file_mtime" })   // constants, never user text
+            if (!columns.Contains(column)) m.Run($"ALTER TABLE archives ADD COLUMN {column} INTEGER");
         return m;
     }
 
@@ -90,11 +104,43 @@ public sealed class RestoreManifest : IDisposable
             ?? throw new InvalidDataException($"manifest has no {key}");
     }
 
-    public void SaveArchive(ArchiveInfo a, int? hashSlots, int? blockSlots, int? hashEntries, int? listLines, int? staleLines, string? error)
+    public void SaveArchive(ArchiveInfo a, int? hashSlots, int? blockSlots, int? hashEntries, int? listLines, int? staleLines, string? error, ArchiveIdentity? identity)
     {
         lock (_gate) Run(
-            "INSERT OR REPLACE INTO archives(archive, priority, origin, realm, hash_slots, block_slots, hash_entries, listfile_lines, stale_lines, error) VALUES($a,$b,$c,$d,$e,$f,$g,$h,$i,$j)",
-            a.RelPath, a.Priority, a.Origin, a.Realm, hashSlots, blockSlots, hashEntries, listLines, staleLines, error);
+            "INSERT OR REPLACE INTO archives(archive, priority, origin, realm, hash_slots, block_slots, hash_entries, listfile_lines, stale_lines, error, file_size, file_mtime) VALUES($a,$b,$c,$d,$e,$f,$g,$h,$i,$j,$k,$l)",
+            a.RelPath, a.Priority, a.Origin, a.Realm, hashSlots, blockSlots, hashEntries, listLines, staleLines, error, identity?.Size, identity?.ModifiedTicks);
+    }
+
+    /// <summary>The identity recorded for an archive, or null if none is: a new archive, or a manifest from before identity existed.</summary>
+    public ArchiveIdentity? IdentityOf(string archive)
+    {
+        lock (_gate)
+        {
+            using var cmd = Command("SELECT file_size, file_mtime FROM archives WHERE archive=$a", [archive]);
+            using var r = cmd.ExecuteReader();
+            return r.Read() && !r.IsDBNull(0) && !r.IsDBNull(1) ? new ArchiveIdentity(r.GetInt64(0), r.GetInt64(1)) : null;
+        }
+    }
+
+    public void DropFiles(string archive, IEnumerable<int> hashIndexes)
+    {
+        lock (_gate)
+        {
+            using var tx = _db.BeginTransaction();
+            foreach (var index in hashIndexes) Run("DELETE FROM files WHERE archive=$a AND hash_index=$b", archive, index);
+            tx.Commit();
+        }
+    }
+
+    /// <summary>Forgets an archive that's no longer on disk.</summary>
+    public void DropArchive(string archive)
+    {
+        lock (_gate)
+        {
+            using var tx = _db.BeginTransaction();
+            foreach (var table in new[] { "files", "listfile_names", "archives" }) Run($"DELETE FROM {table} WHERE archive=$a", archive);   // constants, never user text
+            tx.Commit();
+        }
     }
 
     public void SaveListfile(string archive, IEnumerable<(string Name, bool Matched)> lines)
