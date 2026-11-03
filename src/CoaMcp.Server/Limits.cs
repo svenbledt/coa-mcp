@@ -5,7 +5,7 @@ public static class Limits
 {
     public const int DefaultLimit = 10;
     public const int MaxLimit = 100;
-    public const int MaxOffset = 10_000;
+    public const int MaxOffset = 1_000;
     public const int MaxQueryChars = 200;
     public const int MaxIdChars = 200;
     public const int MaxSections = 20;

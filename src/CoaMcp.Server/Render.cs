@@ -81,7 +81,23 @@ public static class Render
         }
     }
 
-    public static string Hit(int number, LayerHit h) =>
-        $"{number}. [{h.Realm.Label()} | {Trust(h.Trust)} | {h.Hit.Id}] {OneLine(h.Hit.Title, 120)} ({h.LayerName})" +
-        (h.Hit.Snippet.Length > 0 ? " - " + OneLine(h.Hit.Snippet, SnippetChars) : "");
+    private const int MaxZones = 6;
+
+    /// <summary>One search hit: realm, trust and id up front, then title, layer, source and source date.</summary>
+    public static string Hit(int number, LayerHit h)
+    {
+        var sb = new StringBuilder($"{number}. [{h.Realm.Label()} | {Trust(h.Trust)} | {h.Id}] {OneLine(h.Title, 120)} " +
+            $"({h.LayerName}; src: {OneLine(h.Source, 40)}, {h.SourceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)})");
+        if (h.Count > 1)
+        {
+            var zones = (h.Zones ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            sb.Append($" - {h.Count} {h.Type}s share this title (id shown is the first)");
+            if (zones.Length > 0)
+                sb.Append("; zones: ").Append(string.Join(", ", zones.Take(MaxZones).Select(z => OneLine(z, 40))))
+                  .Append(zones.Length > MaxZones ? $" and {zones.Length - MaxZones} more" : "");
+        }
+        else if (h.Snippet.Length > 0)
+            sb.Append(" - ").Append(OneLine(h.Snippet, SnippetChars));
+        return sb.ToString();
+    }
 }

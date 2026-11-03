@@ -138,9 +138,37 @@ public class ReadToolTests : IClassFixture<ReadFixture>
         Assert.Equal(2, hits.Count);
         Assert.All(hits, h => Assert.Matches(@"\[(CoA|wotlk)[^|\]]*\| derived \| (item:[^\]]+)\]", h));
         Assert.Contains(hits, h => h.Contains("wotlk") && h.Contains("item:wotlk:10531"));
+        // Every hit also names its source and the source's age.
+        Assert.All(hits, h => Assert.Contains("src: BisBeard, 2026-08-27", h));
 
         var (spells, _) = await _f.Call("search", A(("query", "blast")));
         Assert.Matches(@"\[the CoA client[^|\]]*\| client \| spell:1\]", spells);
+        Assert.Contains("src: CoA client DBC (via Spellwork), 2026-08-27", spells);
+    }
+
+    [Fact]
+    public async Task Search_ExactTitleSpellFirst()
+    {
+        var (text, _) = await _f.Call("search", A(("query", "FIREBALL")));
+        var hits = text.Split('\n').Where(l => Regex.IsMatch(l, @"^\d+\. ")).ToList();
+        Assert.Contains("spell:133", hits[0]);
+        // Next come items (type priority), not the markers that happen to rank well on their own.
+        Assert.Contains("item:", hits[1]);
+
+        var (all, _) = await _f.Call("search", A(("query", "fireball"), ("limit", 100)));
+        Assert.DoesNotContain("marker:", all);
+    }
+
+    [Fact]
+    public async Task Search_CollapsesIdenticalMarkers()
+    {
+        var (text, _) = await _f.Call("search", A(("query", "mystic scroll")));
+        var hits = text.Split('\n').Where(l => Regex.IsMatch(l, @"^\d+\. ")).ToList();
+        Assert.Equal(2, hits.Count);
+        var improved = Assert.Single(hits, h => h.Contains("Improved Fireball"));
+        Assert.Contains("4 markers share this title", improved);
+        foreach (var zone in new[] { "Ashenvale", "Azshara", "Feralas", "Silithus" }) Assert.Contains(zone, improved);
+        Assert.Single(hits, h => h.Contains("Glyph of Fireball") && !h.Contains("share this title"));
     }
 
     [Fact]
@@ -165,8 +193,8 @@ public class ReadToolTests : IClassFixture<ReadFixture>
     [Fact]
     public async Task Search_Paging_OffsetSkipsHits()
     {
-        var (first, _) = await _f.Call("search", A(("query", "fireball"), ("limit", 3)));
-        var (second, _) = await _f.Call("search", A(("query", "fireball"), ("limit", 3), ("offset", 3)));
+        var (first, _) = await _f.Call("search", A(("query", "rod"), ("limit", 3)));
+        var (second, _) = await _f.Call("search", A(("query", "rod"), ("limit", 3), ("offset", 3)));
         var ids1 = Regex.Matches(first, @"item:\d+").Select(m => m.Value).ToList();
         var ids2 = Regex.Matches(second, @"item:\d+").Select(m => m.Value).ToList();
         Assert.Equal(3, ids1.Count);
@@ -313,6 +341,9 @@ public class ReadToolTests : IClassFixture<ReadFixture>
         Assert.Contains("SPELL_SCHOOL_MASK_HOLY", text);
         Assert.Contains("SPELL_SCHOOL_MASK_FIRE", text);
         Assert.DoesNotContain("SPELL_SCHOOL_MASK_NORMAL", text);
+        Assert.Contains("trust client", text);
+        Assert.Contains("source CoA client DBC (via Spellwork)", text);
+        Assert.Contains("source date 2026-08-27", text);
 
         var (hex, _) = await _f.Call("decode_flags", A(("kind", "spellschoolmask"), ("value", "0x13")));
         Assert.Contains("SPELL_SCHOOL_MASK_NORMAL", hex);

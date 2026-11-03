@@ -115,7 +115,9 @@ public sealed partial class SpellHelperTools
         var covered = set.Aggregate(0UL, (acc, m) => acc | m.Bits);
         var unmatched = mask & ~covered;
 
-        var sb = new StringBuilder($"{match["kind"]} 0x{mask:X} ({mask}) from the spells layer v{layer.Meta.Version} (CoA client data):\n");
+        var source = (string)layer.Query("SELECT source FROM entities LIMIT 1")[0]["source"]!;
+        var sb = new StringBuilder($"{match["kind"]} 0x{mask:X} ({mask}) from the spells layer v{layer.Meta.Version} " +
+            $"(trust {Render.Trust(Trust.Client)}, source {source}, source date {layer.Meta.SourceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}):\n");
         if (mask == 0) sb.Append("no bits set\n");
         foreach (var m in set) sb.Append($"- {m.Label} (0x{m.Bits:X})\n");
         if (unmatched != 0) sb.Append($"unmatchedBits: 0x{unmatched:X}\n");

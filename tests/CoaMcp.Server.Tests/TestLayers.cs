@@ -31,6 +31,13 @@ public static class TestLayers
         w.Add(E("rules:coa:races", "rules", "Race rules", "Races of the barbarian class.\n", "BisBeard", Trust.Derived, new[] { "coa" }, false));
         for (var i = 0; i < 120; i++)
             w.Add(E($"item:900{i:000}", "item", $"Fireball Rod {i}", "A rod that casts fireball.\n", "BisBeard", Trust.Derived, new[] { "coa" }, true));
+        foreach (var zone in new[] { "Ashenvale", "Azshara", "Feralas", "Silithus" })
+            w.Add(E($"marker:mystic-enchant-{zone.ToLowerInvariant()}-improved-fireball", "marker", "Mystic Scroll: Improved Fireball",
+                $"Mystic Scroll: Improved Fireball (mystic-enchant) in {zone}.\n", "BisBeard", Trust.Derived, new[] { "coa" }, true,
+                "{\"zoneName\":\"" + zone + "\"}"));
+        w.Add(E("marker:mystic-enchant-azshara-glyph-of-fireball", "marker", "Mystic Scroll: Glyph of Fireball",
+            "Mystic Scroll: Glyph of Fireball (mystic-enchant) in Azshara.\n", "BisBeard", Trust.Derived, new[] { "coa" }, true,
+            "{\"zoneName\":\"Azshara\"}"));
         w.Add(E(BigPageId, "talents", "Test class talents",
             "Talents of the test class.\n\n## Alpha\n" + new string('a', 5000) + "\n\n## Beta\n" + new string('b', 5000) + "\n\n## Gamma\nshort gamma text\n",
             "BisBeard", Trust.Derived, new[] { "coa" }, true));
@@ -47,6 +54,8 @@ public static class TestLayers
             "## summary\nSpell 1: Fire Blast\n\n## effects\nEFFECTSMARK\n\n## triggers\nTriggers no spells.\n\n## visuals\nVISUALSMARK\n",
             "CoA client DBC (via Spellwork)", Trust.Client, new[] { "coa-client" }, false,
             """{"id":1,"name":"Fire Blast","schoolMask":4,"effects":[{"index":0,"basePoints":10}],"misc":{"speed":24}}"""));
+        w.Add(E("spell:133", "spell", "Fireball", "## summary\nSpell 133: Fireball, hurls a fiery ball.\n",
+            "CoA client DBC (via Spellwork)", Trust.Client, new[] { "coa-client" }, false, "{\"id\":133}"));
         w.Add(E("spell:2", "spell", "Fire Blast Improved",
             "## summary\nSpell 2: Fire Blast Improved\n\n## effects\nEFFECTS2\n\n## triggers\nnone\n\n## visuals\nnone\n",
             "CoA client DBC (via Spellwork)", Trust.Client, new[] { "coa-client" }, false,

@@ -9,7 +9,8 @@ public class LimitTests
     [InlineData(5000, 0, 100, 0, true)]
     [InlineData(-1, -1, 1, 0, true)]
     [InlineData(long.MinValue, long.MaxValue, 1, Limits.MaxOffset, true)]
-    [InlineData(100, 10_000, 100, 10_000, false)]
+    [InlineData(100, 1_000, 100, 1_000, false)]
+    [InlineData(100, 10_000, 100, 1_000, true)]
     public void Page_ClampsAndNotes(long limit, long offset, int wantLimit, int wantOffset, bool noted)
     {
         var (l, o, note) = Limits.Page(limit, offset);

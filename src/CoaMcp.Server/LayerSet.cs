@@ -4,36 +4,6 @@ using CoaMcp.Core;
 
 namespace CoaMcp.Server;
 
-/// <summary>One open layer. SQLite connections are not safe for concurrent use, so every call takes the layer's lock.</summary>
-public sealed class Layer : IDisposable
-{
-    private readonly LayerReader _reader;
-    private readonly object _gate = new();
-
-    public LayerMeta Meta => _reader.Meta;
-    public IReadOnlyDictionary<string, long> CountsByType { get; }
-
-    public Layer(LayerReader reader)
-    {
-        _reader = reader;
-        CountsByType = _reader.Query("SELECT type, COUNT(*) AS n FROM entities GROUP BY type ORDER BY type")
-            .ToDictionary(r => (string)r["type"]!, r => (long)r["n"]!);
-    }
-
-    public Entity? Get(string id) { lock (_gate) return _reader.Get(id); }
-
-    public IReadOnlyList<SearchHit> Search(FtsQuery q, string? type, string? realm, int limit, int offset)
-    { lock (_gate) return _reader.Search(q, type, realm, limit, offset); }
-
-    /// <summary>Code-defined SQL only, never user text.</summary>
-    public IReadOnlyList<IReadOnlyDictionary<string, object?>> Query(string sql, params object?[] args)
-    { lock (_gate) return _reader.Query(sql, args); }
-
-    public void Dispose() => _reader.Dispose();
-}
-
-public sealed record LayerHit(string LayerName, SearchHit Hit, RealmSet Realm, Trust Trust);
-
 public sealed record LayerState(string Name, Layer? Layer, string? Problem);
 
 /// <summary>The layers the server answers from, by name. A missing or broken layer is reported, never fatal.</summary>
@@ -60,7 +30,7 @@ public sealed class LayerSet : IDisposable
             }
             try
             {
-                states.Add(new LayerState(name, new Layer(new LayerReader(path)), null));
+                states.Add(new LayerState(name, new Layer(path), null));
             }
             catch (Exception ex)
             {
@@ -82,21 +52,26 @@ public sealed class LayerSet : IDisposable
             .Where(x => x.Entity is not null)
             .Select(x => (x.Name, x.Layer, x.Entity!)).ToList();
 
-    /// <summary>Searches all layers (each entity type separately when several are given) and merges by rank, best first.</summary>
-    public IReadOnlyList<LayerHit> Search(FtsQuery query, IReadOnlyList<string?> types, string? realm, int limit, int offset)
+    /// <summary>
+    /// Searches all layers and orders the hits: exact title match, then entity type priority, then bm25 within a type.
+    /// Identical markers collapse into one hit. <paramref name="types"/> null means every type.
+    /// </summary>
+    public IReadOnlyList<LayerHit> Search(string text, IReadOnlyList<string>? types, string? realm, int limit, int offset)
     {
-        var hits = new List<LayerHit>();
+        var q = FtsQuery.FromUser(text);
+        if (q.IsEmpty) return Array.Empty<LayerHit>();
+        var lower = string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)).ToLowerInvariant();
+
+        var all = new List<Candidate>();
         foreach (var state in _layers.Where(l => l.Layer is not null))
-            foreach (var type in types)
-                foreach (var h in state.Layer!.Search(query, type, realm, limit + offset, 0))
-                {
-                    var meta = state.Layer.Query("SELECT realm_json, realm_proven, trust FROM entities WHERE id = $0", h.Id)[0];
-                    var realms = JsonSerializer.Deserialize<string[]>((string)meta["realm_json"]!)!;
-                    hits.Add(new LayerHit(state.Name, h, new RealmSet(realms, (long)meta["realm_proven"]! != 0),
-                        (Trust)(long)meta["trust"]!));
-                }
-        return hits.OrderBy(h => h.Hit.Rank).ThenBy(h => h.Hit.Id, StringComparer.Ordinal)
-            .Skip(offset).Take(limit).ToList();
+            all.AddRange(LayerSearch.Run(state.Layer!, state.Name, q, lower, types, realm, limit + offset));
+
+        return all.OrderByDescending(c => c.Exact).ThenBy(c => LayerSearch.Priority(c.Type)).ThenBy(c => c.Rank)
+            .ThenBy(c => c.Id, StringComparer.Ordinal)
+            .Skip(offset).Take(limit)
+            .Select(c => new LayerHit(c.LayerName, c.Id, c.Type, c.Title, c.Count == 1 ? LayerSearch.Snippet(c, q) : "",
+                c.Realm, c.Trust, c.Source, c.SourceDate, c.Count, c.Zones))
+            .ToList();
     }
 
     public void Dispose()

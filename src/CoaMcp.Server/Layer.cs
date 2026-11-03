@@ -1,0 +1,69 @@
+using System.Collections.Concurrent;
+using CoaMcp.Core;
+
+namespace CoaMcp.Server;
+
+/// <summary>
+/// One layer file with a small pool of read-only connections, so a slow search never holds up other requests.
+/// At most <see cref="SearchSlots"/> searches run at once per layer, which leaves connections free for lookups.
+/// </summary>
+public sealed class Layer : IDisposable
+{
+    private const int PoolSize = 4;
+    private const int SearchSlots = 2;
+
+    private readonly string _path;
+    private readonly SemaphoreSlim _pool = new(PoolSize);
+    private readonly SemaphoreSlim _searches = new(SearchSlots);
+    private readonly ConcurrentBag<LayerReader> _idle = new();
+    private readonly List<LayerReader> _all = new();
+
+    public LayerMeta Meta { get; }
+    public IReadOnlyDictionary<string, long> CountsByType { get; }
+
+    public Layer(string path)
+    {
+        _path = path;
+        var first = new LayerReader(path);
+        _all.Add(first);
+        _idle.Add(first);
+        Meta = first.Meta;
+        CountsByType = first.Query("SELECT type, COUNT(*) AS n FROM entities GROUP BY type ORDER BY type")
+            .ToDictionary(r => (string)r["type"]!, r => (long)r["n"]!);
+    }
+
+    private T Use<T>(Func<LayerReader, T> work)
+    {
+        _pool.Wait();
+        try
+        {
+            if (!_idle.TryTake(out var reader))
+            {
+                reader = new LayerReader(_path);
+                lock (_all) _all.Add(reader);
+            }
+            try { return work(reader); }
+            finally { _idle.Add(reader); }
+        }
+        finally { _pool.Release(); }
+    }
+
+    public Entity? Get(string id) => Use(r => r.Get(id));
+
+    /// <summary>Code-defined SQL only, never user text.</summary>
+    public IReadOnlyList<IReadOnlyDictionary<string, object?>> Query(string sql, params object?[] args) =>
+        Use(r => r.Query(sql, args));
+
+    /// <summary>Runs a search under the per-layer search limit. The work calls <see cref="Query"/> for each statement.</summary>
+    public T Searching<T>(Func<T> work)
+    {
+        _searches.Wait();
+        try { return work(); }
+        finally { _searches.Release(); }
+    }
+
+    public void Dispose()
+    {
+        lock (_all) foreach (var r in _all) r.Dispose();
+    }
+}

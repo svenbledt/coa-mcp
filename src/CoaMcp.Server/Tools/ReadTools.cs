@@ -38,7 +38,7 @@ public sealed class ReadTools
         if (query.Length > Limits.MaxQueryChars) throw new McpException($"query is too long (max {Limits.MaxQueryChars} characters).");
         if (realm is { Length: > 50 }) throw new McpException("realm is too long.");
 
-        IReadOnlyList<string?> types = new string?[] { null };
+        IReadOnlyList<string>? types = null;
         string? emptyTopic = null;
         if (!string.IsNullOrWhiteSpace(topic))
         {
@@ -52,10 +52,10 @@ public sealed class ReadTools
         var realmFilter = string.IsNullOrWhiteSpace(realm) ? null : realm.Trim().ToLowerInvariant();
         var hits = emptyTopic is not null
             ? Array.Empty<LayerHit>()
-            : _layers.Search(FtsQuery.FromUser(Render.OneLine(query, Limits.MaxQueryChars)), types, realmFilter, lim, off);
+            : _layers.Search(Render.OneLine(query, Limits.MaxQueryChars), types, realmFilter, lim, off);
 
         var sb = new StringBuilder();
-        sb.Append($"Search \"{Render.OneLine(query, Limits.MaxQueryChars)}\": {hits.Count} hits (offset {off}, limit {lim}), merged across layers by relevance.\n");
+        sb.Append($"Search \"{Render.OneLine(query, Limits.MaxQueryChars)}\": {hits.Count} hits (offset {off}, limit {lim}), exact title first, then by type (spell, item, class, talents, spec, rules, guide, marker), then relevance.\n");
         if (note is not null) sb.Append(note).Append('\n');
         if (emptyTopic is not null) sb.Append($"Topic '{emptyTopic}' has no data yet.\n");
         for (var i = 0; i < hits.Count; i++) sb.Append(Render.Hit(off + i + 1, hits[i])).Append('\n');
@@ -82,11 +82,9 @@ public sealed class ReadTools
     {
         var sb = new StringBuilder($"No entity with id '{Render.OneLine(id, 100)}'.");
         var words = System.Text.RegularExpressions.Regex.Replace(id, @"[^\p{L}\p{N}]+", " ");
-        var near = FtsQuery.FromUser(words).IsEmpty
-            ? Array.Empty<LayerHit>()
-            : _layers.Search(FtsQuery.FromUser(words), new string?[] { null }, null, 5, 0);
+        var near = _layers.Search(words, null, null, 5, 0);
         if (near.Count > 0)
-            sb.Append(" Did you mean:\n").Append(string.Join("\n", near.Select(h => $"- {h.Hit.Id}: {Render.OneLine(h.Hit.Title, 80)}")));
+            sb.Append(" Did you mean:\n").Append(string.Join("\n", near.Select(h => $"- {h.Id}: {Render.OneLine(h.Title, 80)}")));
         else
             sb.Append(" Ids look like item:10531, spell:133 or class:coa:barbarian. Use search to find one.");
         return sb.ToString();
