@@ -7,10 +7,22 @@
     <Nullable>enable</Nullable>
     <AssemblyName>coamcp-pipeline</AssemblyName>
     <RootNamespace>CoaMcp.Pipeline</RootNamespace>
+    <!-- Local Spellwork CoA checkout. Override with -p:SpellWorkRoot=... -->
+    <SpellWorkRoot Condition="'$(SpellWorkRoot)' == ''">F:\WorkDir\SpellWork\.claude\worktrees\sw-coa</SpellWorkRoot>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\CoaMcp.Core\CoaMcp.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- SpellWork.Mcp (net9.0 Exe) runs at build time only; the public server never loads it. -->
+    <!-- Spellwork pulls in System.Drawing.Common 4.7.0 (known advisory). It runs on this machine at build time only and is never deployed. -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-rxg9-xrhp-64gj" />
+    <ProjectReference Include="$(SpellWorkRoot)\SpellWork.Mcp\SpellWork.Mcp.csproj" />
+    <Reference Include="DBFileReaderLib">
+      <HintPath>$(SpellWorkRoot)\packages\DBFileReaderLib.1.0.0.0\lib\DBFileReaderLib.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>

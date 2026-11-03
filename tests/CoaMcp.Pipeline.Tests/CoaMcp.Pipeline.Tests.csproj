@@ -19,6 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-rxg9-xrhp-64gj" />
     <ProjectReference Include="..\..\src\CoaMcp.Core\CoaMcp.Core.csproj" />
     <ProjectReference Include="..\..\src\CoaMcp.Pipeline\CoaMcp.Pipeline.csproj" />
   </ItemGroup>
