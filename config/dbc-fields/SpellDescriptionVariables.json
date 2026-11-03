@@ -1,0 +1,14 @@
+{
+ "table": "SpellDescriptionVariables",
+ "source": "SpellWork CoA SpellDescriptionVariablesEntry.cs: CoA 3.3.5a layout: WoWDBDefs SpellDescriptionVariables.dbd 3.3.5.12340 (2 fields, 8 bytes; not loaded by the CoA server)",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "Variables",
+   "type": "string"
+  }
+ ]
+}

@@ -19,8 +19,9 @@ For Claude Code: `claude mcp add --transport http coa-knowledge https://coa-mcp.
 Layers are built locally, then pushed to the server with `scp` and `ssh` (the server's login shell does not matter: commands run under `sh -s`; the ssh host, such as `BledtIT`, must already work without a password prompt, as a user that may `chown`, normally root).
 
 ```
-dotnet run --project src/CoaMcp.Pipeline -- bisbeard --data <DataCOA\data> --out bisbeard.sqlite
-dotnet run --project src/CoaMcp.Pipeline -- spells --dbc <dbc folder> --out spells.sqlite
+dotnet run --project src/CoaMcp.Pipeline -- dbc --manifest <restore manifest.sqlite> --winners <private folder outside the repo> --out dbc.sqlite
+dotnet run --project src/CoaMcp.Pipeline -- spells --dbc <winners folder> --out spells.sqlite
+dotnet run --project src/CoaMcp.Pipeline -- bisbeard --data <DataCOA\data> --client-dbc <winners folder> --out bisbeard.sqlite
 ```
 
 Each build is versioned with its UTC build time (`yyyyMMddHHmmss`), because a published version never changes and every rebuild differs. Pass `--version <v>` to choose one (letters, digits, `.`, `_`, `-`). Then:

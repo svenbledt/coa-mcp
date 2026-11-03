@@ -1,4 +1,6 @@
 using Microsoft.Data.Sqlite;
+using SQLitePCL;
+using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 
@@ -101,5 +103,33 @@ public sealed class LayerReader : IDisposable
         return result;
     }
 
+    /// <summary>
+    /// As <see cref="Query"/>, but SQLite stops the statement once <paramref name="budget"/> has passed.
+    /// A statement stopped this way throws <see cref="QueryBudgetExceededException"/>; the connection stays usable.
+    /// </summary>
+    public IReadOnlyList<IReadOnlyDictionary<string, object?>> QueryWithin(TimeSpan budget, string sql, params object?[] args)
+    {
+        const int InstructionsPerCheck = 1000;
+        const int SqliteInterrupt = 9;
+        var deadline = Stopwatch.GetTimestamp() + (long)(budget.TotalSeconds * Stopwatch.Frequency);
+        raw.sqlite3_progress_handler(_db.Handle, InstructionsPerCheck, _ => Stopwatch.GetTimestamp() >= deadline ? 1 : 0, null);
+        try
+        {
+            return Query(sql, args);
+        }
+        catch (SqliteException ex) when (ex.SqliteErrorCode == SqliteInterrupt)
+        {
+            throw new QueryBudgetExceededException(budget, ex);
+        }
+        finally
+        {
+            raw.sqlite3_progress_handler(_db.Handle, 0, null, null);
+        }
+    }
+
     public void Dispose() => _db.Dispose();
 }
+
+/// <summary>A query ran past its time budget and was stopped.</summary>
+public sealed class QueryBudgetExceededException(TimeSpan budget, Exception inner)
+    : Exception($"The query was stopped after {budget.TotalSeconds:0.###} s.", inner);

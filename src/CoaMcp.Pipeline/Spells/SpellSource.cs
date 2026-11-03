@@ -42,7 +42,22 @@ public sealed class SpellSource
     public SpellWork.Spell.SpellInfo? Info(int id) =>
         SpellWork.DBC.DBC.SpellInfoStore.TryGetValue(id, out var s) ? s : null;
 
-    public static SpellSource Open(string dbcDir, string locale = "enUS")
+    /// <summary>
+    /// A winners folder's date for the spell layer: the modified time of the archive that won Spell.dbc.
+    /// The copy's own time says only when the folder was made. A folder that isn't a winners folder is refused.
+    /// </summary>
+    public static DateOnly SourceDateOf(string winnersDir)
+    {
+        var list = CoaMcp.Pipeline.Dbc.DbcWinnerList.Read(winnersDir);
+        if (!list.Files.TryGetValue("Spell.dbc", out var spell))
+            throw new InvalidOperationException($"The winners list in '{winnersDir}' has no Spell.dbc.");
+        return DateOnly.ParseExact(spell.Date, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>Loads a winners folder made by the dbc command, dated by its winners list.</summary>
+    public static SpellSource OpenWinners(string winnersDir, string locale = "enUS") => Open(winnersDir, locale, SourceDateOf(winnersDir));
+
+    public static SpellSource Open(string dbcDir, string locale = "enUS", DateOnly? sourceDate = null)
     {
         var spellFile = Path.Combine(dbcDir, "Spell.dbc");
         if (!File.Exists(spellFile)) throw new InvalidOperationException($"No Spell.dbc in '{dbcDir}'.");
@@ -68,6 +83,6 @@ public sealed class SpellSource
         var data = service.GetAsync().GetAwaiter().GetResult();
         if (!data.Loaded) throw new InvalidOperationException($"Spellwork could not load '{dbcDir}': {data.ErrorMessage}");
 
-        return new SpellSource(config, service, dbcDir, DateOnly.FromDateTime(File.GetLastWriteTimeUtc(spellFile)));
+        return new SpellSource(config, service, dbcDir, sourceDate ?? DateOnly.FromDateTime(File.GetLastWriteTimeUtc(spellFile)));
     }
 }

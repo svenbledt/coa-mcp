@@ -1,0 +1,134 @@
+{
+ "table": "BattlemasterList",
+ "source": "CoA server DBCStructure.h BattlemasterListEntry aligned with DBCfmt.h BattlemasterListEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "id",
+   "type": "uint"
+  },
+  {
+   "name": "mapid_0",
+   "type": "int"
+  },
+  {
+   "name": "mapid_1",
+   "type": "int"
+  },
+  {
+   "name": "mapid_2",
+   "type": "int"
+  },
+  {
+   "name": "mapid_3",
+   "type": "int"
+  },
+  {
+   "name": "mapid_4",
+   "type": "int"
+  },
+  {
+   "name": "mapid_5",
+   "type": "int"
+  },
+  {
+   "name": "mapid_6",
+   "type": "int"
+  },
+  {
+   "name": "mapid_7",
+   "type": "int"
+  },
+  {
+   "name": "type",
+   "type": "uint"
+  },
+  {
+   "name": "f10",
+   "type": "unknown"
+  },
+  {
+   "name": "name_0",
+   "type": "string"
+  },
+  {
+   "name": "name_1",
+   "type": "string"
+  },
+  {
+   "name": "name_2",
+   "type": "string"
+  },
+  {
+   "name": "name_3",
+   "type": "string"
+  },
+  {
+   "name": "name_4",
+   "type": "string"
+  },
+  {
+   "name": "name_5",
+   "type": "string"
+  },
+  {
+   "name": "name_6",
+   "type": "string"
+  },
+  {
+   "name": "name_7",
+   "type": "string"
+  },
+  {
+   "name": "name_8",
+   "type": "string"
+  },
+  {
+   "name": "name_9",
+   "type": "string"
+  },
+  {
+   "name": "name_10",
+   "type": "string"
+  },
+  {
+   "name": "name_11",
+   "type": "string"
+  },
+  {
+   "name": "name_12",
+   "type": "string"
+  },
+  {
+   "name": "name_13",
+   "type": "string"
+  },
+  {
+   "name": "name_14",
+   "type": "string"
+  },
+  {
+   "name": "name_15",
+   "type": "string"
+  },
+  {
+   "name": "f27",
+   "type": "unknown"
+  },
+  {
+   "name": "maxGroupSize",
+   "type": "uint"
+  },
+  {
+   "name": "HolidayWorldStateId",
+   "type": "uint"
+  },
+  {
+   "name": "f30",
+   "type": "unknown"
+  },
+  {
+   "name": "f31",
+   "type": "unknown"
+  }
+ ]
+}

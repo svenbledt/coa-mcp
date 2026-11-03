@@ -1,0 +1,38 @@
+{
+ "table": "Item",
+ "source": "SpellWork CoA ItemEntry.cs: CoA 3.3.5a layout: CoA DBCfmt.h Itemfmt \"niiiiiii\" (8 fields, 32 bytes); names from WoWDBDefs Item.dbd 3.3.5.12340",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "ClassID",
+   "type": "int"
+  },
+  {
+   "name": "SubclassID",
+   "type": "int"
+  },
+  {
+   "name": "SoundOverrideSubclassID",
+   "type": "int"
+  },
+  {
+   "name": "Material",
+   "type": "int"
+  },
+  {
+   "name": "DisplayInfoID",
+   "type": "int"
+  },
+  {
+   "name": "InventoryType",
+   "type": "int"
+  },
+  {
+   "name": "SheatheType",
+   "type": "int"
+  }
+ ]
+}

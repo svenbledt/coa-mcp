@@ -1,0 +1,18 @@
+{
+ "table": "NamesProfanity",
+ "source": "CoA server DBCStructure.h NamesProfanityEntry aligned with DBCfmt.h NamesProfanityfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "f0",
+   "type": "unknown"
+  },
+  {
+   "name": "Pattern",
+   "type": "string"
+  },
+  {
+   "name": "f2",
+   "type": "unknown"
+  }
+ ]
+}

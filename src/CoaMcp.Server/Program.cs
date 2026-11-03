@@ -37,7 +37,8 @@ builder.Services.AddMcpServer(o => o.ServerInstructions =
     .WithHttpTransport(o => o.SessionMode = HttpServerSessionMode.Stateless)
     .WithTools<ReadTools>()
     .WithTools<SpellHelperTools>()
-    .WithTools<PathTools>();
+    .WithTools<PathTools>()
+    .WithTools<DbcTools>();
 
 var app = builder.Build();
 

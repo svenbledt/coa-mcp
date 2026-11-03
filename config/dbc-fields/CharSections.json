@@ -1,0 +1,46 @@
+{
+ "table": "CharSections",
+ "source": "CoA server DBCStructure.h CharSectionsEntry aligned with DBCfmt.h CharSectionsEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "Race",
+   "type": "uint"
+  },
+  {
+   "name": "Gender",
+   "type": "uint"
+  },
+  {
+   "name": "GenType",
+   "type": "uint"
+  },
+  {
+   "name": "f4",
+   "type": "unknown"
+  },
+  {
+   "name": "f5",
+   "type": "unknown"
+  },
+  {
+   "name": "f6",
+   "type": "unknown"
+  },
+  {
+   "name": "Flags",
+   "type": "uint"
+  },
+  {
+   "name": "Type",
+   "type": "uint"
+  },
+  {
+   "name": "Color",
+   "type": "uint"
+  }
+ ]
+}

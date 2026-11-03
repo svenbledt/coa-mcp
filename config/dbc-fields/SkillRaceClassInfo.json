@@ -1,0 +1,38 @@
+{
+ "table": "SkillRaceClassInfo",
+ "source": "CoA server DBCStructure.h SkillRaceClassInfoEntry aligned with DBCfmt.h SkillRaceClassInfofmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "SkillID",
+   "type": "uint"
+  },
+  {
+   "name": "RaceMask",
+   "type": "uint"
+  },
+  {
+   "name": "ClassMask",
+   "type": "uint"
+  },
+  {
+   "name": "Flags",
+   "type": "uint"
+  },
+  {
+   "name": "f5",
+   "type": "unknown"
+  },
+  {
+   "name": "SkillTierID",
+   "type": "uint"
+  },
+  {
+   "name": "f7",
+   "type": "unknown"
+  }
+ ]
+}

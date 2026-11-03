@@ -1,0 +1,46 @@
+{
+ "table": "CinematicSequences",
+ "source": "CoA server DBCStructure.h CinematicSequencesEntry aligned with DBCfmt.h CinematicSequencesEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "Id",
+   "type": "uint"
+  },
+  {
+   "name": "f1",
+   "type": "unknown"
+  },
+  {
+   "name": "cinematicCamera",
+   "type": "uint"
+  },
+  {
+   "name": "f3",
+   "type": "unknown"
+  },
+  {
+   "name": "f4",
+   "type": "unknown"
+  },
+  {
+   "name": "f5",
+   "type": "unknown"
+  },
+  {
+   "name": "f6",
+   "type": "unknown"
+  },
+  {
+   "name": "f7",
+   "type": "unknown"
+  },
+  {
+   "name": "f8",
+   "type": "unknown"
+  },
+  {
+   "name": "f9",
+   "type": "unknown"
+  }
+ ]
+}

@@ -56,6 +56,51 @@ public sealed class BisbeardTests : IDisposable
         Assert.Contains("\"id\":\"10531\"", e.DataJson);
     }
 
+    private LayerReader ImportWithClientItems(params int[] ids)
+    {
+        BisbeardImport.Run(_data, Path.Combine(Fixtures, "guides.json"), _out, clientItems: new HashSet<int>(ids));
+        return new LayerReader(_out);
+    }
+
+    [Fact]
+    public void Item_NotInClient_DropsCoa()
+    {
+        using var r = ImportWithClientItems(10531);   // 100000 is in the fixture list, not in the client
+
+        var e = r.Get("item:100000")!;
+
+        Assert.Equal(new[] { "classic", "s10" }, e.Realm.Realms);
+        Assert.False(e.Realm.Proven);
+        Assert.Contains("not in the CoA client", e.BodyMd);
+    }
+
+    [Fact]
+    public void Item_InClient_StaysUnproven_AllThreeRealms()
+    {
+        using var r = ImportWithClientItems(10531);
+
+        var e = r.Get("item:10531")!;
+
+        Assert.Equal(new[] { "coa", "classic", "s10" }, e.Realm.Realms);   // being in the client is not proof it is CoA
+        Assert.False(e.Realm.Proven);
+        Assert.DoesNotContain("not in the CoA client", e.BodyMd);
+    }
+
+    [Fact]
+    public void Item_NarrowingNeverTouchesOtherRealmLists()
+    {
+        using var r = ImportWithClientItems();
+
+        Assert.Equal(new[] { "wotlk" }, r.Get("item:wotlk:100000")!.Realm.Realms);
+    }
+
+    [Fact]
+    public void Item_NarrowCount_IsReported()
+    {
+        var n = BisbeardImport.Run(_data, Path.Combine(Fixtures, "guides.json"), _out, clientItems: new HashSet<int> { 10531 });
+        Assert.Equal(1, n.NarrowedItems);
+    }
+
     [Fact]
     public void Item_WotlkList_RealmIsProvenWotlk()
     {

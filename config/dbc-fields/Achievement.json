@@ -1,0 +1,254 @@
+{
+ "table": "Achievement",
+ "source": "CoA server DBCStructure.h AchievementEntry aligned with DBCfmt.h Achievementfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "uint"
+  },
+  {
+   "name": "requiredFaction",
+   "type": "int"
+  },
+  {
+   "name": "mapID",
+   "type": "int"
+  },
+  {
+   "name": "f3",
+   "type": "unknown"
+  },
+  {
+   "name": "name_0",
+   "type": "string"
+  },
+  {
+   "name": "name_1",
+   "type": "string"
+  },
+  {
+   "name": "name_2",
+   "type": "string"
+  },
+  {
+   "name": "name_3",
+   "type": "string"
+  },
+  {
+   "name": "name_4",
+   "type": "string"
+  },
+  {
+   "name": "name_5",
+   "type": "string"
+  },
+  {
+   "name": "name_6",
+   "type": "string"
+  },
+  {
+   "name": "name_7",
+   "type": "string"
+  },
+  {
+   "name": "name_8",
+   "type": "string"
+  },
+  {
+   "name": "name_9",
+   "type": "string"
+  },
+  {
+   "name": "name_10",
+   "type": "string"
+  },
+  {
+   "name": "name_11",
+   "type": "string"
+  },
+  {
+   "name": "name_12",
+   "type": "string"
+  },
+  {
+   "name": "name_13",
+   "type": "string"
+  },
+  {
+   "name": "name_14",
+   "type": "string"
+  },
+  {
+   "name": "name_15",
+   "type": "string"
+  },
+  {
+   "name": "f20",
+   "type": "unknown"
+  },
+  {
+   "name": "f21",
+   "type": "unknown"
+  },
+  {
+   "name": "f22",
+   "type": "unknown"
+  },
+  {
+   "name": "f23",
+   "type": "unknown"
+  },
+  {
+   "name": "f24",
+   "type": "unknown"
+  },
+  {
+   "name": "f25",
+   "type": "unknown"
+  },
+  {
+   "name": "f26",
+   "type": "unknown"
+  },
+  {
+   "name": "f27",
+   "type": "unknown"
+  },
+  {
+   "name": "f28",
+   "type": "unknown"
+  },
+  {
+   "name": "f29",
+   "type": "unknown"
+  },
+  {
+   "name": "f30",
+   "type": "unknown"
+  },
+  {
+   "name": "f31",
+   "type": "unknown"
+  },
+  {
+   "name": "f32",
+   "type": "unknown"
+  },
+  {
+   "name": "f33",
+   "type": "unknown"
+  },
+  {
+   "name": "f34",
+   "type": "unknown"
+  },
+  {
+   "name": "f35",
+   "type": "unknown"
+  },
+  {
+   "name": "f36",
+   "type": "unknown"
+  },
+  {
+   "name": "f37",
+   "type": "unknown"
+  },
+  {
+   "name": "categoryId",
+   "type": "uint"
+  },
+  {
+   "name": "points",
+   "type": "uint"
+  },
+  {
+   "name": "f40",
+   "type": "unknown"
+  },
+  {
+   "name": "flags",
+   "type": "uint"
+  },
+  {
+   "name": "f42",
+   "type": "unknown"
+  },
+  {
+   "name": "f43",
+   "type": "unknown"
+  },
+  {
+   "name": "f44",
+   "type": "unknown"
+  },
+  {
+   "name": "f45",
+   "type": "unknown"
+  },
+  {
+   "name": "f46",
+   "type": "unknown"
+  },
+  {
+   "name": "f47",
+   "type": "unknown"
+  },
+  {
+   "name": "f48",
+   "type": "unknown"
+  },
+  {
+   "name": "f49",
+   "type": "unknown"
+  },
+  {
+   "name": "f50",
+   "type": "unknown"
+  },
+  {
+   "name": "f51",
+   "type": "unknown"
+  },
+  {
+   "name": "f52",
+   "type": "unknown"
+  },
+  {
+   "name": "f53",
+   "type": "unknown"
+  },
+  {
+   "name": "f54",
+   "type": "unknown"
+  },
+  {
+   "name": "f55",
+   "type": "unknown"
+  },
+  {
+   "name": "f56",
+   "type": "unknown"
+  },
+  {
+   "name": "f57",
+   "type": "unknown"
+  },
+  {
+   "name": "f58",
+   "type": "unknown"
+  },
+  {
+   "name": "f59",
+   "type": "unknown"
+  },
+  {
+   "name": "count",
+   "type": "uint"
+  },
+  {
+   "name": "refAchievement",
+   "type": "uint"
+  }
+ ]
+}

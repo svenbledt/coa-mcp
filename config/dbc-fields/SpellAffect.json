@@ -1,0 +1,18 @@
+{
+ "table": "SpellAffect",
+ "source": "SpellWork CoA SpellAffectEntry.cs: CoA 3.3.5a layout: CoA-custom table, CoA DBCfmt.h SpellAffectfmt \"nii\" (3 fields, 12 bytes); names from CoA DBCStructure.h SpellAffectEntry",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "ModifierSpellID",
+   "type": "int"
+  },
+  {
+   "name": "AffectedSpellID",
+   "type": "int"
+  }
+ ]
+}

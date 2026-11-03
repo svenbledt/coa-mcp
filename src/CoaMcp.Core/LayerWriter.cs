@@ -72,6 +72,9 @@ public sealed class LayerWriter : IDisposable
     /// <summary>Runs code-defined SQL (never user text). Args bind to $0, $1, ...</summary>
     public void Execute(string sql, params object?[] args) => Run(sql, args);
 
+    /// <summary>A prepared insert for large tables. <paramref name="table"/> and <paramref name="columns"/> are code-defined names, never user text.</summary>
+    public BulkInsert BeginInsert(string table, IReadOnlyList<string> columns) => new(_db, _tx, table, columns);
+
     public void Finish()
     {
         Run("INSERT INTO entities_fts(entities_fts) VALUES('rebuild')");
@@ -99,4 +102,30 @@ public sealed class LayerWriter : IDisposable
         _tx?.Dispose();
         _db.Dispose();
     }
+}
+
+/// <summary>Inserts many rows through one prepared statement. Dispose it before the layer is finished.</summary>
+public sealed class BulkInsert : IDisposable
+{
+    private readonly SqliteCommand _cmd;
+    private readonly SqliteParameter[] _params;
+
+    internal BulkInsert(SqliteConnection db, SqliteTransaction? tx, string table, IReadOnlyList<string> columns)
+    {
+        _cmd = db.CreateCommand();
+        _cmd.Transaction = tx;
+        var names = string.Join(",", columns.Select(c => "\"" + c.Replace("\"", "\"\"") + "\""));
+        var marks = string.Join(",", columns.Select((_, i) => "$" + i));
+        _cmd.CommandText = $"INSERT INTO \"{table.Replace("\"", "\"\"")}\"({names}) VALUES ({marks})";
+        _params = columns.Select((_, i) => _cmd.Parameters.Add(new SqliteParameter("$" + i, DBNull.Value))).ToArray();
+        _cmd.Prepare();
+    }
+
+    public void Add(object?[] values)
+    {
+        for (var i = 0; i < _params.Length; i++) _params[i].Value = values[i] ?? DBNull.Value;
+        _cmd.ExecuteNonQuery();
+    }
+
+    public void Dispose() => _cmd.Dispose();
 }

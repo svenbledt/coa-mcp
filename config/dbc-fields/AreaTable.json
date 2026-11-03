@@ -1,0 +1,150 @@
+{
+ "table": "AreaTable",
+ "source": "SpellWork CoA AreaTableEntry.cs: CoA 3.3.5a layout: CoA DBCfmt.h AreaTableEntryfmt (36 fields, 144 bytes); names from WoWDBDefs AreaTable.dbd 3.3.5.12340",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "ContinentID",
+   "type": "int"
+  },
+  {
+   "name": "ParentAreaID",
+   "type": "int"
+  },
+  {
+   "name": "AreaBit",
+   "type": "int"
+  },
+  {
+   "name": "Flags",
+   "type": "uint"
+  },
+  {
+   "name": "SoundProviderPref",
+   "type": "int"
+  },
+  {
+   "name": "SoundProviderPrefUnderwater",
+   "type": "int"
+  },
+  {
+   "name": "AmbienceID",
+   "type": "int"
+  },
+  {
+   "name": "ZoneMusic",
+   "type": "int"
+  },
+  {
+   "name": "IntroSound",
+   "type": "int"
+  },
+  {
+   "name": "ExplorationLevel",
+   "type": "int"
+  },
+  {
+   "name": "AreaNameLang_0",
+   "type": "string"
+  },
+  {
+   "name": "AreaNameLang_1",
+   "type": "string"
+  },
+  {
+   "name": "AreaNameLang_2",
+   "type": "string"
+  },
+  {
+   "name": "AreaNameLang_3",
+   "type": "string"
+  },
+  {
+   "name": "AreaNameLang_4",
+   "type": "string"
+  },
+  {
+   "name": "AreaNameLang_5",
+   "type": "string"
+  },
+  {
+   "name": "AreaNameLang_6",
+   "type": "string"
+  },
+  {
+   "name": "AreaNameLang_7",
+   "type": "string"
+  },
+  {
+   "name": "AreaNameLang_8",
+   "type": "string"
+  },
+  {
+   "name": "AreaNameLang_9",
+   "type": "string"
+  },
+  {
+   "name": "AreaNameLang_10",
+   "type": "string"
+  },
+  {
+   "name": "AreaNameLang_11",
+   "type": "string"
+  },
+  {
+   "name": "AreaNameLang_12",
+   "type": "string"
+  },
+  {
+   "name": "AreaNameLang_13",
+   "type": "string"
+  },
+  {
+   "name": "AreaNameLang_14",
+   "type": "string"
+  },
+  {
+   "name": "AreaNameLang_15",
+   "type": "string"
+  },
+  {
+   "name": "AreaNameLangFlags",
+   "type": "uint"
+  },
+  {
+   "name": "FactionGroupMask",
+   "type": "int"
+  },
+  {
+   "name": "LiquidTypeID_0",
+   "type": "int"
+  },
+  {
+   "name": "LiquidTypeID_1",
+   "type": "int"
+  },
+  {
+   "name": "LiquidTypeID_2",
+   "type": "int"
+  },
+  {
+   "name": "LiquidTypeID_3",
+   "type": "int"
+  },
+  {
+   "name": "MinElevation",
+   "type": "float"
+  },
+  {
+   "name": "AmbientMultiplier",
+   "type": "float"
+  },
+  {
+   "name": "LightID",
+   "type": "int"
+  }
+ ]
+}

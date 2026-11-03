@@ -1,0 +1,158 @@
+{
+ "table": "SpellVisualKit",
+ "source": "SpellWork CoA SpellVisualKitEntry.cs: CoA 3.3.5a layout: WoWDBDefs SpellVisualKit.dbd 3.3.5.12340 (38 fields, 152 bytes; not loaded by the CoA server)",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "StartAnimID",
+   "type": "int"
+  },
+  {
+   "name": "AnimID",
+   "type": "int"
+  },
+  {
+   "name": "HeadEffect",
+   "type": "int"
+  },
+  {
+   "name": "ChestEffect",
+   "type": "int"
+  },
+  {
+   "name": "BaseEffect",
+   "type": "int"
+  },
+  {
+   "name": "LeftHandEffect",
+   "type": "int"
+  },
+  {
+   "name": "RightHandEffect",
+   "type": "int"
+  },
+  {
+   "name": "BreathEffect",
+   "type": "int"
+  },
+  {
+   "name": "LeftWeaponEffect",
+   "type": "int"
+  },
+  {
+   "name": "RightWeaponEffect",
+   "type": "int"
+  },
+  {
+   "name": "SpecialEffect_0",
+   "type": "int"
+  },
+  {
+   "name": "SpecialEffect_1",
+   "type": "int"
+  },
+  {
+   "name": "SpecialEffect_2",
+   "type": "int"
+  },
+  {
+   "name": "WorldEffect",
+   "type": "int"
+  },
+  {
+   "name": "SoundID",
+   "type": "int"
+  },
+  {
+   "name": "ShakeID",
+   "type": "int"
+  },
+  {
+   "name": "CharProc_0",
+   "type": "int"
+  },
+  {
+   "name": "CharProc_1",
+   "type": "int"
+  },
+  {
+   "name": "CharProc_2",
+   "type": "int"
+  },
+  {
+   "name": "CharProc_3",
+   "type": "int"
+  },
+  {
+   "name": "CharParamZero_0",
+   "type": "float"
+  },
+  {
+   "name": "CharParamZero_1",
+   "type": "float"
+  },
+  {
+   "name": "CharParamZero_2",
+   "type": "float"
+  },
+  {
+   "name": "CharParamZero_3",
+   "type": "float"
+  },
+  {
+   "name": "CharParamOne_0",
+   "type": "float"
+  },
+  {
+   "name": "CharParamOne_1",
+   "type": "float"
+  },
+  {
+   "name": "CharParamOne_2",
+   "type": "float"
+  },
+  {
+   "name": "CharParamOne_3",
+   "type": "float"
+  },
+  {
+   "name": "CharParamTwo_0",
+   "type": "float"
+  },
+  {
+   "name": "CharParamTwo_1",
+   "type": "float"
+  },
+  {
+   "name": "CharParamTwo_2",
+   "type": "float"
+  },
+  {
+   "name": "CharParamTwo_3",
+   "type": "float"
+  },
+  {
+   "name": "CharParamThree_0",
+   "type": "float"
+  },
+  {
+   "name": "CharParamThree_1",
+   "type": "float"
+  },
+  {
+   "name": "CharParamThree_2",
+   "type": "float"
+  },
+  {
+   "name": "CharParamThree_3",
+   "type": "float"
+  },
+  {
+   "name": "Flags",
+   "type": "int"
+  }
+ ]
+}

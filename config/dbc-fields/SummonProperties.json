@@ -1,0 +1,30 @@
+{
+ "table": "SummonProperties",
+ "source": "CoA server DBCStructure.h SummonPropertiesEntry aligned with DBCfmt.h SummonPropertiesfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "Id",
+   "type": "uint"
+  },
+  {
+   "name": "Category",
+   "type": "uint"
+  },
+  {
+   "name": "Faction",
+   "type": "uint"
+  },
+  {
+   "name": "Type",
+   "type": "uint"
+  },
+  {
+   "name": "Slot",
+   "type": "uint"
+  },
+  {
+   "name": "Flags",
+   "type": "uint"
+  }
+ ]
+}

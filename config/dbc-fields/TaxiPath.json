@@ -1,0 +1,22 @@
+{
+ "table": "TaxiPath",
+ "source": "CoA server DBCStructure.h TaxiPathEntry aligned with DBCfmt.h TaxiPathEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "uint"
+  },
+  {
+   "name": "from",
+   "type": "uint"
+  },
+  {
+   "name": "to",
+   "type": "uint"
+  },
+  {
+   "name": "price",
+   "type": "uint"
+  }
+ ]
+}

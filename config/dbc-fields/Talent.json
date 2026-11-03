@@ -1,0 +1,98 @@
+{
+ "table": "Talent",
+ "source": "CoA server DBCStructure.h TalentEntry aligned with DBCfmt.h TalentEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "TalentID",
+   "type": "uint"
+  },
+  {
+   "name": "TalentTab",
+   "type": "uint"
+  },
+  {
+   "name": "Row",
+   "type": "uint"
+  },
+  {
+   "name": "Col",
+   "type": "uint"
+  },
+  {
+   "name": "RankID_0",
+   "type": "uint"
+  },
+  {
+   "name": "RankID_1",
+   "type": "uint"
+  },
+  {
+   "name": "RankID_2",
+   "type": "uint"
+  },
+  {
+   "name": "RankID_3",
+   "type": "uint"
+  },
+  {
+   "name": "RankID_4",
+   "type": "uint"
+  },
+  {
+   "name": "f9",
+   "type": "unknown"
+  },
+  {
+   "name": "f10",
+   "type": "unknown"
+  },
+  {
+   "name": "f11",
+   "type": "unknown"
+  },
+  {
+   "name": "f12",
+   "type": "unknown"
+  },
+  {
+   "name": "DependsOn",
+   "type": "uint"
+  },
+  {
+   "name": "f14",
+   "type": "unknown"
+  },
+  {
+   "name": "f15",
+   "type": "unknown"
+  },
+  {
+   "name": "DependsOnRank",
+   "type": "uint"
+  },
+  {
+   "name": "f17",
+   "type": "unknown"
+  },
+  {
+   "name": "f18",
+   "type": "unknown"
+  },
+  {
+   "name": "addToSpellBook",
+   "type": "uint"
+  },
+  {
+   "name": "f20",
+   "type": "unknown"
+  },
+  {
+   "name": "f21",
+   "type": "unknown"
+  },
+  {
+   "name": "f22",
+   "type": "unknown"
+  }
+ ]
+}

@@ -1,0 +1,26 @@
+{
+ "table": "GemProperties",
+ "source": "CoA server DBCStructure.h GemPropertiesEntry aligned with DBCfmt.h GemPropertiesEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "uint"
+  },
+  {
+   "name": "spellitemenchantement",
+   "type": "uint"
+  },
+  {
+   "name": "f2",
+   "type": "unknown"
+  },
+  {
+   "name": "f3",
+   "type": "unknown"
+  },
+  {
+   "name": "color",
+   "type": "uint"
+  }
+ ]
+}

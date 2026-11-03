@@ -1,0 +1,62 @@
+{
+ "table": "SkillLineAbility",
+ "source": "SpellWork CoA SkillLineAbilityEntry.cs: CoA 3.3.5a layout: CoA DBCfmt.h SkillLineAbilityfmt (14 fields, 56 bytes); names from WoWDBDefs SkillLineAbility.dbd 3.3.5.12340",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "SkillLine",
+   "type": "int"
+  },
+  {
+   "name": "Spell",
+   "type": "int"
+  },
+  {
+   "name": "RaceMask",
+   "type": "uint"
+  },
+  {
+   "name": "ClassMask",
+   "type": "uint"
+  },
+  {
+   "name": "ExcludeRace",
+   "type": "uint"
+  },
+  {
+   "name": "ExcludeClass",
+   "type": "uint"
+  },
+  {
+   "name": "MinSkillLineRank",
+   "type": "int"
+  },
+  {
+   "name": "SupercededBySpell",
+   "type": "int"
+  },
+  {
+   "name": "AcquireMethod",
+   "type": "int"
+  },
+  {
+   "name": "TrivialSkillLineRankHigh",
+   "type": "int"
+  },
+  {
+   "name": "TrivialSkillLineRankLow",
+   "type": "int"
+  },
+  {
+   "name": "CharacterPoints_0",
+   "type": "int"
+  },
+  {
+   "name": "CharacterPoints_1",
+   "type": "int"
+  }
+ ]
+}

@@ -1,0 +1,18 @@
+{
+ "table": "NamesReserved",
+ "source": "CoA server DBCStructure.h NamesReservedEntry aligned with DBCfmt.h NamesReservedfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "f0",
+   "type": "unknown"
+  },
+  {
+   "name": "Pattern",
+   "type": "string"
+  },
+  {
+   "name": "f2",
+   "type": "unknown"
+  }
+ ]
+}

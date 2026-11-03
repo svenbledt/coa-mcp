@@ -1,0 +1,66 @@
+{
+ "table": "SpellMissile",
+ "source": "SpellWork CoA SpellMissileEntry.cs: CoA 3.3.5a layout: WoWDBDefs SpellMissile.dbd 3.3.5.12340 (15 fields, 60 bytes; not loaded by the CoA server)",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "Flags",
+   "type": "uint"
+  },
+  {
+   "name": "DefaultPitchMin",
+   "type": "float"
+  },
+  {
+   "name": "DefaultPitchMax",
+   "type": "float"
+  },
+  {
+   "name": "DefaultSpeedMin",
+   "type": "float"
+  },
+  {
+   "name": "DefaultSpeedMax",
+   "type": "float"
+  },
+  {
+   "name": "RandomizeFacingMin",
+   "type": "float"
+  },
+  {
+   "name": "RandomizeFacingMax",
+   "type": "float"
+  },
+  {
+   "name": "RandomizePitchMin",
+   "type": "float"
+  },
+  {
+   "name": "RandomizePitchMax",
+   "type": "float"
+  },
+  {
+   "name": "RandomizeSpeedMin",
+   "type": "float"
+  },
+  {
+   "name": "RandomizeSpeedMax",
+   "type": "float"
+  },
+  {
+   "name": "Gravity",
+   "type": "float"
+  },
+  {
+   "name": "MaxDuration",
+   "type": "float"
+  },
+  {
+   "name": "CollisionRadius",
+   "type": "float"
+  }
+ ]
+}

@@ -1,0 +1,34 @@
+{
+ "table": "SpellVisualEffectName",
+ "source": "SpellWork CoA SpellVisualEffectNameEntry.cs: CoA 3.3.5a layout: WoWDBDefs SpellVisualEffectName.dbd 3.3.5.12340 (7 fields, 28 bytes; not loaded by the CoA server)",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "Name",
+   "type": "string"
+  },
+  {
+   "name": "FileName",
+   "type": "string"
+  },
+  {
+   "name": "AreaEffectSize",
+   "type": "float"
+  },
+  {
+   "name": "Scale",
+   "type": "float"
+  },
+  {
+   "name": "MinAllowedScale",
+   "type": "float"
+  },
+  {
+   "name": "MaxAllowedScale",
+   "type": "float"
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "table": "SpellCastTimes",
+ "source": "SpellWork CoA SpellCastTimesEntry.cs: CoA 3.3.5a layout: CoA DBCfmt.h SpellCastTimefmt \"nixx\" (4 fields, 16 bytes); names from WoWDBDefs SpellCastTimes.dbd 3.3.5.12340",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "Base",
+   "type": "int"
+  },
+  {
+   "name": "PerLevel",
+   "type": "int"
+  },
+  {
+   "name": "Minimum",
+   "type": "int"
+  }
+ ]
+}

@@ -77,6 +77,36 @@ public class PathExportTests : IDisposable
     }
 
     [Fact]
+    public void SourceDate_DefaultsToTheNewestLoadedArchive_NotTheManifestFile()
+    {
+        var config = Config();
+        var manifest = _dir.File($"manifest-{Guid.NewGuid():N}.sqlite");
+        using (var m = RestoreManifest.OpenForRestore(manifest))
+        {
+            void Archive(string name, DateTime when)
+            {
+                var a = config.Archives.Single(x => x.Path == name);
+                m.SaveArchive(new ArchiveInfo(a.Path, a.Priority, a.Origin, a.Realm), new ArchiveFacts(1, 1, 1, 0, 0), new ArchiveIdentity(1, when.Ticks));
+            }
+            Archive("common.MPQ", new DateTime(2026, 10, 3, 0, 0, 0, DateTimeKind.Utc));
+            Archive("patch-B.MPQ", new DateTime(2026, 10, 24, 0, 0, 0, DateTimeKind.Utc));
+            Archive("area-52/patch-D.MPQ", new DateTime(2026, 11, 1, 0, 0, 0, DateTimeKind.Utc));    // not read by the default client
+            m.SaveFiles(new[]
+            {
+                new FileRow("common.MPQ", 1, 1, "a/b.dbc", 1, null, "ok", null, 0, 0, 1, 1, "a\b.dbc", "own_listfile", null),
+            });
+        }
+        SqliteConnection.ClearAllPools();
+        var layer = _dir.File($"paths-{Guid.NewGuid():N}.sqlite");
+
+        PathExporter.Run(manifest, config, layer, "1");
+        SqliteConnection.ClearAllPools();
+
+        using var r = new LayerReader(layer);
+        Assert.Equal(new DateOnly(2026, 10, 24), r.Meta.SourceDate);
+    }
+
+    [Fact]
     public void Winner_DeleteMarkerOnTop_IsDeleted()
     {
         var layer = Export(

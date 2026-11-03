@@ -1,0 +1,166 @@
+{
+ "table": "SpellRange",
+ "source": "SpellWork CoA SpellRangeEntry.cs: CoA 3.3.5a layout: CoA DBCfmt.h SpellRangefmt (40 fields, 160 bytes); names from WoWDBDefs SpellRange.dbd 3.3.5.12340",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "RangeMin_0",
+   "type": "float"
+  },
+  {
+   "name": "RangeMin_1",
+   "type": "float"
+  },
+  {
+   "name": "RangeMax_0",
+   "type": "float"
+  },
+  {
+   "name": "RangeMax_1",
+   "type": "float"
+  },
+  {
+   "name": "Flags",
+   "type": "int"
+  },
+  {
+   "name": "DisplayNameLang_0",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_1",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_2",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_3",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_4",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_5",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_6",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_7",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_8",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_9",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_10",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_11",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_12",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_13",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_14",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_15",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLangFlags",
+   "type": "uint"
+  },
+  {
+   "name": "DisplayNameShortLang_0",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameShortLang_1",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameShortLang_2",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameShortLang_3",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameShortLang_4",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameShortLang_5",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameShortLang_6",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameShortLang_7",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameShortLang_8",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameShortLang_9",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameShortLang_10",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameShortLang_11",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameShortLang_12",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameShortLang_13",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameShortLang_14",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameShortLang_15",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameShortLangFlags",
+   "type": "uint"
+  }
+ ]
+}

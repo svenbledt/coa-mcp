@@ -1,0 +1,314 @@
+{
+ "table": "CharStartOutfit",
+ "source": "CoA server DBCStructure.h CharStartOutfitEntry aligned with DBCfmt.h CharStartOutfitEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "Race",
+   "type": "byte"
+  },
+  {
+   "name": "Class",
+   "type": "byte"
+  },
+  {
+   "name": "Gender",
+   "type": "byte"
+  },
+  {
+   "name": "f4",
+   "type": "unknown_byte"
+  },
+  {
+   "name": "ItemId_0",
+   "type": "int"
+  },
+  {
+   "name": "ItemId_1",
+   "type": "int"
+  },
+  {
+   "name": "ItemId_2",
+   "type": "int"
+  },
+  {
+   "name": "ItemId_3",
+   "type": "int"
+  },
+  {
+   "name": "ItemId_4",
+   "type": "int"
+  },
+  {
+   "name": "ItemId_5",
+   "type": "int"
+  },
+  {
+   "name": "ItemId_6",
+   "type": "int"
+  },
+  {
+   "name": "ItemId_7",
+   "type": "int"
+  },
+  {
+   "name": "ItemId_8",
+   "type": "int"
+  },
+  {
+   "name": "ItemId_9",
+   "type": "int"
+  },
+  {
+   "name": "ItemId_10",
+   "type": "int"
+  },
+  {
+   "name": "ItemId_11",
+   "type": "int"
+  },
+  {
+   "name": "ItemId_12",
+   "type": "int"
+  },
+  {
+   "name": "ItemId_13",
+   "type": "int"
+  },
+  {
+   "name": "ItemId_14",
+   "type": "int"
+  },
+  {
+   "name": "ItemId_15",
+   "type": "int"
+  },
+  {
+   "name": "ItemId_16",
+   "type": "int"
+  },
+  {
+   "name": "ItemId_17",
+   "type": "int"
+  },
+  {
+   "name": "ItemId_18",
+   "type": "int"
+  },
+  {
+   "name": "ItemId_19",
+   "type": "int"
+  },
+  {
+   "name": "ItemId_20",
+   "type": "int"
+  },
+  {
+   "name": "ItemId_21",
+   "type": "int"
+  },
+  {
+   "name": "ItemId_22",
+   "type": "int"
+  },
+  {
+   "name": "ItemId_23",
+   "type": "int"
+  },
+  {
+   "name": "f29",
+   "type": "unknown"
+  },
+  {
+   "name": "f30",
+   "type": "unknown"
+  },
+  {
+   "name": "f31",
+   "type": "unknown"
+  },
+  {
+   "name": "f32",
+   "type": "unknown"
+  },
+  {
+   "name": "f33",
+   "type": "unknown"
+  },
+  {
+   "name": "f34",
+   "type": "unknown"
+  },
+  {
+   "name": "f35",
+   "type": "unknown"
+  },
+  {
+   "name": "f36",
+   "type": "unknown"
+  },
+  {
+   "name": "f37",
+   "type": "unknown"
+  },
+  {
+   "name": "f38",
+   "type": "unknown"
+  },
+  {
+   "name": "f39",
+   "type": "unknown"
+  },
+  {
+   "name": "f40",
+   "type": "unknown"
+  },
+  {
+   "name": "f41",
+   "type": "unknown"
+  },
+  {
+   "name": "f42",
+   "type": "unknown"
+  },
+  {
+   "name": "f43",
+   "type": "unknown"
+  },
+  {
+   "name": "f44",
+   "type": "unknown"
+  },
+  {
+   "name": "f45",
+   "type": "unknown"
+  },
+  {
+   "name": "f46",
+   "type": "unknown"
+  },
+  {
+   "name": "f47",
+   "type": "unknown"
+  },
+  {
+   "name": "f48",
+   "type": "unknown"
+  },
+  {
+   "name": "f49",
+   "type": "unknown"
+  },
+  {
+   "name": "f50",
+   "type": "unknown"
+  },
+  {
+   "name": "f51",
+   "type": "unknown"
+  },
+  {
+   "name": "f52",
+   "type": "unknown"
+  },
+  {
+   "name": "f53",
+   "type": "unknown"
+  },
+  {
+   "name": "f54",
+   "type": "unknown"
+  },
+  {
+   "name": "f55",
+   "type": "unknown"
+  },
+  {
+   "name": "f56",
+   "type": "unknown"
+  },
+  {
+   "name": "f57",
+   "type": "unknown"
+  },
+  {
+   "name": "f58",
+   "type": "unknown"
+  },
+  {
+   "name": "f59",
+   "type": "unknown"
+  },
+  {
+   "name": "f60",
+   "type": "unknown"
+  },
+  {
+   "name": "f61",
+   "type": "unknown"
+  },
+  {
+   "name": "f62",
+   "type": "unknown"
+  },
+  {
+   "name": "f63",
+   "type": "unknown"
+  },
+  {
+   "name": "f64",
+   "type": "unknown"
+  },
+  {
+   "name": "f65",
+   "type": "unknown"
+  },
+  {
+   "name": "f66",
+   "type": "unknown"
+  },
+  {
+   "name": "f67",
+   "type": "unknown"
+  },
+  {
+   "name": "f68",
+   "type": "unknown"
+  },
+  {
+   "name": "f69",
+   "type": "unknown"
+  },
+  {
+   "name": "f70",
+   "type": "unknown"
+  },
+  {
+   "name": "f71",
+   "type": "unknown"
+  },
+  {
+   "name": "f72",
+   "type": "unknown"
+  },
+  {
+   "name": "f73",
+   "type": "unknown"
+  },
+  {
+   "name": "f74",
+   "type": "unknown"
+  },
+  {
+   "name": "f75",
+   "type": "unknown"
+  },
+  {
+   "name": "f76",
+   "type": "unknown"
+  }
+ ]
+}

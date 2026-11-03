@@ -1,0 +1,26 @@
+{
+ "table": "EmotesTextSound",
+ "source": "CoA server DBCStructure.h EmotesTextSoundEntry aligned with DBCfmt.h EmotesTextSoundEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "Id",
+   "type": "uint"
+  },
+  {
+   "name": "EmotesTextId",
+   "type": "uint"
+  },
+  {
+   "name": "RaceId",
+   "type": "uint"
+  },
+  {
+   "name": "SexId",
+   "type": "uint"
+  },
+  {
+   "name": "SoundId",
+   "type": "uint"
+  }
+ ]
+}

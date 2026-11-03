@@ -1,0 +1,70 @@
+{
+ "table": "RandPropPoints",
+ "source": "CoA server DBCStructure.h RandomPropertiesPointsEntry aligned with DBCfmt.h RandomPropertiesPointsfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "itemLevel",
+   "type": "uint"
+  },
+  {
+   "name": "EpicPropertiesPoints_0",
+   "type": "uint"
+  },
+  {
+   "name": "EpicPropertiesPoints_1",
+   "type": "uint"
+  },
+  {
+   "name": "EpicPropertiesPoints_2",
+   "type": "uint"
+  },
+  {
+   "name": "EpicPropertiesPoints_3",
+   "type": "uint"
+  },
+  {
+   "name": "EpicPropertiesPoints_4",
+   "type": "uint"
+  },
+  {
+   "name": "RarePropertiesPoints_0",
+   "type": "uint"
+  },
+  {
+   "name": "RarePropertiesPoints_1",
+   "type": "uint"
+  },
+  {
+   "name": "RarePropertiesPoints_2",
+   "type": "uint"
+  },
+  {
+   "name": "RarePropertiesPoints_3",
+   "type": "uint"
+  },
+  {
+   "name": "RarePropertiesPoints_4",
+   "type": "uint"
+  },
+  {
+   "name": "UncommonPropertiesPoints_0",
+   "type": "uint"
+  },
+  {
+   "name": "UncommonPropertiesPoints_1",
+   "type": "uint"
+  },
+  {
+   "name": "UncommonPropertiesPoints_2",
+   "type": "uint"
+  },
+  {
+   "name": "UncommonPropertiesPoints_3",
+   "type": "uint"
+  },
+  {
+   "name": "UncommonPropertiesPoints_4",
+   "type": "uint"
+  }
+ ]
+}

@@ -1,0 +1,26 @@
+{
+ "table": "SpellRuneCost",
+ "source": "SpellWork CoA SpellRuneCostEntry.cs: CoA 3.3.5a layout: CoA DBCfmt.h SpellRuneCostfmt \"niiii\" (5 fields, 20 bytes); names from WoWDBDefs SpellRuneCost.dbd 3.3.5.12340",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "RuneCost_0",
+   "type": "int"
+  },
+  {
+   "name": "RuneCost_1",
+   "type": "int"
+  },
+  {
+   "name": "RuneCost_2",
+   "type": "int"
+  },
+  {
+   "name": "RunicPower",
+   "type": "int"
+  }
+ ]
+}

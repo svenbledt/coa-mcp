@@ -1,0 +1,14 @@
+{
+ "table": "TeamContributionPoints",
+ "source": "CoA server DBCStructure.h TeamContributionPointsEntry aligned with DBCfmt.h TeamContributionPointsfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "value",
+   "type": "float"
+  }
+ ]
+}

@@ -1,0 +1,202 @@
+{
+ "table": "LFGDungeons",
+ "source": "CoA server DBCStructure.h LFGDungeonEntry aligned with DBCfmt.h LFGDungeonEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "uint"
+  },
+  {
+   "name": "Name_0",
+   "type": "string"
+  },
+  {
+   "name": "Name_1",
+   "type": "string"
+  },
+  {
+   "name": "Name_2",
+   "type": "string"
+  },
+  {
+   "name": "Name_3",
+   "type": "string"
+  },
+  {
+   "name": "Name_4",
+   "type": "string"
+  },
+  {
+   "name": "Name_5",
+   "type": "string"
+  },
+  {
+   "name": "Name_6",
+   "type": "string"
+  },
+  {
+   "name": "Name_7",
+   "type": "string"
+  },
+  {
+   "name": "Name_8",
+   "type": "string"
+  },
+  {
+   "name": "Name_9",
+   "type": "string"
+  },
+  {
+   "name": "Name_10",
+   "type": "string"
+  },
+  {
+   "name": "Name_11",
+   "type": "string"
+  },
+  {
+   "name": "Name_12",
+   "type": "string"
+  },
+  {
+   "name": "Name_13",
+   "type": "string"
+  },
+  {
+   "name": "Name_14",
+   "type": "string"
+  },
+  {
+   "name": "Name_15",
+   "type": "string"
+  },
+  {
+   "name": "f17",
+   "type": "unknown"
+  },
+  {
+   "name": "MinLevel",
+   "type": "uint"
+  },
+  {
+   "name": "MaxLevel",
+   "type": "uint"
+  },
+  {
+   "name": "TargetLevel",
+   "type": "uint"
+  },
+  {
+   "name": "TargetLevelMin",
+   "type": "uint"
+  },
+  {
+   "name": "TargetLevelMax",
+   "type": "uint"
+  },
+  {
+   "name": "MapID",
+   "type": "uint"
+  },
+  {
+   "name": "Difficulty",
+   "type": "uint"
+  },
+  {
+   "name": "Flags",
+   "type": "uint"
+  },
+  {
+   "name": "TypeID",
+   "type": "uint"
+  },
+  {
+   "name": "f27",
+   "type": "unknown"
+  },
+  {
+   "name": "f28",
+   "type": "unknown"
+  },
+  {
+   "name": "ExpansionLevel",
+   "type": "uint"
+  },
+  {
+   "name": "f30",
+   "type": "unknown"
+  },
+  {
+   "name": "GroupID",
+   "type": "uint"
+  },
+  {
+   "name": "f32",
+   "type": "unknown"
+  },
+  {
+   "name": "f33",
+   "type": "unknown"
+  },
+  {
+   "name": "f34",
+   "type": "unknown"
+  },
+  {
+   "name": "f35",
+   "type": "unknown"
+  },
+  {
+   "name": "f36",
+   "type": "unknown"
+  },
+  {
+   "name": "f37",
+   "type": "unknown"
+  },
+  {
+   "name": "f38",
+   "type": "unknown"
+  },
+  {
+   "name": "f39",
+   "type": "unknown"
+  },
+  {
+   "name": "f40",
+   "type": "unknown"
+  },
+  {
+   "name": "f41",
+   "type": "unknown"
+  },
+  {
+   "name": "f42",
+   "type": "unknown"
+  },
+  {
+   "name": "f43",
+   "type": "unknown"
+  },
+  {
+   "name": "f44",
+   "type": "unknown"
+  },
+  {
+   "name": "f45",
+   "type": "unknown"
+  },
+  {
+   "name": "f46",
+   "type": "unknown"
+  },
+  {
+   "name": "f47",
+   "type": "unknown"
+  },
+  {
+   "name": "f48",
+   "type": "unknown"
+  }
+ ]
+}

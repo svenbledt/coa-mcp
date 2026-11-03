@@ -1,0 +1,34 @@
+{
+ "table": "TransportRotation",
+ "source": "CoA server DBCStructure.h TransportRotationEntry aligned with DBCfmt.h TransportRotationfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "TransportEntry",
+   "type": "uint"
+  },
+  {
+   "name": "TimeSeg",
+   "type": "uint"
+  },
+  {
+   "name": "X",
+   "type": "float"
+  },
+  {
+   "name": "Y",
+   "type": "float"
+  },
+  {
+   "name": "Z",
+   "type": "float"
+  },
+  {
+   "name": "W",
+   "type": "float"
+  }
+ ]
+}

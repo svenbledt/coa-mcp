@@ -1,0 +1,942 @@
+{
+ "table": "Spell",
+ "source": "SpellWork CoA SpellEntry.cs: CoA 3.3.5a layout: CoA DBCfmt.h SpellEntryfmt (234 fields, 936 bytes);",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "Category",
+   "type": "int"
+  },
+  {
+   "name": "DispelType",
+   "type": "int"
+  },
+  {
+   "name": "Mechanic",
+   "type": "int"
+  },
+  {
+   "name": "Attributes_0",
+   "type": "uint"
+  },
+  {
+   "name": "Attributes_1",
+   "type": "uint"
+  },
+  {
+   "name": "Attributes_2",
+   "type": "uint"
+  },
+  {
+   "name": "Attributes_3",
+   "type": "uint"
+  },
+  {
+   "name": "Attributes_4",
+   "type": "uint"
+  },
+  {
+   "name": "Attributes_5",
+   "type": "uint"
+  },
+  {
+   "name": "Attributes_6",
+   "type": "uint"
+  },
+  {
+   "name": "Attributes_7",
+   "type": "uint"
+  },
+  {
+   "name": "ShapeshiftMask_0",
+   "type": "uint"
+  },
+  {
+   "name": "ShapeshiftMask_1",
+   "type": "uint"
+  },
+  {
+   "name": "ShapeshiftExclude_0",
+   "type": "uint"
+  },
+  {
+   "name": "ShapeshiftExclude_1",
+   "type": "uint"
+  },
+  {
+   "name": "Targets",
+   "type": "uint"
+  },
+  {
+   "name": "TargetCreatureType",
+   "type": "uint"
+  },
+  {
+   "name": "RequiresSpellFocus",
+   "type": "int"
+  },
+  {
+   "name": "FacingCasterFlags",
+   "type": "uint"
+  },
+  {
+   "name": "CasterAuraState",
+   "type": "int"
+  },
+  {
+   "name": "TargetAuraState",
+   "type": "int"
+  },
+  {
+   "name": "ExcludeCasterAuraState",
+   "type": "int"
+  },
+  {
+   "name": "ExcludeTargetAuraState",
+   "type": "int"
+  },
+  {
+   "name": "CasterAuraSpell",
+   "type": "int"
+  },
+  {
+   "name": "TargetAuraSpell",
+   "type": "int"
+  },
+  {
+   "name": "ExcludeCasterAuraSpell",
+   "type": "int"
+  },
+  {
+   "name": "ExcludeTargetAuraSpell",
+   "type": "int"
+  },
+  {
+   "name": "CastingTimeIndex",
+   "type": "int"
+  },
+  {
+   "name": "RecoveryTime",
+   "type": "int"
+  },
+  {
+   "name": "CategoryRecoveryTime",
+   "type": "int"
+  },
+  {
+   "name": "InterruptFlags",
+   "type": "uint"
+  },
+  {
+   "name": "AuraInterruptFlags",
+   "type": "uint"
+  },
+  {
+   "name": "ChannelInterruptFlags",
+   "type": "uint"
+  },
+  {
+   "name": "ProcTypeMask",
+   "type": "uint"
+  },
+  {
+   "name": "ProcChance",
+   "type": "int"
+  },
+  {
+   "name": "ProcCharges",
+   "type": "int"
+  },
+  {
+   "name": "MaxLevel",
+   "type": "int"
+  },
+  {
+   "name": "BaseLevel",
+   "type": "int"
+  },
+  {
+   "name": "SpellLevel",
+   "type": "int"
+  },
+  {
+   "name": "DurationIndex",
+   "type": "int"
+  },
+  {
+   "name": "PowerType",
+   "type": "int"
+  },
+  {
+   "name": "ManaCost",
+   "type": "int"
+  },
+  {
+   "name": "ManaCostPerLevel",
+   "type": "int"
+  },
+  {
+   "name": "ManaPerSecond",
+   "type": "int"
+  },
+  {
+   "name": "ManaPerSecondPerLevel",
+   "type": "int"
+  },
+  {
+   "name": "RangeIndex",
+   "type": "int"
+  },
+  {
+   "name": "Speed",
+   "type": "float"
+  },
+  {
+   "name": "ModalNextSpell",
+   "type": "int"
+  },
+  {
+   "name": "CumulativeAura",
+   "type": "int"
+  },
+  {
+   "name": "Totem_0",
+   "type": "int"
+  },
+  {
+   "name": "Totem_1",
+   "type": "int"
+  },
+  {
+   "name": "Reagent_0",
+   "type": "int"
+  },
+  {
+   "name": "Reagent_1",
+   "type": "int"
+  },
+  {
+   "name": "Reagent_2",
+   "type": "int"
+  },
+  {
+   "name": "Reagent_3",
+   "type": "int"
+  },
+  {
+   "name": "Reagent_4",
+   "type": "int"
+  },
+  {
+   "name": "Reagent_5",
+   "type": "int"
+  },
+  {
+   "name": "Reagent_6",
+   "type": "int"
+  },
+  {
+   "name": "Reagent_7",
+   "type": "int"
+  },
+  {
+   "name": "ReagentCount_0",
+   "type": "int"
+  },
+  {
+   "name": "ReagentCount_1",
+   "type": "int"
+  },
+  {
+   "name": "ReagentCount_2",
+   "type": "int"
+  },
+  {
+   "name": "ReagentCount_3",
+   "type": "int"
+  },
+  {
+   "name": "ReagentCount_4",
+   "type": "int"
+  },
+  {
+   "name": "ReagentCount_5",
+   "type": "int"
+  },
+  {
+   "name": "ReagentCount_6",
+   "type": "int"
+  },
+  {
+   "name": "ReagentCount_7",
+   "type": "int"
+  },
+  {
+   "name": "EquippedItemClass",
+   "type": "int"
+  },
+  {
+   "name": "EquippedItemSubclass",
+   "type": "int"
+  },
+  {
+   "name": "EquippedItemInvTypes",
+   "type": "int"
+  },
+  {
+   "name": "Effect_0",
+   "type": "int"
+  },
+  {
+   "name": "Effect_1",
+   "type": "int"
+  },
+  {
+   "name": "Effect_2",
+   "type": "int"
+  },
+  {
+   "name": "EffectDieSides_0",
+   "type": "int"
+  },
+  {
+   "name": "EffectDieSides_1",
+   "type": "int"
+  },
+  {
+   "name": "EffectDieSides_2",
+   "type": "int"
+  },
+  {
+   "name": "EffectRealPointsPerLevel_0",
+   "type": "float"
+  },
+  {
+   "name": "EffectRealPointsPerLevel_1",
+   "type": "float"
+  },
+  {
+   "name": "EffectRealPointsPerLevel_2",
+   "type": "float"
+  },
+  {
+   "name": "EffectBasePoints_0",
+   "type": "int"
+  },
+  {
+   "name": "EffectBasePoints_1",
+   "type": "int"
+  },
+  {
+   "name": "EffectBasePoints_2",
+   "type": "int"
+  },
+  {
+   "name": "EffectMechanic_0",
+   "type": "int"
+  },
+  {
+   "name": "EffectMechanic_1",
+   "type": "int"
+  },
+  {
+   "name": "EffectMechanic_2",
+   "type": "int"
+  },
+  {
+   "name": "ImplicitTargetA_0",
+   "type": "int"
+  },
+  {
+   "name": "ImplicitTargetA_1",
+   "type": "int"
+  },
+  {
+   "name": "ImplicitTargetA_2",
+   "type": "int"
+  },
+  {
+   "name": "ImplicitTargetB_0",
+   "type": "int"
+  },
+  {
+   "name": "ImplicitTargetB_1",
+   "type": "int"
+  },
+  {
+   "name": "ImplicitTargetB_2",
+   "type": "int"
+  },
+  {
+   "name": "EffectRadiusIndex_0",
+   "type": "int"
+  },
+  {
+   "name": "EffectRadiusIndex_1",
+   "type": "int"
+  },
+  {
+   "name": "EffectRadiusIndex_2",
+   "type": "int"
+  },
+  {
+   "name": "EffectAura_0",
+   "type": "int"
+  },
+  {
+   "name": "EffectAura_1",
+   "type": "int"
+  },
+  {
+   "name": "EffectAura_2",
+   "type": "int"
+  },
+  {
+   "name": "EffectAuraPeriod_0",
+   "type": "int"
+  },
+  {
+   "name": "EffectAuraPeriod_1",
+   "type": "int"
+  },
+  {
+   "name": "EffectAuraPeriod_2",
+   "type": "int"
+  },
+  {
+   "name": "EffectAmplitude_0",
+   "type": "float"
+  },
+  {
+   "name": "EffectAmplitude_1",
+   "type": "float"
+  },
+  {
+   "name": "EffectAmplitude_2",
+   "type": "float"
+  },
+  {
+   "name": "EffectChainTargets_0",
+   "type": "int"
+  },
+  {
+   "name": "EffectChainTargets_1",
+   "type": "int"
+  },
+  {
+   "name": "EffectChainTargets_2",
+   "type": "int"
+  },
+  {
+   "name": "EffectItemType_0",
+   "type": "int"
+  },
+  {
+   "name": "EffectItemType_1",
+   "type": "int"
+  },
+  {
+   "name": "EffectItemType_2",
+   "type": "int"
+  },
+  {
+   "name": "EffectMiscValue_0",
+   "type": "int"
+  },
+  {
+   "name": "EffectMiscValue_1",
+   "type": "int"
+  },
+  {
+   "name": "EffectMiscValue_2",
+   "type": "int"
+  },
+  {
+   "name": "EffectMiscValueB_0",
+   "type": "int"
+  },
+  {
+   "name": "EffectMiscValueB_1",
+   "type": "int"
+  },
+  {
+   "name": "EffectMiscValueB_2",
+   "type": "int"
+  },
+  {
+   "name": "EffectTriggerSpell_0",
+   "type": "int"
+  },
+  {
+   "name": "EffectTriggerSpell_1",
+   "type": "int"
+  },
+  {
+   "name": "EffectTriggerSpell_2",
+   "type": "int"
+  },
+  {
+   "name": "EffectPointsPerCombo_0",
+   "type": "float"
+  },
+  {
+   "name": "EffectPointsPerCombo_1",
+   "type": "float"
+  },
+  {
+   "name": "EffectPointsPerCombo_2",
+   "type": "float"
+  },
+  {
+   "name": "EffectSpellClassMaskA_0",
+   "type": "uint"
+  },
+  {
+   "name": "EffectSpellClassMaskA_1",
+   "type": "uint"
+  },
+  {
+   "name": "EffectSpellClassMaskA_2",
+   "type": "uint"
+  },
+  {
+   "name": "EffectSpellClassMaskB_0",
+   "type": "uint"
+  },
+  {
+   "name": "EffectSpellClassMaskB_1",
+   "type": "uint"
+  },
+  {
+   "name": "EffectSpellClassMaskB_2",
+   "type": "uint"
+  },
+  {
+   "name": "EffectSpellClassMaskC_0",
+   "type": "uint"
+  },
+  {
+   "name": "EffectSpellClassMaskC_1",
+   "type": "uint"
+  },
+  {
+   "name": "EffectSpellClassMaskC_2",
+   "type": "uint"
+  },
+  {
+   "name": "SpellVisualID_0",
+   "type": "int"
+  },
+  {
+   "name": "SpellVisualID_1",
+   "type": "int"
+  },
+  {
+   "name": "SpellIconID",
+   "type": "int"
+  },
+  {
+   "name": "ActiveIconID",
+   "type": "int"
+  },
+  {
+   "name": "SpellPriority",
+   "type": "int"
+  },
+  {
+   "name": "NameLang_0",
+   "type": "string"
+  },
+  {
+   "name": "NameLang_1",
+   "type": "string"
+  },
+  {
+   "name": "NameLang_2",
+   "type": "string"
+  },
+  {
+   "name": "NameLang_3",
+   "type": "string"
+  },
+  {
+   "name": "NameLang_4",
+   "type": "string"
+  },
+  {
+   "name": "NameLang_5",
+   "type": "string"
+  },
+  {
+   "name": "NameLang_6",
+   "type": "string"
+  },
+  {
+   "name": "NameLang_7",
+   "type": "string"
+  },
+  {
+   "name": "NameLang_8",
+   "type": "string"
+  },
+  {
+   "name": "NameLangUnusedSlots_0",
+   "type": "uint"
+  },
+  {
+   "name": "NameLangUnusedSlots_1",
+   "type": "uint"
+  },
+  {
+   "name": "NameLangUnusedSlots_2",
+   "type": "uint"
+  },
+  {
+   "name": "NameLangUnusedSlots_3",
+   "type": "uint"
+  },
+  {
+   "name": "NameLangUnusedSlots_4",
+   "type": "uint"
+  },
+  {
+   "name": "NameLangUnusedSlots_5",
+   "type": "uint"
+  },
+  {
+   "name": "NameLangUnusedSlots_6",
+   "type": "uint"
+  },
+  {
+   "name": "NameLangFlags",
+   "type": "uint"
+  },
+  {
+   "name": "NameSubtextLang_0",
+   "type": "string"
+  },
+  {
+   "name": "NameSubtextLang_1",
+   "type": "string"
+  },
+  {
+   "name": "NameSubtextLang_2",
+   "type": "string"
+  },
+  {
+   "name": "NameSubtextLang_3",
+   "type": "string"
+  },
+  {
+   "name": "NameSubtextLang_4",
+   "type": "string"
+  },
+  {
+   "name": "NameSubtextLang_5",
+   "type": "string"
+  },
+  {
+   "name": "NameSubtextLang_6",
+   "type": "string"
+  },
+  {
+   "name": "NameSubtextLang_7",
+   "type": "string"
+  },
+  {
+   "name": "NameSubtextLang_8",
+   "type": "string"
+  },
+  {
+   "name": "NameSubtextLangUnusedSlots_0",
+   "type": "uint"
+  },
+  {
+   "name": "NameSubtextLangUnusedSlots_1",
+   "type": "uint"
+  },
+  {
+   "name": "NameSubtextLangUnusedSlots_2",
+   "type": "uint"
+  },
+  {
+   "name": "NameSubtextLangUnusedSlots_3",
+   "type": "uint"
+  },
+  {
+   "name": "NameSubtextLangUnusedSlots_4",
+   "type": "uint"
+  },
+  {
+   "name": "NameSubtextLangUnusedSlots_5",
+   "type": "uint"
+  },
+  {
+   "name": "NameSubtextLangUnusedSlots_6",
+   "type": "uint"
+  },
+  {
+   "name": "NameSubtextLangFlags",
+   "type": "uint"
+  },
+  {
+   "name": "DescriptionLang_0",
+   "type": "string"
+  },
+  {
+   "name": "DescriptionLang_1",
+   "type": "string"
+  },
+  {
+   "name": "DescriptionLang_2",
+   "type": "string"
+  },
+  {
+   "name": "DescriptionLang_3",
+   "type": "string"
+  },
+  {
+   "name": "DescriptionLang_4",
+   "type": "string"
+  },
+  {
+   "name": "DescriptionLang_5",
+   "type": "string"
+  },
+  {
+   "name": "DescriptionLang_6",
+   "type": "string"
+  },
+  {
+   "name": "DescriptionLang_7",
+   "type": "string"
+  },
+  {
+   "name": "DescriptionLang_8",
+   "type": "string"
+  },
+  {
+   "name": "DescriptionLangUnusedSlots_0",
+   "type": "uint"
+  },
+  {
+   "name": "DescriptionLangUnusedSlots_1",
+   "type": "uint"
+  },
+  {
+   "name": "DescriptionLangUnusedSlots_2",
+   "type": "uint"
+  },
+  {
+   "name": "DescriptionLangUnusedSlots_3",
+   "type": "uint"
+  },
+  {
+   "name": "DescriptionLangUnusedSlots_4",
+   "type": "uint"
+  },
+  {
+   "name": "DescriptionLangUnusedSlots_5",
+   "type": "uint"
+  },
+  {
+   "name": "DescriptionLangUnusedSlots_6",
+   "type": "uint"
+  },
+  {
+   "name": "DescriptionLangFlags",
+   "type": "uint"
+  },
+  {
+   "name": "AuraDescriptionLang_0",
+   "type": "string"
+  },
+  {
+   "name": "AuraDescriptionLang_1",
+   "type": "string"
+  },
+  {
+   "name": "AuraDescriptionLang_2",
+   "type": "string"
+  },
+  {
+   "name": "AuraDescriptionLang_3",
+   "type": "string"
+  },
+  {
+   "name": "AuraDescriptionLang_4",
+   "type": "string"
+  },
+  {
+   "name": "AuraDescriptionLang_5",
+   "type": "string"
+  },
+  {
+   "name": "AuraDescriptionLang_6",
+   "type": "string"
+  },
+  {
+   "name": "AuraDescriptionLang_7",
+   "type": "string"
+  },
+  {
+   "name": "AuraDescriptionLang_8",
+   "type": "string"
+  },
+  {
+   "name": "AuraDescriptionLangUnusedSlots_0",
+   "type": "uint"
+  },
+  {
+   "name": "AuraDescriptionLangUnusedSlots_1",
+   "type": "uint"
+  },
+  {
+   "name": "AuraDescriptionLangUnusedSlots_2",
+   "type": "uint"
+  },
+  {
+   "name": "AuraDescriptionLangUnusedSlots_3",
+   "type": "uint"
+  },
+  {
+   "name": "AuraDescriptionLangUnusedSlots_4",
+   "type": "uint"
+  },
+  {
+   "name": "AuraDescriptionLangUnusedSlots_5",
+   "type": "uint"
+  },
+  {
+   "name": "AuraDescriptionLangUnusedSlots_6",
+   "type": "uint"
+  },
+  {
+   "name": "AuraDescriptionLangFlags",
+   "type": "uint"
+  },
+  {
+   "name": "ManaCostPct",
+   "type": "int"
+  },
+  {
+   "name": "StartRecoveryCategory",
+   "type": "int"
+  },
+  {
+   "name": "StartRecoveryTime",
+   "type": "int"
+  },
+  {
+   "name": "MaxTargetLevel",
+   "type": "int"
+  },
+  {
+   "name": "SpellClassSet",
+   "type": "int"
+  },
+  {
+   "name": "SpellClassMask_0",
+   "type": "uint"
+  },
+  {
+   "name": "SpellClassMask_1",
+   "type": "uint"
+  },
+  {
+   "name": "SpellClassMask_2",
+   "type": "uint"
+  },
+  {
+   "name": "MaxTargets",
+   "type": "int"
+  },
+  {
+   "name": "DefenseType",
+   "type": "int"
+  },
+  {
+   "name": "PreventionType",
+   "type": "int"
+  },
+  {
+   "name": "StanceBarOrder",
+   "type": "int"
+  },
+  {
+   "name": "EffectChainAmplitude_0",
+   "type": "float"
+  },
+  {
+   "name": "EffectChainAmplitude_1",
+   "type": "float"
+  },
+  {
+   "name": "EffectChainAmplitude_2",
+   "type": "float"
+  },
+  {
+   "name": "MinFactionID",
+   "type": "int"
+  },
+  {
+   "name": "MinReputation",
+   "type": "int"
+  },
+  {
+   "name": "RequiredAuraVision",
+   "type": "int"
+  },
+  {
+   "name": "RequiredTotemCategoryID_0",
+   "type": "int"
+  },
+  {
+   "name": "RequiredTotemCategoryID_1",
+   "type": "int"
+  },
+  {
+   "name": "RequiredAreasID",
+   "type": "int"
+  },
+  {
+   "name": "SchoolMask",
+   "type": "int"
+  },
+  {
+   "name": "RuneCostID",
+   "type": "int"
+  },
+  {
+   "name": "SpellMissileID",
+   "type": "int"
+  },
+  {
+   "name": "PowerDisplayID",
+   "type": "int"
+  },
+  {
+   "name": "EffectBonusCoefficient_0",
+   "type": "float"
+  },
+  {
+   "name": "EffectBonusCoefficient_1",
+   "type": "float"
+  },
+  {
+   "name": "EffectBonusCoefficient_2",
+   "type": "float"
+  },
+  {
+   "name": "SpellDescriptionVariableID",
+   "type": "int"
+  },
+  {
+   "name": "SpellDifficultyID",
+   "type": "int"
+  }
+ ]
+}

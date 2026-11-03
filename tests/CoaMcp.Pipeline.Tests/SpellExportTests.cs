@@ -51,6 +51,35 @@ public sealed class SpellExportTests(SpellFixture f)
     }
 
     [Fact]
+    public void SourceDate_ComesFromTheWinnersList_NotTheCopiedFilesTime()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "coamcp-winners-" + Guid.NewGuid().ToString("N"));
+        FakeDbc.Create(dir);
+        try
+        {
+            CoaMcp.Pipeline.Dbc.DbcWinnerList.Write(dir, new Dictionary<string, CoaMcp.Pipeline.Dbc.DbcWinnerFile>
+            {
+                ["Spell.dbc"] = new("patch-T.MPQ", "project", "2026-10-03"),
+            });
+            Assert.Equal(new DateOnly(2026, 10, 3), SpellSource.SourceDateOf(dir));
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [Fact]
+    public void SourceDate_FolderWithoutAWinnersList_IsRefused()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "coamcp-winners-" + Guid.NewGuid().ToString("N"));
+        FakeDbc.Create(dir);
+        try
+        {
+            var ex = Assert.Throws<InvalidOperationException>(() => SpellSource.SourceDateOf(dir));
+            Assert.Contains("winners", ex.Message);
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [Fact]
     public void Spell_HasSections()
     {
         var e = f.Reader.Get("spell:133");

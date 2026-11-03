@@ -1,0 +1,34 @@
+{
+ "table": "Emotes",
+ "source": "CoA server DBCStructure.h EmotesEntry aligned with DBCfmt.h EmotesEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "Id",
+   "type": "uint"
+  },
+  {
+   "name": "f1",
+   "type": "unknown"
+  },
+  {
+   "name": "f2",
+   "type": "unknown"
+  },
+  {
+   "name": "Flags",
+   "type": "uint"
+  },
+  {
+   "name": "EmoteType",
+   "type": "uint"
+  },
+  {
+   "name": "UnitStandState",
+   "type": "uint"
+  },
+  {
+   "name": "f6",
+   "type": "unknown"
+  }
+ ]
+}

@@ -1,0 +1,102 @@
+{
+ "table": "ScalingStatValues",
+ "source": "CoA server DBCStructure.h ScalingStatValuesEntry aligned with DBCfmt.h ScalingStatValuesfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "Id",
+   "type": "uint"
+  },
+  {
+   "name": "Level",
+   "type": "uint"
+  },
+  {
+   "name": "ssdMultiplier_0",
+   "type": "uint"
+  },
+  {
+   "name": "ssdMultiplier_1",
+   "type": "uint"
+  },
+  {
+   "name": "ssdMultiplier_2",
+   "type": "uint"
+  },
+  {
+   "name": "ssdMultiplier_3",
+   "type": "uint"
+  },
+  {
+   "name": "armorMod_0",
+   "type": "uint"
+  },
+  {
+   "name": "armorMod_1",
+   "type": "uint"
+  },
+  {
+   "name": "armorMod_2",
+   "type": "uint"
+  },
+  {
+   "name": "armorMod_3",
+   "type": "uint"
+  },
+  {
+   "name": "dpsMod_0",
+   "type": "uint"
+  },
+  {
+   "name": "dpsMod_1",
+   "type": "uint"
+  },
+  {
+   "name": "dpsMod_2",
+   "type": "uint"
+  },
+  {
+   "name": "dpsMod_3",
+   "type": "uint"
+  },
+  {
+   "name": "dpsMod_4",
+   "type": "uint"
+  },
+  {
+   "name": "dpsMod_5",
+   "type": "uint"
+  },
+  {
+   "name": "spellPower",
+   "type": "uint"
+  },
+  {
+   "name": "ssdMultiplier2",
+   "type": "uint"
+  },
+  {
+   "name": "ssdMultiplier3",
+   "type": "uint"
+  },
+  {
+   "name": "armorMod2_0",
+   "type": "uint"
+  },
+  {
+   "name": "armorMod2_1",
+   "type": "uint"
+  },
+  {
+   "name": "armorMod2_2",
+   "type": "uint"
+  },
+  {
+   "name": "armorMod2_3",
+   "type": "uint"
+  },
+  {
+   "name": "armorMod2_4",
+   "type": "uint"
+  }
+ ]
+}

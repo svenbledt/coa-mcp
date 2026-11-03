@@ -1,0 +1,22 @@
+{
+ "table": "GlyphProperties",
+ "source": "CoA server DBCStructure.h GlyphPropertiesEntry aligned with DBCfmt.h GlyphPropertiesfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "Id",
+   "type": "uint"
+  },
+  {
+   "name": "SpellId",
+   "type": "uint"
+  },
+  {
+   "name": "TypeFlags",
+   "type": "uint"
+  },
+  {
+   "name": "f3",
+   "type": "unknown"
+  }
+ ]
+}

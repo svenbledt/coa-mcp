@@ -19,20 +19,40 @@ public static class ItemImporter
             new DateOnly(2026, 8, 10), "BisBeard Octo item API"),
     };
 
-    public static int Import(string dataDir, LayerWriter w)
+    private const string NotInClient = "This item's id is not in the CoA client: the client's Item table has no such row, so it is not counted as CoA.";
+
+    /// <summary>
+    /// Imports every list. With <paramref name="clientItems"/>, an item from a list that claims CoA, whose id isn't in the client's Item table, loses coa.
+    /// An item that is there stays unproven: being in the client isn't proof it is CoA.
+    /// </summary>
+    public static (int Items, int Narrowed) Import(string dataDir, LayerWriter w, IReadOnlySet<int>? clientItems = null)
     {
         var count = 0;
+        var narrowed = 0;
         foreach (var list in Lists)
         {
             using var stream = File.OpenRead(Path.Combine(dataDir, list.RelativePath));
             foreach (var item in JsonSerializer.DeserializeAsyncEnumerable<JsonElement>(stream).ToBlockingEnumerable())
             {
-                w.Add(ToEntity(item, list));
+                var entity = ToEntity(item, list);
+                if (clientItems is not null && entity.Realm.Realms.Contains("coa") && !InClient(item, clientItems))
+                {
+                    entity = entity with
+                    {
+                        Realm = entity.Realm with { Realms = entity.Realm.Realms.Where(r => r != "coa").ToList() },
+                        BodyMd = entity.BodyMd + "\n" + NotInClient + "\n",
+                    };
+                    narrowed++;
+                }
+                w.Add(entity);
                 count++;
             }
         }
-        return count;
+        return (count, narrowed);
     }
+
+    private static bool InClient(JsonElement item, IReadOnlySet<int> clientItems) =>
+        int.TryParse(Text(item, "id"), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var id) && clientItems.Contains(id);
 
     private static Entity ToEntity(JsonElement item, ItemList list)
     {

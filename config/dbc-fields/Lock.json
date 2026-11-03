@@ -1,0 +1,138 @@
+{
+ "table": "Lock",
+ "source": "CoA server DBCStructure.h LockEntry aligned with DBCfmt.h LockEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "uint"
+  },
+  {
+   "name": "Type_0",
+   "type": "uint"
+  },
+  {
+   "name": "Type_1",
+   "type": "uint"
+  },
+  {
+   "name": "Type_2",
+   "type": "uint"
+  },
+  {
+   "name": "Type_3",
+   "type": "uint"
+  },
+  {
+   "name": "Type_4",
+   "type": "uint"
+  },
+  {
+   "name": "Type_5",
+   "type": "uint"
+  },
+  {
+   "name": "Type_6",
+   "type": "uint"
+  },
+  {
+   "name": "Type_7",
+   "type": "uint"
+  },
+  {
+   "name": "Index_0",
+   "type": "uint"
+  },
+  {
+   "name": "Index_1",
+   "type": "uint"
+  },
+  {
+   "name": "Index_2",
+   "type": "uint"
+  },
+  {
+   "name": "Index_3",
+   "type": "uint"
+  },
+  {
+   "name": "Index_4",
+   "type": "uint"
+  },
+  {
+   "name": "Index_5",
+   "type": "uint"
+  },
+  {
+   "name": "Index_6",
+   "type": "uint"
+  },
+  {
+   "name": "Index_7",
+   "type": "uint"
+  },
+  {
+   "name": "Skill_0",
+   "type": "uint"
+  },
+  {
+   "name": "Skill_1",
+   "type": "uint"
+  },
+  {
+   "name": "Skill_2",
+   "type": "uint"
+  },
+  {
+   "name": "Skill_3",
+   "type": "uint"
+  },
+  {
+   "name": "Skill_4",
+   "type": "uint"
+  },
+  {
+   "name": "Skill_5",
+   "type": "uint"
+  },
+  {
+   "name": "Skill_6",
+   "type": "uint"
+  },
+  {
+   "name": "Skill_7",
+   "type": "uint"
+  },
+  {
+   "name": "f25",
+   "type": "unknown"
+  },
+  {
+   "name": "f26",
+   "type": "unknown"
+  },
+  {
+   "name": "f27",
+   "type": "unknown"
+  },
+  {
+   "name": "f28",
+   "type": "unknown"
+  },
+  {
+   "name": "f29",
+   "type": "unknown"
+  },
+  {
+   "name": "f30",
+   "type": "unknown"
+  },
+  {
+   "name": "f31",
+   "type": "unknown"
+  },
+  {
+   "name": "f32",
+   "type": "unknown"
+  }
+ ]
+}

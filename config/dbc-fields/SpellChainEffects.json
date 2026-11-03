@@ -1,0 +1,198 @@
+{
+ "table": "SpellChainEffects",
+ "source": "SpellWork CoA SpellChainEffectsEntry.cs: CoA 3.3.5a layout: WoWDBDefs SpellChainEffects.dbd 3.3.5.12340 (48 fields, 177 bytes; not loaded by the CoA server). Verified on the reference data: 39 four-byte columns, the five uint8 colour/blend columns packed with no padding (bytes 156-160), then four more four-byte columns; Combo is a string-table offset in every row",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "AvgSegLen",
+   "type": "float"
+  },
+  {
+   "name": "Width",
+   "type": "float"
+  },
+  {
+   "name": "NoiseScale",
+   "type": "float"
+  },
+  {
+   "name": "TexCoordScale",
+   "type": "float"
+  },
+  {
+   "name": "SegDuration",
+   "type": "int"
+  },
+  {
+   "name": "SegDelay",
+   "type": "int"
+  },
+  {
+   "name": "Texture",
+   "type": "string"
+  },
+  {
+   "name": "Flags",
+   "type": "int"
+  },
+  {
+   "name": "JointCount",
+   "type": "int"
+  },
+  {
+   "name": "JointOffsetRadius",
+   "type": "float"
+  },
+  {
+   "name": "JointsPerMinorJoint",
+   "type": "int"
+  },
+  {
+   "name": "MinorJointsPerMajorJoint",
+   "type": "int"
+  },
+  {
+   "name": "MinorJointScale",
+   "type": "float"
+  },
+  {
+   "name": "MajorJointScale",
+   "type": "float"
+  },
+  {
+   "name": "JointMoveSpeed",
+   "type": "float"
+  },
+  {
+   "name": "JointSmoothness",
+   "type": "float"
+  },
+  {
+   "name": "MinDurationBetweenJointJumps",
+   "type": "float"
+  },
+  {
+   "name": "MaxDurationBetweenJointJumps",
+   "type": "float"
+  },
+  {
+   "name": "WaveHeight",
+   "type": "float"
+  },
+  {
+   "name": "WaveFreq",
+   "type": "float"
+  },
+  {
+   "name": "WaveSpeed",
+   "type": "float"
+  },
+  {
+   "name": "MinWaveAngle",
+   "type": "float"
+  },
+  {
+   "name": "MaxWaveAngle",
+   "type": "float"
+  },
+  {
+   "name": "MinWaveSpin",
+   "type": "float"
+  },
+  {
+   "name": "MaxWaveSpin",
+   "type": "float"
+  },
+  {
+   "name": "ArcHeight",
+   "type": "float"
+  },
+  {
+   "name": "MinArcAngle",
+   "type": "float"
+  },
+  {
+   "name": "MaxArcAngle",
+   "type": "float"
+  },
+  {
+   "name": "MinArcSpin",
+   "type": "float"
+  },
+  {
+   "name": "MaxArcSpin",
+   "type": "float"
+  },
+  {
+   "name": "DelayBetweenEffects",
+   "type": "float"
+  },
+  {
+   "name": "MinFlickerOnDuration",
+   "type": "float"
+  },
+  {
+   "name": "MaxFlickerOnDuration",
+   "type": "float"
+  },
+  {
+   "name": "MinFlickerOffDuration",
+   "type": "float"
+  },
+  {
+   "name": "MaxFlickerOffDuration",
+   "type": "float"
+  },
+  {
+   "name": "PulseSpeed",
+   "type": "float"
+  },
+  {
+   "name": "PulseOnLength",
+   "type": "float"
+  },
+  {
+   "name": "PulseFadeLength",
+   "type": "float"
+  },
+  {
+   "name": "Alpha",
+   "type": "byte"
+  },
+  {
+   "name": "Red",
+   "type": "byte"
+  },
+  {
+   "name": "Green",
+   "type": "byte"
+  },
+  {
+   "name": "Blue",
+   "type": "byte"
+  },
+  {
+   "name": "BlendMode",
+   "type": "byte"
+  },
+  {
+   "name": "Combo",
+   "type": "string"
+  },
+  {
+   "name": "RenderLayer",
+   "type": "int"
+  },
+  {
+   "name": "TextureLength",
+   "type": "float"
+  },
+  {
+   "name": "WavePhase",
+   "type": "float"
+  }
+ ]
+}

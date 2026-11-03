@@ -1,0 +1,18 @@
+{
+ "table": "GlyphSlot",
+ "source": "CoA server DBCStructure.h GlyphSlotEntry aligned with DBCfmt.h GlyphSlotfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "Id",
+   "type": "uint"
+  },
+  {
+   "name": "TypeFlags",
+   "type": "uint"
+  },
+  {
+   "name": "Order",
+   "type": "uint"
+  }
+ ]
+}

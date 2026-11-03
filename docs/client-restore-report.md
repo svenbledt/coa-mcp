@@ -141,3 +141,54 @@ Nonzero by archive:
 All 83 recovered files are in `enUS/backup-enUS.MPQ`, which has no failures, markers or unnamed entries.
 
 **The listfile is complete; nothing remains unnamed or unrestored.** The listed names include internal files and delete markers, because each one is a real entry matching both hashes. `client-listfile.txt` has 639,155 unique names, 639,153 without the two internal names.
+
+## DBC tables: client winners and the server's copies
+
+`coamcp-pipeline dbc` parses each table's winning copy, under the default client's rules (the same code as the paths layer), into the `dbc` layer. It also copies the winning raw files to a private folder for Spellwork and the item check: `F:\WorkDir\CoaRestored\.dbc-winners`. That folder never reaches the server and is refused inside a git repository.
+
+```
+coamcp-pipeline dbc --manifest F:\WorkDir\CoaRestored\manifest.sqlite --winners F:\WorkDir\CoaRestored\.dbc-winners --out dbc.sqlite
+coamcp-pipeline spells --dbc F:\WorkDir\CoaRestored\.dbc-winners --out spells.sqlite
+coamcp-pipeline bisbeard --data D:\WoW\Coa\DataCOA\data --client-dbc F:\WorkDir\CoaRestored\.dbc-winners --out bisbeard.sqlite
+```
+
+**The server's DBCs have not drifted from the client.** All 368 files in `F:\WorkDir\azerothcore-wotlk-coa\env\dist\data\dbc` are byte-identical to the client winners, including the project-built `Spell.dbc` and `CharBaseInfo.dbc`. Since every byte matches, every row count and spot row does too. This was a one-off comparison on 2026-11-04, and it needs repeating when either side changes.
+
+| Table | Rows | Winner | Origin |
+| --- | ---: | --- | --- |
+| `ItemStat` | 1,513,931 | `patch-M.MPQ` | unknown |
+| `Item` | 563,769 | `patch-M.MPQ` | unknown |
+| `Spell` | 209,510 | `patch-T.MPQ` | project |
+| `Creature` | 127,343 | `patch-M.MPQ` | unknown |
+
+Winners by archive: `patch-M.MPQ` 286, `patch-S.MPQ` 48, `enUS/locale-enUS.MPQ` 18, `enUS/patch-enUS.MPQ` 7, `enUS/patch-enUS-3.MPQ` 5, `patch-T.MPQ` 2, `patch-ZG.MPQ` 1, `enUS/patch-enUS-2.MPQ` 1.
+
+**Project-built winners.** Only two tables are won by a project archive, both by `patch-T.MPQ`. The next copy of each is exported beside it as `t_<name>__base`, with origin `unknown`. It is not claimed as Ascension.
+
+| Table | Winner rows | Base copy | Base rows |
+| --- | ---: | --- | ---: |
+| `Spell` | 209,510 | `enUS/patch-enUS-3.MPQ` | 49,839 |
+| `CharBaseInfo` | 295 | `patch-M.MPQ` | 209 |
+
+**Delete markers.** No table has one on top, so no table is left out for that reason. The only marker on a DBC is `CharVariations.dbc` in `enUS/patch-enUS.MPQ`, under a newer real copy. No table is unreadable.
+
+**Field names.** 110 of 368 tables have proven names, and the other 258 are by position with guessed types:
+
+- 30 tables come from Spellwork's CoA layouts.
+- 80 come from the CoA server, where `DBCStructure.h` lines up member by member with `DBCfmt.h`. Columns the server skips stay unnamed and guessed.
+- The Extensions reconstruction proves no names: it reads rows by byte offset.
+- Refused because the source's layout doesn't match the client's file: `PowerDisplay` and ten `gt*` tables.
+- Refused because the source couldn't be aligned mechanically: `Achievement_Criteria` (a union), `CinematicCamera` (a nested position type), and `gtOCTRegenMP` and `ItemCondExtCosts` (no format or struct).
+
+**Packed tables with unknown field boundaries.** Six tables say more or fewer fields than their record size allows at four bytes each, and no source proves where each field starts: `AppearanceCategories`, `CharacterAdvancement`, `PowerDisplay`, `Tutorial`, `TutorialKeywords`, `VanityCollection`. They are shown as four-byte words (`w0`, `w1`, ...) and trailing bytes (`b12`, ...), each marked guessed, and they report why. `CharBaseInfo` is all single bytes, so its widths are known and its meanings are not. `CharStartOutfit`, `SpellItemEnchantmentCondition` and `SpellChainEffects` are also packed, and their sources prove the widths.
+
+**Source dates.** A layer's source date is the modified time of the archive that held its data, as the restore manifest recorded it, not when anything was copied:
+
+| Layer | Date | Basis |
+| --- | --- | --- |
+| `dbc`, per table | mostly 2026-10-03 | its copy's archive |
+| `dbc`, whole layer | 2026-10-22 | newest of those (`patch-ZG.MPQ`, `ItemDisplayInfo`) |
+| `spells` | 2026-10-03 | the archive that won `Spell.dbc` (`patch-T.MPQ`) |
+| `paths` | 2026-10-24 | newest archive the default client reads (`patch-B.MPQ`) |
+
+`CLIENT-RELEASE.json` wasn't used, because it no longer describes this client: it lists `patch-B.MPQ` at 8,987,639 bytes, and the file on disk is 228,738,210 bytes and dated a month after that release. It also doesn't cover `patch-ZG.MPQ`, `patch-M.MPQ` or `patch-S.MPQ`. These dates have a limit too: 76 of the 78 archives carry the same few minutes of 2026-10-03, which looks like when the client was installed, so the date says the data is no newer than that, not when it was built.

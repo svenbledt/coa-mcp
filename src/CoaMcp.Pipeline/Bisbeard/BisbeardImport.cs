@@ -16,19 +16,21 @@ public static class BisbeardImport
 
     public static RealmSet Proven(string realm) => new(new[] { realm }, true);
 
-    public static (int Items, int Classes, int Specs, int Markers, int Guides, int Talents, int Rules) Run(string dataDir, string guidesConfig, string outPath, string? version = null)
+    /// <param name="clientItems">The ids in the client's Item table. An item not among them loses coa; null means no narrowing.</param>
+    public static (int Items, int Classes, int Specs, int Markers, int Guides, int Talents, int Rules, int NarrowedItems) Run(
+        string dataDir, string guidesConfig, string outPath, string? version = null, IReadOnlySet<int>? clientItems = null)
     {
         version = LayerVersion.Resolve(version);
         // Validate the guide config before touching the output file.
         var guides = GuideImporter.Load(dataDir, guidesConfig);
 
         using var w = new LayerWriter(outPath, "bisbeard", version);
-        var items = ItemImporter.Import(dataDir, w);
+        var (items, narrowed) = ItemImporter.Import(dataDir, w, clientItems);
         var (classes, specs, talents, rules) = RealmImporter.Import(dataDir, w);
         var markers = MarkerImporter.Import(dataDir, w);
         var guideCount = GuideImporter.Import(guides, w);
         w.Finish();
-        return (items, classes, specs, markers, guideCount, talents, rules);
+        return (items, classes, specs, markers, guideCount, talents, rules, narrowed);
     }
 }
 

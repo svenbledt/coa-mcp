@@ -1,0 +1,14 @@
+{
+ "table": "StableSlotPrices",
+ "source": "CoA server DBCStructure.h StableSlotPricesEntry aligned with DBCfmt.h StableSlotPricesfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "Slot",
+   "type": "uint"
+  },
+  {
+   "name": "Price",
+   "type": "uint"
+  }
+ ]
+}

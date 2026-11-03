@@ -1,0 +1,42 @@
+{
+ "table": "CreatureSpellData",
+ "source": "CoA server DBCStructure.h CreatureSpellDataEntry aligned with DBCfmt.h CreatureSpellDatafmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "uint"
+  },
+  {
+   "name": "spellId_0",
+   "type": "uint"
+  },
+  {
+   "name": "spellId_1",
+   "type": "uint"
+  },
+  {
+   "name": "spellId_2",
+   "type": "uint"
+  },
+  {
+   "name": "spellId_3",
+   "type": "uint"
+  },
+  {
+   "name": "f5",
+   "type": "unknown"
+  },
+  {
+   "name": "f6",
+   "type": "unknown"
+  },
+  {
+   "name": "f7",
+   "type": "unknown"
+  },
+  {
+   "name": "f8",
+   "type": "unknown"
+  }
+ ]
+}

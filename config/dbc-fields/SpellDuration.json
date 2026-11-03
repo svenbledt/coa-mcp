@@ -1,0 +1,22 @@
+{
+ "table": "SpellDuration",
+ "source": "SpellWork CoA SpellDurationEntry.cs: CoA 3.3.5a layout: CoA DBCfmt.h SpellDurationfmt \"niii\" (4 fields, 16 bytes); names from WoWDBDefs SpellDuration.dbd 3.3.5.12340",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "Duration",
+   "type": "int"
+  },
+  {
+   "name": "DurationPerLevel",
+   "type": "int"
+  },
+  {
+   "name": "MaxDuration",
+   "type": "int"
+  }
+ ]
+}

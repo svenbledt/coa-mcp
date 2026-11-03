@@ -1,0 +1,22 @@
+{
+ "table": "CurrencyTypes",
+ "source": "CoA server DBCStructure.h CurrencyTypesEntry aligned with DBCfmt.h CurrencyTypesfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "f0",
+   "type": "unknown"
+  },
+  {
+   "name": "ItemId",
+   "type": "uint"
+  },
+  {
+   "name": "f2",
+   "type": "unknown"
+  },
+  {
+   "name": "BitIndex",
+   "type": "uint"
+  }
+ ]
+}

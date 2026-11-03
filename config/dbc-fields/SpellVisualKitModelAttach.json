@@ -1,0 +1,46 @@
+{
+ "table": "SpellVisualKitModelAttach",
+ "source": "SpellWork CoA SpellVisualKitModelAttachEntry.cs: CoA 3.3.5a layout: WoWDBDefs SpellVisualKitModelAttach.dbd 3.3.5.12340 (10 fields, 40 bytes; not loaded by the CoA server)",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "ParentSpellVisualKitID",
+   "type": "int"
+  },
+  {
+   "name": "SpellVisualEffectNameID",
+   "type": "int"
+  },
+  {
+   "name": "AttachmentID",
+   "type": "int"
+  },
+  {
+   "name": "Offset_0",
+   "type": "float"
+  },
+  {
+   "name": "Offset_1",
+   "type": "float"
+  },
+  {
+   "name": "Offset_2",
+   "type": "float"
+  },
+  {
+   "name": "Yaw",
+   "type": "float"
+  },
+  {
+   "name": "Pitch",
+   "type": "float"
+  },
+  {
+   "name": "Roll",
+   "type": "float"
+  }
+ ]
+}

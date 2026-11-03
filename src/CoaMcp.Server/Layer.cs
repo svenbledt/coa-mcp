@@ -126,6 +126,10 @@ public sealed class Layer : IDisposable
     public IReadOnlyList<IReadOnlyDictionary<string, object?>> Query(string sql, params object?[] args) =>
         Use(r => r.Query(sql, args));
 
+    /// <summary>Code-defined SQL only. SQLite stops the statement when <paramref name="budget"/> has passed; see <see cref="LayerReader.QueryWithin"/>.</summary>
+    public IReadOnlyList<IReadOnlyDictionary<string, object?>> QueryWithin(TimeSpan budget, string sql, params object?[] args) =>
+        Use(r => r.QueryWithin(budget, sql, args));
+
     /// <summary>Runs a search under the per-layer search limit. The work calls <see cref="Query"/> for each statement.</summary>
     public T Searching<T>(Func<T> work)
     {

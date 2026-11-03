@@ -1,0 +1,22 @@
+{
+ "table": "SpellRadius",
+ "source": "SpellWork CoA SpellRadiusEntry.cs: CoA 3.3.5a layout: CoA DBCfmt.h SpellRadiusfmt \"nfff\" (4 fields, 16 bytes); names from WoWDBDefs SpellRadius.dbd 3.3.5.12340",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "Radius",
+   "type": "float"
+  },
+  {
+   "name": "RadiusPerLevel",
+   "type": "float"
+  },
+  {
+   "name": "RadiusMax",
+   "type": "float"
+  }
+ ]
+}

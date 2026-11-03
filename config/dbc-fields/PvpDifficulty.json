@@ -1,0 +1,30 @@
+{
+ "table": "PvpDifficulty",
+ "source": "CoA server DBCStructure.h PvPDifficultyEntry aligned with DBCfmt.h PvPDifficultyfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "mapId",
+   "type": "uint"
+  },
+  {
+   "name": "bracketId",
+   "type": "uint"
+  },
+  {
+   "name": "minLevel",
+   "type": "uint"
+  },
+  {
+   "name": "maxLevel",
+   "type": "uint"
+  },
+  {
+   "name": "difficulty",
+   "type": "uint"
+  }
+ ]
+}

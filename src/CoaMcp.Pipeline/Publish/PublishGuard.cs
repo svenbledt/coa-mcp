@@ -88,6 +88,8 @@ public static class PublishGuard
             while (rd.Read()) objects.Add((rd.GetString(0), rd.GetString(1), rd.GetString(2)));
         }
 
+        var dbcListed = layer == "dbc" ? ReadDbcListed(db, objects, problems) : null;
+
         var content = new List<string>();
         foreach (var (type, name, sql) in objects)
         {
@@ -96,7 +98,7 @@ public static class PublishGuard
                 case "index":
                     break;
                 case "table":
-                    if (!LayerAllowList.IsAllowedTable(layer, name))
+                    if (!LayerAllowList.IsAllowedTable(layer, name) && !(dbcListed is not null && LayerAllowList.IsDbcDataTable(name, dbcListed)))
                         problems.Add($"Table '{name}' is not allowed in the {layer} layer.");
                     else if (LayerAllowList.IsFtsTable(name))
                     {
@@ -128,6 +130,28 @@ public static class PublishGuard
         long rows = 0;
         foreach (var table in content) rows += CheckTable(db, table, problems);
         return rows;
+    }
+
+    /// <summary>The names in dbc_tables with exact spelling. Every table listed as exported must exist: a layer that lost one is not finished.</summary>
+    private static HashSet<string> ReadDbcListed(SqliteConnection db, List<(string Type, string Name, string Sql)> objects, List<string> problems)
+    {
+        var listed = new HashSet<string>(StringComparer.Ordinal);
+        if (!objects.Any(o => o.Type == "table" && o.Name == "dbc_tables"))
+        {
+            problems.Add("The dbc layer has no dbc_tables table.");
+            return listed;
+        }
+        using var cmd = db.CreateCommand();
+        cmd.CommandText = "SELECT name, status FROM dbc_tables";
+        using var rd = cmd.ExecuteReader();
+        while (rd.Read())
+        {
+            var name = rd.GetString(0);
+            listed.Add(name);
+            if (rd.GetString(1) == "ok" && !objects.Any(o => o.Type == "table" && o.Name == "t_" + name))
+                problems.Add($"dbc_tables lists t_{name} as exported, but the layer has no such table.");
+        }
+        return listed;
     }
 
     private static long CheckTable(SqliteConnection db, string table, List<string> problems)

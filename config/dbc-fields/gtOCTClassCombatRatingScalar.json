@@ -1,0 +1,14 @@
+{
+ "table": "gtOCTClassCombatRatingScalar",
+ "source": "CoA server DBCStructure.h GtOCTClassCombatRatingScalarEntry aligned with DBCfmt.h GtOCTClassCombatRatingScalarfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "ratio",
+   "type": "float"
+  }
+ ]
+}

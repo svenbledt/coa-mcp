@@ -1,0 +1,154 @@
+{
+ "table": "ChatChannels",
+ "source": "CoA server DBCStructure.h ChatChannelsEntry aligned with DBCfmt.h ChatChannelsEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "ChannelID",
+   "type": "uint"
+  },
+  {
+   "name": "flags",
+   "type": "uint"
+  },
+  {
+   "name": "f2",
+   "type": "unknown"
+  },
+  {
+   "name": "pattern_0",
+   "type": "string"
+  },
+  {
+   "name": "pattern_1",
+   "type": "string"
+  },
+  {
+   "name": "pattern_2",
+   "type": "string"
+  },
+  {
+   "name": "pattern_3",
+   "type": "string"
+  },
+  {
+   "name": "pattern_4",
+   "type": "string"
+  },
+  {
+   "name": "pattern_5",
+   "type": "string"
+  },
+  {
+   "name": "pattern_6",
+   "type": "string"
+  },
+  {
+   "name": "pattern_7",
+   "type": "string"
+  },
+  {
+   "name": "pattern_8",
+   "type": "string"
+  },
+  {
+   "name": "pattern_9",
+   "type": "string"
+  },
+  {
+   "name": "pattern_10",
+   "type": "string"
+  },
+  {
+   "name": "pattern_11",
+   "type": "string"
+  },
+  {
+   "name": "pattern_12",
+   "type": "string"
+  },
+  {
+   "name": "pattern_13",
+   "type": "string"
+  },
+  {
+   "name": "pattern_14",
+   "type": "string"
+  },
+  {
+   "name": "pattern_15",
+   "type": "string"
+  },
+  {
+   "name": "f19",
+   "type": "unknown"
+  },
+  {
+   "name": "f20",
+   "type": "unknown"
+  },
+  {
+   "name": "f21",
+   "type": "unknown"
+  },
+  {
+   "name": "f22",
+   "type": "unknown"
+  },
+  {
+   "name": "f23",
+   "type": "unknown"
+  },
+  {
+   "name": "f24",
+   "type": "unknown"
+  },
+  {
+   "name": "f25",
+   "type": "unknown"
+  },
+  {
+   "name": "f26",
+   "type": "unknown"
+  },
+  {
+   "name": "f27",
+   "type": "unknown"
+  },
+  {
+   "name": "f28",
+   "type": "unknown"
+  },
+  {
+   "name": "f29",
+   "type": "unknown"
+  },
+  {
+   "name": "f30",
+   "type": "unknown"
+  },
+  {
+   "name": "f31",
+   "type": "unknown"
+  },
+  {
+   "name": "f32",
+   "type": "unknown"
+  },
+  {
+   "name": "f33",
+   "type": "unknown"
+  },
+  {
+   "name": "f34",
+   "type": "unknown"
+  },
+  {
+   "name": "f35",
+   "type": "unknown"
+  },
+  {
+   "name": "f36",
+   "type": "unknown"
+  }
+ ]
+}

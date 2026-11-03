@@ -11,6 +11,9 @@ public static class Limits
     public const int MaxSections = 20;
     public const int LargePageBytes = 8 * 1024;
 
+    /// <summary>How long one DBC row query may run before SQLite stops it. Config Dbc:QueryBudgetMs overrides it.</summary>
+    public const int DbcQueryBudgetMs = 2000;
+
     /// <returns>The clamped values and a note describing any cap that was applied (null when none).</returns>
     public static (int Limit, int Offset, string? Note) Page(long limit, long offset) => Page(limit, offset, MaxOffset);
 

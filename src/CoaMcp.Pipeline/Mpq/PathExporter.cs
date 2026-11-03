@@ -13,30 +13,16 @@ public sealed record PathExportResult(long Paths, long Deleted, long Unavailable
 /// </summary>
 public static class PathExporter
 {
-    private const string Ok = "ok", DeleteMarker = "delete_marker";
-
-    private sealed record Row(string Archive, string Path, long Size, string Status, ushort Locale);
-
     public static PathExportResult Run(string manifestPath, ArchiveConfig config, string outPath, string? version = null, DateOnly? sourceDate = null,
         Action<long>? progress = null)
     {
-        if (!File.Exists(manifestPath)) throw new InvalidDataException($"manifest not found: {manifestPath}");
         version = LayerVersion.Resolve(version);
-        var date = sourceDate ?? DateOnly.FromDateTime(File.GetLastWriteTimeUtc(manifestPath));
         var byArchive = config.Archives.ToDictionary(a => a.Path, StringComparer.OrdinalIgnoreCase);
+        using var db = ClientWinners.OpenManifest(manifestPath);
 
-        // immutable=1: never writes, never takes a lock. A manifest with unmerged WAL content is not finished, so refuse it.
-        var wal = manifestPath + "-wal";
-        if (File.Exists(wal) && new FileInfo(wal).Length > 0)
-            throw new InvalidDataException($"{manifestPath} has unmerged changes ({Path.GetFileName(wal)} is not empty): finish or re-run the restore first.");
-        using var db = new SqliteConnection(new SqliteConnectionStringBuilder
-        {
-            DataSource = new Uri(Path.GetFullPath(manifestPath)).AbsoluteUri + "?immutable=1", Mode = SqliteOpenMode.ReadOnly, Pooling = false,
-        }.ToString());
-        db.Open();
-
-        CheckStatuses(db);
-        CheckArchives(db, byArchive);
+        ClientWinners.CheckStatuses(db);
+        ClientWinners.CheckArchives(db, byArchive);
+        var date = sourceDate ?? NewestLoadedArchive(db, byArchive);
 
         long entries = 0, ok = 0, markers = 0, unnamed = 0, internalSkipped = 0;
         var writer = new LayerWriter(outPath, "paths", version);
@@ -49,20 +35,20 @@ public static class PathExporter
                 FROM files ORDER BY path_lc, locale
                 """;
             using var rd = cmd.ExecuteReader();
-            var group = new List<Row>();
+            var group = new List<ManifestCopy>();
             string? current = null;
             long written = 0;
             while (rd.Read())
             {
                 entries++;
-                if (rd.GetString(4) == Ok) ok++; else markers++;
+                if (rd.GetString(4) == ClientWinners.Ok) ok++; else markers++;
                 if (rd.GetBoolean(7)) { internalSkipped++; continue; }   // (listfile), (attributes): the archive's own bookkeeping, not client files
                 if (rd.GetBoolean(6)) { unnamed++; continue; }           // no real name: reported in the stats, not published
 
                 var key = rd.GetString(0);
                 if (current is not null && key != current) { Flush(); }
                 current = key;
-                group.Add(new Row(rd.GetString(2), Normalize(rd.GetString(1)), rd.GetInt64(3), rd.GetString(4), (ushort)rd.GetInt32(5)));
+                group.Add(new ManifestCopy(rd.GetString(2), Normalize(rd.GetString(1)), rd.GetInt64(3), rd.GetString(4), (ushort)rd.GetInt32(5)));
             }
             if (group.Count > 0) Flush();
 
@@ -104,68 +90,45 @@ public static class PathExporter
     /// <summary>The manifest keeps '/'; accept '\' too, so one path never has two spellings.</summary>
     private static string Normalize(string path) => path.Replace('\\', '/');
 
-    /// <summary>Every entry must be a real file or a delete marker. Anything else means the restore is not usable, so the export stops.</summary>
-    private static void CheckStatuses(SqliteConnection db)
+    /// <summary>The fact the paths layer records for one path: the winner, the base copy, and every holder.</summary>
+    private static PathRecord Resolve(List<ManifestCopy> rows, Dictionary<string, ArchiveEntry> config)
     {
-        using var cmd = db.CreateCommand();
-        cmd.CommandText = "SELECT status, COUNT(*) FROM files WHERE status NOT IN ('ok', 'delete_marker') GROUP BY status ORDER BY status";
-        using var rd = cmd.ExecuteReader();
-        var bad = new List<string>();
-        while (rd.Read()) bad.Add($"{rd.GetInt64(1):N0} with status '{rd.GetString(0)}'");
-        if (bad.Count > 0)
-            throw new InvalidDataException($"the restore manifest has entries that are neither ok nor delete markers ({string.Join(", ", bad)}); fix the restore before exporting paths.");
-    }
-
-    /// <summary>The archive order in the manifest must be the one in the config: a different restore config would give different winners.</summary>
-    private static void CheckArchives(SqliteConnection db, Dictionary<string, ArchiveEntry> config)
-    {
-        using var cmd = db.CreateCommand();
-        cmd.CommandText = "SELECT DISTINCT f.archive, a.priority, a.origin, a.realm FROM files f LEFT JOIN archives a ON a.archive = f.archive";
-        using var rd = cmd.ExecuteReader();
-        while (rd.Read())
+        var copies = ClientWinners.Resolve(rows, config);
+        var json = JsonSerializer.Serialize(copies.Holders.Select(h =>
         {
-            var name = rd.GetString(0);
-            if (!config.TryGetValue(name, out var entry))
-                throw new InvalidDataException($"the manifest has files from archive '{name}', which the archive config does not list.");
-            if (rd.IsDBNull(1)) throw new InvalidDataException($"the manifest has files from archive '{name}' but no record of that archive.");
-            var realm = rd.IsDBNull(3) ? null : rd.GetString(3);
-            if (rd.GetInt32(1) != entry.Priority || rd.GetString(2) != entry.Origin || realm != entry.Realm)
-                throw new InvalidDataException($"archive '{name}' in the manifest (priority {rd.GetInt32(1)}, origin {rd.GetString(2)}, realm {realm ?? "none"}) disagrees with the archive config; re-run the restore with this config.");
-        }
-    }
-
-    /// <summary>
-    /// Picks the copy the default client reads: the highest-priority archive that is opened and not tied to one realm.
-    /// If that copy is a delete marker the file is gone, whatever older archives hold.
-    /// </summary>
-    private static PathRecord Resolve(List<Row> rows, Dictionary<string, ArchiveEntry> config)
-    {
-        var holders = rows.GroupBy(r => r.Archive).Select(g => g.OrderBy(r => r.Locale).First())
-            .Select(r => (Row: r, Info: config[r.Archive]))
-            .OrderByDescending(h => h.Info.Priority).ThenBy(h => h.Row.Archive, StringComparer.Ordinal).ToList();
-
-        var loaded = holders.Where(h => h.Info.Priority >= 0 && h.Info.Realm is null).ToList();
-        var json = JsonSerializer.Serialize(holders.Select(h =>
-        {
-            var o = new Dictionary<string, object> { ["a"] = h.Row.Archive, ["o"] = h.Info.Origin };
-            if (h.Row.Status == DeleteMarker) o["d"] = 1; else o["s"] = h.Row.Size;
-            if (h.Info.Realm is not null) o["r"] = h.Info.Realm;
-            if (h.Info.Priority < 0) o["n"] = 1;   // the client never opens this archive
+            var o = new Dictionary<string, object> { ["a"] = h.Copy.Archive, ["o"] = h.Archive.Origin };
+            if (h.IsDeleteMarker) o["d"] = 1; else o["s"] = h.Copy.Size;
+            if (h.Archive.Realm is not null) o["r"] = h.Archive.Realm;
+            if (h.Archive.Priority < 0) o["n"] = 1;   // the client never opens this archive
             return o;
         }));
 
-        if (loaded.Count == 0)
-            return new PathRecord(holders[0].Row.Path, null, null, null, false, null, null, json);
+        if (copies.Winner is not { } win)
+            return new PathRecord(copies.Holders[0].Copy.Path, null, null, null, false, null, null, json);
 
-        var win = loaded[0];
-        var deleted = win.Row.Status == DeleteMarker;
+        var deleted = win.IsDeleteMarker;
         string? baseArchive = null;
         long? baseSize = null;
-        if (!deleted && win.Info.Origin == "project")
+        if (!deleted && win.IsProject)
         {
-            var next = loaded.Skip(1).FirstOrDefault(h => h.Info.Origin != "project" && h.Row.Status == Ok);
-            if (next.Row is not null) { baseArchive = next.Row.Archive; baseSize = next.Row.Size; }
+            foreach (var h in copies.Loaded.Skip(1))
+            {
+                if (h.IsProject || h.IsDeleteMarker) continue;
+                baseArchive = h.Copy.Archive;
+                baseSize = h.Copy.Size;
+                break;
+            }
         }
-        return new PathRecord(win.Row.Path, deleted ? null : win.Row.Size, win.Row.Archive, win.Info.Origin, deleted, baseArchive, baseSize, json);
+        return new PathRecord(win.Copy.Path, deleted ? null : win.Copy.Size, win.Copy.Archive, win.Archive.Origin, deleted, baseArchive, baseSize, json);
+    }
+
+    /// <summary>The layer's date: when the newest archive the default client reads last changed. The manifest file's own time only says when the restore ran.</summary>
+    private static DateOnly NewestLoadedArchive(SqliteConnection db, Dictionary<string, ArchiveEntry> config)
+    {
+        var dates = ClientWinners.ArchiveDates(db)
+            .Where(d => config.TryGetValue(d.Key, out var a) && a.Priority >= 0 && a.Realm is null)
+            .Select(d => d.Value).ToList();
+        return dates.Count > 0 ? dates.Max()
+            : throw new InvalidDataException("the manifest records no archive dates, so the paths layer has no source date; re-run the restore.");
     }
 }

@@ -1,0 +1,126 @@
+{
+ "table": "DurabilityCosts",
+ "source": "CoA server DBCStructure.h DurabilityCostsEntry aligned with DBCfmt.h DurabilityCostsfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "Itemlvl",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_0",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_1",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_2",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_3",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_4",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_5",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_6",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_7",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_8",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_9",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_10",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_11",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_12",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_13",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_14",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_15",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_16",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_17",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_18",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_19",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_20",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_21",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_22",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_23",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_24",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_25",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_26",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_27",
+   "type": "uint"
+  },
+  {
+   "name": "multiplier_28",
+   "type": "uint"
+  }
+ ]
+}

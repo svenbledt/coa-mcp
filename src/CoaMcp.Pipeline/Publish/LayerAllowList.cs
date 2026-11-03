@@ -1,10 +1,12 @@
+using System.Text.RegularExpressions;
+
 namespace CoaMcp.Pipeline.Publish;
 
 /// <summary>
 /// The one place that says which tables each layer may contain. A layer with any other table is not published.
 /// Later tasks add their layers (and tables) here.
 /// </summary>
-public static class LayerAllowList
+public static partial class LayerAllowList
 {
     /// <summary>Tables every layer has: what <c>LayerWriter</c> creates.</summary>
     private static readonly string[] Base = { "entities", "links", "entities_fts", "layer_meta" };
@@ -19,7 +21,15 @@ public static class LayerAllowList
             "enums", "flag_kinds", "spell_scaling_inputs", "golden_scaling", "ScalingStatValues", "ScalingStatDistribution",
         }).ToArray(),
         ["paths"] = Base.Concat(new[] { "paths", "dirs", "path_stats", PathsFts }).ToArray(),
+        ["dbc"] = Base.Concat(new[] { "dbc_tables", "dbc_fields", "dbc_meta" }).ToArray(),
     };
+
+    [GeneratedRegex("^t_[A-Za-z0-9_]{1,80}$")]
+    private static partial Regex DbcDataTable();
+
+    /// <summary>In the dbc layer, a data table is allowed only if it fits the pattern and the rest of its name is listed in that layer's dbc_tables, spelled exactly the same.</summary>
+    public static bool IsDbcDataTable(string table, IReadOnlySet<string> listed) =>
+        DbcDataTable().IsMatch(table) && listed.Contains(table["t_".Length..]);
 
     public static bool IsKnownLayer(string name) => Layers.ContainsKey(name);
 
