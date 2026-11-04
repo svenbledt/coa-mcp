@@ -42,7 +42,7 @@ public class AccuracyPathTests
         }
         else
         {
-            c.Has(text, $"winner: {p.Winner.Archive}, {Bytes(p.Winner.Size)}, origin {p.Winner.Origin}", who + ": winner, size and origin");
+            c.Has(text, $"winner: {p.Winner.Archive}, {Bytes(p.Winner.Size)}, {(p.Winner.Origin == "ascension" ? Settings.AscensionWords : "origin " + p.Winner.Origin)}", who + ": winner, size and origin");
         }
 
         if (!p.Deleted)
@@ -298,7 +298,8 @@ public class SpotCheckTests
         if (line is not null) c.Has(line, "(project-built archive)", $"{file.Path} says so in a list too");
 
         var spell = await client.Call("get", new { id = "spell:133" });
-        c.Has(spell.Text, "(origin unknown)", "a spell whose Spell.dbc comes from an archive of unknown origin says so");
+        c.Has(spell.Text, $"({Settings.AscensionWords})", "a spell from patch-T says it's Ascension's archive per project records, and that this copy may lag live");
+        c.That(!spell.Text.Contains("origin ascension", StringComparison.OrdinalIgnoreCase), "no answer reads as live-verified", spell.Text);
         c.That(!spell.Text.Contains("project-built", StringComparison.Ordinal), "that spell doesn't claim a project build", spell.Text);
 
         var site = await client.Call("get", new { id = "project:faq" }, "spot check: a project site page says it isn't evidence");

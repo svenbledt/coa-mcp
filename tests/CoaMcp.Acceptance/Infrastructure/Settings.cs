@@ -77,6 +77,19 @@ public static class Settings
     private static string DataCoa => Env("COA_ACCEPT_DATACOA", @"D:\WoW\Coa\DataCOA\data");
     public static string RestoredRoot => Env("COA_ACCEPT_RESTORED", @"F:\WorkDir\CoaRestored");
     public static string ManifestFile => Path.Combine(RestoredRoot, "manifest.sqlite");
+
+    /// <summary>What the launcher's own state file says the client is, read here so answers are checked against the file, not against a copy of the wording.</summary>
+    public static string ClientClaim
+    {
+        get
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Env("COA_ACCEPT_LAUNCHER_STATE", @"D:\WoW\Coa\.coa-launcher\state.json")));
+            return $"client {doc.RootElement.GetProperty("version").GetString()} (launcher)";
+        }
+    }
+
+    /// <summary>Origin ascension as answers must word it. Written out here so a change to the server's wording fails the suite.</summary>
+    public const string AscensionWords = "Ascension's archive per project records; this copy may lag live";
     public static string Listfile => Env("COA_ACCEPT_LISTFILE", @"D:\WoW\Coa\Listfiles\client-listfile.txt");
     public static string LocalLayers => Env("COA_ACCEPT_LAYERS", Path.Combine(RepoRoot, ".superpowers", "layers"));
     public static string SpellworkDll => Env("COA_ACCEPT_SPELLWORK_DLL", @"F:\WorkDir\SpellWork\out\mcpcoa\SpellWork.Mcp.dll");

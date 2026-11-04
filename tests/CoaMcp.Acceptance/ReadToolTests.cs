@@ -148,6 +148,12 @@ public class ReadToolTests
             return m.Groups[1].Value;
         }).ToList();
         c.Equal(1, clientDates.Distinct().Count(), "the client layers share one date");
+        var claim = Settings.ClientClaim;
+        foreach (var layer in new[] { "spells", "paths", "dbc" })
+            c.That(Regex.IsMatch(r.Text, $@"^- {layer}: .*{Regex.Escape(claim)}", RegexOptions.Multiline), $"status names {layer}'s client as {claim}", r.Text);
+        c.That(!r.Text.Contains("CLIENT-RELEASE", StringComparison.Ordinal), "the release file's wording is gone", r.Text);
+        c.Has(r.Text, "Known gap (Area 52)", "Area 52's missing spell pages are listed as a gap");
+        c.That(Regex.IsMatch(r.Text, @"^- dbc: .*plus \d+ Area 52 tables", RegexOptions.Multiline), "the dbc layer counts its Area 52 tables", r.Text);
         c.Has(r.Text, "cache: not built: no approved cache source yet", "the unbuilt cache layer is reported, not hidden");
         c.Has(r.Text, "Known gap (cache)", "and listed as a gap");
         c.Has(r.Text, "Known gaps:", "known gaps are listed");

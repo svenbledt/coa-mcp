@@ -132,7 +132,7 @@ public class RealClientTests
         {
             var spell = ClientManifest.Instance.Dbc("Spell")!;
             await Ask(c, "A client path", "Using only the coa MCP server's tools, not your own knowledge: which archive does the client read DBFilesClient/Spell.dbc from, and what origin does the server give for that archive?",
-                new[] { spell.Winner!.Archive, "unknown" });
+                new[] { spell.Winner!.Archive, "project records" });
         });
     }
 }

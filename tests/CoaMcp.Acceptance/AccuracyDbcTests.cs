@@ -300,13 +300,79 @@ public class AccuracyDbcTests
     });
 
     [SkippableFact]
+    public Task Area52_RowsMatchPatchD_AndDefaultRowsDont() => Suite.Run(Area, "Area 52 rows match patch-D's file, and default rows don't use them", async c =>
+    {
+        const string Separate = "Area 52 is a separate realm from CoA (realm ids 11 and 13); the client only loads this archive there.";
+        var client = await Suite.Anonymous();
+        var manifest = ClientManifest.Instance;
+        var spell = manifest.Dbc("Spell")!;
+        var patchD = spell.Holders.Single(h => h.Realm == "area-52" && !h.Marker);
+        c.That(spell.Winner!.Realm is null, "the default winner isn't the realm archive", spell.Winner.Archive);
+
+        var area = new Wdbc(manifest.Restored(patchD, spell.Path));
+        var client_ = new Wdbc(manifest.Restored(spell.Winner, spell.Path));
+
+        var areaListing = await client.Call("dbc_tables", new { filter = "Spell__area52", limit = 1 }, "the Area 52 version of Spell");
+        c.Has(areaListing.Text, "realm area-52", "it's listed with its realm");
+        c.Has(areaListing.Text, Separate, "the listing says the realm is separate");
+        var areaFields = ParseFields(areaListing.Text, "Spell__area52");
+        var defaultFields = ParseFields((await client.Call("dbc_tables", new { filter = "Spell", limit = 1 })).Text, "Spell");
+
+        // Our own parse of patch-D's file against the server's rows.
+        var rng = Suite.Rng("dbc-area52");
+        var counts = new Counts();
+        foreach (var record in Enumerable.Range(0, 8).Select(_ => rng.Next(area.Records)))
+            await CheckRow(c, client, "Spell__area52", area, record, areaFields, counts, null, null);
+
+        var defaultRecords = Enumerable.Range(0, client_.Records).ToDictionary(r => IdOf(client_, r, defaultFields[0]));
+        var areaRecords = Enumerable.Range(0, area.Records).ToDictionary(r => IdOf(area, r, areaFields[0]));
+        c.Book.Observe($"patch-D's Spell.dbc has {areaRecords.Count:N0} rows; {areaRecords.Keys.Count(defaultRecords.ContainsKey):N0} of its ids are also in the default winner, {areaRecords.Keys.Count(k => !defaultRecords.ContainsKey(k)):N0} are only in patch-D.");
+
+        // A row only patch-D has must not be in the default table.
+        var onlyArea = areaRecords.Keys.First(k => !defaultRecords.ContainsKey(k));
+        var missing = await client.Call("get", new { id = $"dbc:Spell:{onlyArea}" }, "a row only Area 52 has, asked of the default table");
+        c.Has(missing.Text, "No row with", $"the default table doesn't have patch-D's row {onlyArea}");
+        var present = await client.Call("get", new { id = $"dbc:Spell__area52:{onlyArea}" }, "the same row, asked of the Area 52 table");
+        c.Has(present.Text, "realm: area-52", "the row names its realm");
+        c.Has(present.Text, "patch-D.MPQ", "the row names its archive");
+        c.Has(present.Text, Separate, "the row says the realm is separate");
+
+        // A field that differs between the two files: each table must show its own file's value.
+        var offsetsArea = Offsets(areaFields);
+        var offsetsDefault = Offsets(defaultFields);
+        var candidates = areaFields.Where(f => f.Type is "int" or "uint" && !f.IsTwin && f != areaFields[0] && defaultFields.Any(d => d.Name == f.Name && d.Type == f.Type)).ToList();
+        (long Id, ServerField Field, string InArea, string InDefault)? differing = null;
+        foreach (var (id, record) in areaRecords)
+        {
+            if (!defaultRecords.TryGetValue(id, out var other)) continue;
+            foreach (var f in candidates)
+            {
+                var a = Expected(area, record, offsetsArea[f.Name], f, false);
+                var d = Expected(client_, other, offsetsDefault[f.Name], f, false);
+                if (a != d) { differing = (id, f, a, d); break; }
+            }
+            if (differing is not null) break;
+        }
+        if (!c.That(differing is not null, "the two files differ in some shared field, so the check below means something")) return;
+        var (rowId, field, inArea, inDefault) = differing!.Value;
+        var where = new[] { new { field = areaFields[0].Name, op = "=", value = rowId } };
+        var areaRow = await client.Call("dbc_rows", new { table = "Spell__area52", where, columns = new[] { field.Name } }, "a differing field in the Area 52 table");
+        c.Has(areaRow.Text, $"{field.Shown}={inArea}", $"Spell__area52 row {rowId} has patch-D's {field.Name}");
+        var defaultRow = await client.Call("dbc_rows", new { table = "Spell", where, columns = new[] { field.Name } }, "the same field in the default table");
+        c.Has(defaultRow.Text, $"{field.Shown}={inDefault}", $"Spell row {rowId} has the default winner's {field.Name}");
+        c.That(!defaultRow.Text.Contains($"{field.Shown}={inArea}", StringComparison.Ordinal), $"Spell row {rowId} doesn't use patch-D's value", defaultRow.Text);
+        c.Has(defaultRow.Text, "Area 52 has its own version of this table: Spell__area52.", "the default answer points at the version in one line");
+        c.That(!defaultRow.Text.Contains(Separate, StringComparison.Ordinal), "the default answer isn't labeled as Area 52", defaultRow.Text);
+    });
+
+    [SkippableFact]
     public Task AllTables_RowsFieldsAndWinners() => Suite.Run(Area, "every table: rows, fields, winner and origin against the files", async c =>
     {
         var client = await Suite.Anonymous();
         var manifest = ClientManifest.Instance;
 
         var listed = new Dictionary<string, Match>(StringComparer.OrdinalIgnoreCase);
-        var line = new Regex(@"^(\S+) \| ([\d,]+) rows \| (\d+) fields, (\d+) named \| (.+?) \((\w+)\)(?: \| base copy of (\S+))?(?: \| (.*))?$", RegexOptions.Multiline);
+        var line = new Regex(@"^(\S+) \| ([\d,]+) rows \| (\d+) fields, (\d+) named \| (.+?) \(([^()]+)\)(?: \| base copy of (\S+))?(?: \| (.*))?$", RegexOptions.Multiline);
         for (var offset = 0; ; offset += 100)
         {
             var page = await client.Call("dbc_tables", new { limit = 100, offset });
@@ -325,9 +391,24 @@ public class AccuracyDbcTests
             c.Equal(records.ToString("N0", CultureInfo.InvariantCulture), m!.Groups[2].Value, $"{name} rows");
             c.Equal(fields, m.Groups[3].Value, $"{name} fields");
             c.Equal(t.Winner.Archive, m.Groups[5].Value, $"{name} winning archive");
-            c.Equal(t.Winner.Origin, m.Groups[6].Value, $"{name} origin");
+            c.Equal(t.Winner.Origin == "ascension" ? Settings.AscensionWords : t.Winner.Origin, m.Groups[6].Value, $"{name} origin");
         }
-        var expected = manifest.DbcTables.Count() + manifest.DbcTables.Count(t => t.ProjectWinner && t.NextNonProject is { Marker: false });
-        c.Equal(expected, listed.Count, "tables listed, counting base copies");
+
+        var area52 = manifest.DbcTables.Where(t => t.Holders.Any(h => h.Realm == "area-52" && !h.Marker)).ToList();
+        c.That(area52.Count > 0, "the client has Area 52 tables to check");
+        foreach (var t in area52)
+        {
+            var name = Path.GetFileNameWithoutExtension(t.Path) + "__area52";
+            if (!c.That(listed.TryGetValue(name, out var m), $"{name} is listed")) continue;
+            var copy = t.Holders.First(h => h.Realm == "area-52" && !h.Marker);
+            var (records, fields, _) = Wdbc.ReadHeader(manifest.Restored(copy, t.Path));
+            c.Equal(records.ToString("N0", CultureInfo.InvariantCulture), m!.Groups[2].Value, $"{name} rows");
+            c.Equal(fields, m.Groups[3].Value, $"{name} fields");
+            c.Equal(copy.Archive, m.Groups[5].Value, $"{name} archive");
+            c.Has(m.Value, "realm area-52", $"{name} names its realm");
+        }
+
+        var expected = manifest.DbcTables.Count() + manifest.DbcTables.Count(t => t.ProjectWinner && t.NextNonProject is { Marker: false }) + area52.Count;
+        c.Equal(expected, listed.Count, "tables listed, counting base copies and Area 52 versions");
     });
 }
