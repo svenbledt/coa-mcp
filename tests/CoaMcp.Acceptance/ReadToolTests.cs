@@ -123,8 +123,9 @@ public class ReadToolTests
         c.Has(didYouMean.Text, "Did you mean", "a bare word gets suggestions");
         c.Has(didYouMean.Text, "spell:", "and they include spells");
 
-        var noEntry = await client.Call("get", new { id = "entry:1" }, "a written entry that doesn't exist");
-        c.Has(noEntry.Text, "No entry with id entry:1", "a missing entry says so");
+        // A number the store won't reach, since real ones appear once anything is written.
+        var noEntry = await client.Call("get", new { id = "entry:999999999" }, "a written entry that doesn't exist");
+        c.Has(noEntry.Text, "No entry with id entry:999999999", "a missing entry says so");
 
         var badEntry = await client.Call("get", new { id = "entry:abc" });
         c.Has(badEntry.Text, "Entry ids look like", "a malformed entry id says what they look like");
