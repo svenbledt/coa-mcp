@@ -152,7 +152,7 @@ coamcp-pipeline spells --dbc F:\WorkDir\CoaWinners --out spells.sqlite
 coamcp-pipeline bisbeard --data D:\WoW\Coa\DataCOA\data --client-dbc F:\WorkDir\CoaWinners --out bisbeard.sqlite
 ```
 
-**The server's DBCs have not drifted from the client.** All 368 files in `F:\WorkDir\azerothcore-wotlk-coa\env\dist\data\dbc` are byte-identical to the client winners, including the project-built `Spell.dbc` and `CharBaseInfo.dbc`. Since every byte matches, every row count and spot row does too. This was a one-off comparison on 2026-11-04, and it needs repeating when either side changes.
+**The server's DBCs have not drifted from the client.** All 368 files in `F:\WorkDir\azerothcore-wotlk-coa\env\dist\data\dbc` are byte-identical to the client winners, including `Spell.dbc` and `CharBaseInfo.dbc`, which come from `patch-T.MPQ` (origin unknown). Since every byte matches, every row count and spot row does too. This was a one-off comparison on 2026-11-04, and it needs repeating when either side changes.
 
 | Table | Rows | Winner | Origin |
 | --- | ---: | --- | --- |

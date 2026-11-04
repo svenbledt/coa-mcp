@@ -42,14 +42,14 @@ The server re-reads `current.json` every 30 seconds, verifies the new file (SHA-
 
 Older version files stay on the server. To roll back, edit `current.json` to point at the earlier version, using its original `sha256`.
 
-To free disk space, remove versions you no longer need for rollback. `current.json` is the only thing that says which versions are in use, so compare it with the folders:
+To free disk space, remove versions you no longer need for rollback. First confirm in the `status` tool that the server shows the new version: `current.json` says what should be live, and a version that failed verification is named there while the server keeps serving the older one. Then compare `current.json` and `status` with the folders:
 
 ```
 ssh BledtIT 'cat /data/coamcp/current.json; ls -l /data/coamcp/layers/*/'
 ssh BledtIT 'rm /data/coamcp/layers/<name>/<version>.sqlite'
 ```
 
-Remove only a `<version>.sqlite` that `current.json` doesn't name, and not within a minute of a publish, so the server has swapped to the new version first. Leave any `.tmp` alone while a publish is running. A removed version can't be rolled back to.
+Remove only a `<version>.sqlite` that neither `current.json` nor `status` names. Leave any `.tmp` alone while a publish is running. A removed version can't be rolled back to.
 
 `current.json` looks like this:
 
@@ -64,7 +64,7 @@ dotnet run --project src/CoaMcp.Server      # reads layers from Layers__Root (de
 dotnet test CoaMcp.sln
 ```
 
-Settings (environment variables): `Layers__Root` (data root), `Layers__ReloadSeconds` (default 30), `RateLimit__PerMinute` (default 120, per client), `RateLimit__WritesPerMinute` (default 60), `RateLimit__WritesPerDay` (default 2000), `RateLimit__UndosPerMinute` and `RateLimit__UndosPerDay` (same defaults), `Store__MaxBytes` (writable store size cap, default 1 GiB), `Dbc__QueryBudgetMs` (time limit of one DBC row query, default 2000), `Concurrency__MaxRunning` (`/mcp` requests running at once across all clients, default 64), `Concurrency__MaxQueued` (requests waiting for a turn, default 32; past that a request gets a 503 with a JSON-RPC error, and `/healthz` is never limited), `Network__PeerNetworks__0` (CIDR of the networks Traefik connects from; forwarded headers are believed only from peers inside them, default none means trust nothing), `Network__CloudflareRanges__0`, `__1` and so on (optional override of the built-in Cloudflare edge ranges, current as of 2026-11-03). The rate limit keys on the real client: behind Traefik the rightmost `X-Forwarded-For` address is what Traefik saw; if it is a Cloudflare edge address the client is `CF-Connecting-IP`, otherwise it is that address.
+Settings (environment variables): `Layers__Root` (data root), `Layers__ReloadSeconds` (default 30), `RateLimit__PerMinute` (default 120, per client), `RateLimit__WritesPerMinute` (default 60), `RateLimit__WritesPerDay` (default 2000), `RateLimit__UndosPerMinute` and `RateLimit__UndosPerDay` (same defaults), `Store__MaxBytes` (writable store size cap, default 1 GiB), `Dbc__QueryBudgetMs` (time limit of one DBC row query, default 2000), `Concurrency__MaxPerClient` (`/mcp` requests one client may have running, default 8; past that a 429 with a JSON-RPC error), `Concurrency__MaxRunning` (`/mcp` requests running at once across all clients, default 64), `Concurrency__MaxQueued` (requests waiting for a turn, default 32; past that a 503 with a JSON-RPC error), `Concurrency__QueueWaitSeconds` (longest wait for a turn, default 5, then the same 503), `Request__BodySeconds` (time a whole `/mcp` request body may take to arrive, default 10, then a 408), none of which limit `/healthz`, `Network__PeerNetworks__0` (CIDR of the networks Traefik connects from; forwarded headers are believed only from peers inside them, default none means trust nothing), `Network__CloudflareRanges__0`, `__1` and so on (optional override of the built-in Cloudflare edge ranges, current as of 2026-11-03). The rate limit keys on the real client: behind Traefik the rightmost `X-Forwarded-For` address is what Traefik saw; if it is a Cloudflare edge address the client is `CF-Connecting-IP`, otherwise it is that address.
 
 Deployment is `docker-compose.yml` on Coolify, with the domain set in Coolify. The host folder `/data/coamcp` is mounted at `/data`. The publisher sets modes explicitly: layer folders 0755 and files 0644 (root-owned, so the server can read but not write them), and `writable/` owned by UID 10001 with mode 0750 for the writable store. The server never opens layer files for writing.
 
@@ -100,13 +100,15 @@ git diff knowledge
 git add knowledge && git commit
 ```
 
+`pull-writes` checks that the store exists, finds the running container by the app id (`--container <name>` overrides), runs `admin snapshot` inside it (`VACUUM INTO` a new file in `/data/writable`), downloads that file with `scp` to a temp folder, checks its checksum, exports it, and deletes the server copy and the local copy whatever happens. It only reads production, contacts only `--host`, and never commits. With no store on the server yet it says there is nothing to merge and exits 0. `--include-test` also exports `test:` entries, which are left out by default. The files, the scan and the restore are described in `knowledge/README.md`.
+
 To rebuild an empty store from those files, which refuses a store that already has entries:
 
 ```
 dotnet run --project src/CoaMcp.Pipeline -- restore-writes --from knowledge --store <new store.sqlite>
 ```
 
-The command checks that the store exists, finds the running container by the app id (`--container <name>` overrides), runs `admin snapshot` inside it (`VACUUM INTO` a new file in `/data/writable`), downloads that file with `scp` to a temp folder, checks its checksum, exports it, and deletes the server copy and the local copy whatever happens. It only reads production, contacts only `--host`, and never commits. With no store on the server yet it says there is nothing to merge and exits 0. `--include-test` also exports `test:` entries, which are left out by default. The files, the scan and the restore are described in `knowledge/README.md`. To bring production back: stop the container, restore to `writable/store.sqlite`, `chown 10001:10001` it, start the container.
+To bring production back: stop the container, restore to `writable/store.sqlite`, `chown 10001:10001` it, start the container.
 
 ## Production acceptance suite
 
