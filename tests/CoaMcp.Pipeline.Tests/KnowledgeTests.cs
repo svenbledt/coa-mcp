@@ -25,6 +25,44 @@ public sealed class KnowledgeTests : IDisposable
         try { Directory.Delete(_dir, true); } catch (IOException) { }
     }
 
+    [Fact]
+    public async Task Export_EntriesFolderBrieflyLocked_RetriesAndSucceeds()
+    {
+        using (var s = Store()) Add(s, content: "first");
+        KnowledgeExporter.Export(Snap, Out);
+        SqliteConnection.ClearAllPools();
+        using (var s = Store()) Add(s, content: "second");
+        SqliteConnection.ClearAllPools();
+
+        // On Windows an open file inside a folder stops the folder being renamed, as a virus scanner does for a moment.
+        var held = new FileStream(Path.Combine(Entries, "00000001.md"), FileMode.Open, FileAccess.Read, FileShare.Read);
+        var released = Task.Delay(400).ContinueWith(_ => held.Dispose());
+
+        var r = KnowledgeExporter.Export(Snap, Out);
+        await released;
+
+        Assert.Equal(1, r.Added);
+        Assert.Equal("00000001.md,00000002.md", Names(Entries));
+    }
+
+    [SkippableFact]
+    public void Export_EntriesFolderStaysLocked_FailsLoudly_AndChangesNothing()
+    {
+        Skip.IfNot(OperatingSystem.IsWindows(), "An open file blocks a folder rename only on Windows.");
+        using (var s = Store()) Add(s, content: "first");
+        KnowledgeExporter.Export(Snap, Out);
+        SqliteConnection.ClearAllPools();
+        var before = Tree(Entries);
+        using (var s = Store()) Add(s, content: "second");
+        SqliteConnection.ClearAllPools();
+
+        using (new FileStream(Path.Combine(Entries, "00000001.md"), FileMode.Open, FileAccess.Read, FileShare.Read))
+            Assert.ThrowsAny<Exception>(() => KnowledgeExporter.Export(Snap, Out));
+
+        AssertSameTree(before, Tree(Entries));
+        Assert.Equal(new[] { "entries" }, Directory.GetDirectories(Out).Select(Path.GetFileName));
+    }
+
     // ---- helpers ----
 
     private static long Add(WriteStore s, string subject = "item:1", string kind = "note", string content = "text", string author = "Ann",

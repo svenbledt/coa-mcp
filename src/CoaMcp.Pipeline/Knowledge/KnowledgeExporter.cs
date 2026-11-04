@@ -117,11 +117,11 @@ public static class KnowledgeExporter
             var kept = existing.Select(Path.GetFileName).Where(n => !bytesById.ContainsKey(n!)).Order(StringComparer.Ordinal).ToList();
             foreach (var name in kept) File.Copy(Path.Combine(entriesDir, name!), Path.Combine(temp, name!));
 
-            if (Directory.Exists(entriesDir)) Directory.Move(entriesDir, old);
-            try { Directory.Move(temp, entriesDir); }
+            if (Directory.Exists(entriesDir)) MoveFolder(entriesDir, old);
+            try { MoveFolder(temp, entriesDir); }
             catch
             {
-                if (Directory.Exists(old) && !Directory.Exists(entriesDir)) Directory.Move(old, entriesDir);
+                if (Directory.Exists(old) && !Directory.Exists(entriesDir)) MoveFolder(old, entriesDir);
                 throw;
             }
             try { if (Directory.Exists(old)) Directory.Delete(old, true); }
@@ -132,6 +132,24 @@ public static class KnowledgeExporter
         finally
         {
             try { if (Directory.Exists(temp)) Directory.Delete(temp, true); } catch (IOException) { /* the export has already succeeded or failed on its own terms */ }
+        }
+    }
+
+    /// <summary>Renames a folder, trying again for a few seconds, because on Windows something like a virus scanner can hold a just-written file for a moment. A lasting failure is thrown.</summary>
+    private static void MoveFolder(string from, string to)
+    {
+        const int Attempts = 6;
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                Directory.Move(from, to);
+                return;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException && attempt < Attempts && Directory.Exists(from) && !Directory.Exists(to))
+            {
+                Thread.Sleep(100 << attempt);   // 200 ms up to 3.2 s, about 6 s in all
+            }
         }
     }
 
