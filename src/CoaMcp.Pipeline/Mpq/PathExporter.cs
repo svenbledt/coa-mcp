@@ -13,7 +13,7 @@ public sealed record PathExportResult(long Paths, long Deleted, long Unavailable
 /// </summary>
 public static class PathExporter
 {
-    public static PathExportResult Run(string manifestPath, ArchiveConfig config, string outPath, string? version = null, DateOnly? sourceDate = null,
+    public static PathExportResult Run(string manifestPath, ArchiveConfig config, string outPath, string? version = null,
         Action<long>? progress = null, ClientRelease? client = null)
     {
         version = LayerVersion.Resolve(version);
@@ -22,7 +22,7 @@ public static class PathExporter
 
         ClientWinners.CheckStatuses(db);
         ClientWinners.CheckArchives(db, byArchive);
-        var date = sourceDate ?? NewestLoadedArchive(db, byArchive);
+        var date = ClientWinners.ClientDate(db, byArchive);
 
         long entries = 0, ok = 0, markers = 0, unnamed = 0, internalSkipped = 0;
         var writer = new LayerWriter(outPath, "paths", version);
@@ -62,7 +62,7 @@ public static class PathExporter
 
             builder.Finish(new Dictionary<string, string>
             {
-                ["restore_date"] = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                ["client_date"] = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 ["entries_ok"] = ok.ToString(CultureInfo.InvariantCulture),
                 ["entries_delete_marker"] = markers.ToString(CultureInfo.InvariantCulture),
                 ["unnamed"] = unnamed.ToString(CultureInfo.InvariantCulture),
@@ -116,15 +116,5 @@ public static class PathExporter
             baseSize = next.Copy.Size;
         }
         return new PathRecord(win.Copy.Path, deleted ? null : win.Copy.Size, win.Copy.Archive, win.Archive.Origin, deleted, baseArchive, baseSize, json);
-    }
-
-    /// <summary>The layer's date: when the newest archive the default client reads last changed. The manifest file's own time only says when the restore ran.</summary>
-    private static DateOnly NewestLoadedArchive(SqliteConnection db, Dictionary<string, ArchiveEntry> config)
-    {
-        var dates = ClientWinners.ArchiveDates(db)
-            .Where(d => config.TryGetValue(d.Key, out var a) && a.Priority >= 0 && a.Realm is null)
-            .Select(d => d.Value).ToList();
-        return dates.Count > 0 ? dates.Max()
-            : throw new InvalidDataException("the manifest records no archive dates, so the paths layer has no source date; re-run the restore.");
     }
 }

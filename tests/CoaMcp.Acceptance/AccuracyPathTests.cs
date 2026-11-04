@@ -17,7 +17,7 @@ public class AccuracyPathTests
         c.Has(text, "\n" + AccuracyItemTests.OneLine(p.Path, 200) + "\n", who + ": named on the page");
         c.Has(text, "trust client", who + ": trust");
         c.Has(text, "the CoA client (unproven)", who + ": realm");
-        c.Has(text, "source date", who + ": date");
+        c.Has(text, "client files dated", who + ": date");
 
         if (p.Winner is null)
         {
@@ -322,7 +322,7 @@ public class SpotCheckTests
             var who = $"{tool} {System.Text.Json.JsonSerializer.Serialize(args)}";
             c.That(Regex.IsMatch(r.Text, @"trust:? (client|derived|cache)"), who + " shows trust", ReportBook.Cut(r.Text, 600));
             c.That(Regex.IsMatch(r.Text, @"source:? "), who + " shows its source", ReportBook.Cut(r.Text, 600));
-            c.That(Regex.IsMatch(r.Text, @"(source date:? \d{4}-\d\d-\d\d)"), who + " shows the date", ReportBook.Cut(r.Text, 600));
+            c.That(Regex.IsMatch(r.Text, @"(source date:?|client files dated) \d{4}-\d\d-\d\d"), who + " shows the date", ReportBook.Cut(r.Text, 600));
             c.That(Regex.IsMatch(r.Text, @"realm:? "), who + " shows the realm", ReportBook.Cut(r.Text, 600));
         }
     });

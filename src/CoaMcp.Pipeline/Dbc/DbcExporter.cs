@@ -36,12 +36,12 @@ public static partial class DbcExporter
         RefuseInsideRepository(o.WinnersDir);
 
         List<ClientCopies> tables;
-        Dictionary<string, DateOnly> dates;
+        string date;
         using (var db = ClientWinners.OpenManifest(o.ManifestPath))
         {
             ClientWinners.CheckStatuses(db);
             ClientWinners.CheckArchives(db, byArchive);
-            dates = ClientWinners.ArchiveDates(db);
+            date = ClientWinners.Text(ClientWinners.ClientDate(db, byArchive));
             tables = ReadTables(db, byArchive);
         }
         if (tables.Count == 0) throw new InvalidDataException($"{o.ManifestPath} lists no tables under DBFilesClient/, so there is nothing to export.");
@@ -58,11 +58,9 @@ public static partial class DbcExporter
                 var name = TableName(copies.Holders[0].Copy.Path);
                 if (copies.Winner is not { } win)
                 {
-                    run.NotExported(builder, name, copies.Holders[0], DbcStatus.NotInDefaultClient, "Only realm-specific archives hold this table, so the default client does not read it.",
-                        DateOf(dates, copies.Holders[0].Copy.Archive));
+                    run.NotExported(builder, name, copies.Holders[0], DbcStatus.NotInDefaultClient, "Only realm-specific archives hold this table, so the default client does not read it.", date);
                     continue;
                 }
-                var date = DateOf(dates, win.Copy.Archive);
                 if (win.IsDeleteMarker)
                 {
                     run.NotExported(builder, name, win, DbcStatus.Deleted, $"A delete marker in {win.Copy.Archive} is on top, so the client does not see this table.", date);
@@ -71,7 +69,7 @@ public static partial class DbcExporter
                 }
 
                 var file = RestoredFile(root, win);
-                winners[name + ".dbc"] = (file, new DbcWinnerFile(win.Copy.Archive, win.Archive.Origin, date));
+                winners[name + ".dbc"] = (file, new DbcWinnerFile(win.Copy.Archive, win.Archive.Origin));
 
                 string? baseNote = null;
                 Source? baseSource = null;
@@ -82,7 +80,7 @@ public static partial class DbcExporter
                     else if (next.IsDeleteMarker)
                         baseNote = $"The winner is project-built, and the next copy is a delete marker in {next.Copy.Archive}, so there is no base table.";
                     else
-                        baseSource = new Source(name + DbcLayerBuilder.BaseSuffix, name, next, RestoredFile(root, next), DateOf(dates, next.Copy.Archive));
+                        baseSource = new Source(name + DbcLayerBuilder.BaseSuffix, name, next, RestoredFile(root, next), date);
                 }
 
                 run.Export(builder, new Source(name, null, win, file, date), baseNote);
@@ -97,7 +95,7 @@ public static partial class DbcExporter
                 ["base_tables"] = run.BaseTables.ToString(CultureInfo.InvariantCulture),
                 ["deleted"] = run.Deleted.Count.ToString(CultureInfo.InvariantCulture),
                 ["unreadable"] = run.Unreadable.Count.ToString(CultureInfo.InvariantCulture),
-                ["source_date_basis"] = "each table's date is its copy's archive modified time; the layer's date is the newest",
+                ["source_date_basis"] = "every table carries the client's date: the newest modified time among the archives the default client reads",
             });
         }
         catch
@@ -111,7 +109,7 @@ public static partial class DbcExporter
         writer.Dispose();
         SqliteConnection.ClearAllPools();
 
-        Materialize(o.WinnersDir, winners, o.Client);
+        Materialize(o.WinnersDir, winners, date, o.Client);
         return new DbcExportResult(tables.Count, run.Rows, run.BaseTables, run.NamedTables, run.Deleted, run.Unreadable, run.Problems);
     }
 
@@ -146,11 +144,6 @@ public static partial class DbcExporter
 
     private static string RestoredFile(string root, HeldCopy h) => SafePath.Under(Path.Combine(root, h.Copy.Archive), h.Copy.Path);
 
-    private static string DateOf(Dictionary<string, DateOnly> dates, string archive) =>
-        dates.TryGetValue(archive, out var d)
-            ? ClientWinners.Text(d)
-            : throw new InvalidDataException($"the manifest records no modified time for archive '{archive}', so its tables have no source date; re-run the restore.");
-
     /// <summary>The folder holds raw client files. A .gitignore rule is not enough of a promise, so it may not live in a repository at all.</summary>
     private static void RefuseInsideRepository(string dir)
     {
@@ -160,14 +153,14 @@ public static partial class DbcExporter
     }
 
     /// <summary>Writes the winning files and their list, and removes files left from an earlier run.</summary>
-    private static void Materialize(string dir, Dictionary<string, (string File, DbcWinnerFile Info)> winners, ClientRelease? client)
+    private static void Materialize(string dir, Dictionary<string, (string File, DbcWinnerFile Info)> winners, string clientDate, ClientRelease? client)
     {
         Directory.CreateDirectory(dir);
         foreach (var stale in Directory.GetFiles(dir, "*.dbc"))
             if (!winners.ContainsKey(Path.GetFileName(stale))) File.Delete(stale);
         foreach (var (name, (file, _)) in winners)
             File.Copy(file, Path.Combine(dir, name), overwrite: true);
-        DbcWinnerList.Write(dir, winners.ToDictionary(w => w.Key, w => w.Value.Info), client);
+        DbcWinnerList.Write(dir, winners.ToDictionary(w => w.Key, w => w.Value.Info), clientDate, client);
     }
 
     /// <summary>What one export keeps while it walks the tables.</summary>

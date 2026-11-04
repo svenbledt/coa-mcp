@@ -94,15 +94,25 @@ public static class ClientWinners
         return new ClientCopies(holders, holders.Where(h => h.Archive.Priority >= 0 && h.Archive.Realm is null).ToList());
     }
 
-    /// <summary>When an archive on the client's disk last changed, as the restore recorded it, in UTC. Null if the manifest has no record.</summary>
-    public static Dictionary<string, DateOnly> ArchiveDates(SqliteConnection db)
+    /// <summary>
+    /// The one date every client layer carries: the newest modified time, in UTC, among the archives the default client reads.
+    /// An archive it reads with no recorded time would make that date a guess, so it is refused.
+    /// </summary>
+    public static DateOnly ClientDate(SqliteConnection db, IReadOnlyDictionary<string, ArchiveEntry> config)
     {
         using var cmd = db.CreateCommand();
-        cmd.CommandText = "SELECT archive, file_mtime FROM archives WHERE file_mtime IS NOT NULL";
+        cmd.CommandText = "SELECT archive, file_mtime FROM archives";
         using var rd = cmd.ExecuteReader();
-        var dates = new Dictionary<string, DateOnly>(StringComparer.OrdinalIgnoreCase);
-        while (rd.Read()) dates[rd.GetString(0)] = DateOnly.FromDateTime(new DateTime(rd.GetInt64(1), DateTimeKind.Utc));
-        return dates;
+        DateOnly? newest = null;
+        while (rd.Read())
+        {
+            var archive = rd.GetString(0);
+            if (!config.TryGetValue(archive, out var entry) || entry.Priority < 0 || entry.Realm is not null) continue;
+            if (rd.IsDBNull(1)) throw new InvalidDataException($"the manifest records no modified time for archive '{archive}', so the client has no date; re-run the restore.");
+            var date = DateOnly.FromDateTime(new DateTime(rd.GetInt64(1), DateTimeKind.Utc));
+            if (newest is null || date > newest) newest = date;
+        }
+        return newest ?? throw new InvalidDataException("the manifest records no archive the default client reads, so the client has no date; re-run the restore.");
     }
 
     /// <summary>Each archive's size on the client's disk, as the restore recorded it.</summary>

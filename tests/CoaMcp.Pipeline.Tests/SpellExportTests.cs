@@ -25,7 +25,7 @@ public sealed class SpellFixture : IDisposable
     {
         DbcDir = FakeDbc.Create(Path.Combine(_dir, "dbc"));
         LayerPath = Path.Combine(_dir, "spells.sqlite");
-        Source = SpellSource.Open(DbcDir);
+        Source = SpellSource.Open(DbcDir, new DateOnly(2026, 10, 24));
         Result = SpellsImport.Run(Source, LayerPath);
         Reader = new LayerReader(LayerPath);
     }
@@ -59,9 +59,9 @@ public sealed class SpellExportTests(SpellFixture f)
         {
             CoaMcp.Pipeline.Dbc.DbcWinnerList.Write(dir, new Dictionary<string, CoaMcp.Pipeline.Dbc.DbcWinnerFile>
             {
-                ["Spell.dbc"] = new("patch-T.MPQ", "project", "2026-10-03"),
-            });
-            Assert.Equal(new DateOnly(2026, 10, 3), SpellSource.SourceDateOf(dir));
+                ["Spell.dbc"] = new("patch-T.MPQ", "project"),
+            }, "2026-10-24");
+            Assert.Equal(new DateOnly(2026, 10, 24), SpellSource.SourceDateOf(dir));
         }
         finally { Directory.Delete(dir, true); }
     }
@@ -78,8 +78,8 @@ public sealed class SpellExportTests(SpellFixture f)
         {
             CoaMcp.Pipeline.Dbc.DbcWinnerList.Write(dir, new Dictionary<string, CoaMcp.Pipeline.Dbc.DbcWinnerFile>
             {
-                ["Spell.dbc"] = new(archive, origin, "2026-10-03"),
-            }, new ClientRelease(8, "rel-8", null));
+                ["Spell.dbc"] = new(archive, origin),
+            }, "2026-10-24", new ClientRelease(8, "rel-8", null));
 
             SpellsImport.Run(SpellSource.OpenWinners(dir), layer);
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
@@ -112,8 +112,8 @@ public sealed class SpellExportTests(SpellFixture f)
         {
             CoaMcp.Pipeline.Dbc.DbcWinnerList.Write(dir, new Dictionary<string, CoaMcp.Pipeline.Dbc.DbcWinnerFile>
             {
-                ["Spell.dbc"] = new(winner, "project", "2026-10-03"),
-            }, new ClientRelease(8, "rel-8", "n", new[]
+                ["Spell.dbc"] = new(winner, "project"),
+            }, "2026-10-24", new ClientRelease(8, "rel-8", "n", new[]
             {
                 new ClientArchiveMismatch("patch-T.MPQ", 4000000, 5000000, null),
                 new ClientArchiveMismatch("patch-Other.MPQ", 1, 2, null),
@@ -133,6 +133,20 @@ public sealed class SpellExportTests(SpellFixture f)
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             Directory.Delete(dir, true);
         }
+    }
+
+    [Fact]
+    public void SourceDate_WinnersListWithoutAClientDate_IsRefused()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "coamcp-winners-" + Guid.NewGuid().ToString("N"));
+        FakeDbc.Create(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, CoaMcp.Pipeline.Dbc.DbcWinnerList.FileName), """{"files":{"Spell.dbc":{"archive":"patch-T.MPQ","origin":"unknown","date":"2026-10-03"}}}""");
+            var ex = Assert.Throws<InvalidOperationException>(() => SpellSource.SourceDateOf(dir));
+            Assert.Contains("client date", ex.Message);
+        }
+        finally { Directory.Delete(dir, true); }
     }
 
     [Fact]
@@ -243,7 +257,7 @@ public sealed class SpellExportTests(SpellFixture f)
         try
         {
             foreach (var n in names) Environment.SetEnvironmentVariable(n, "poison");
-            var source = SpellSource.Open(f.DbcDir);
+            var source = SpellSource.Open(f.DbcDir, new DateOnly(2026, 10, 24));
 
             Assert.False(source.Config.MySqlConfigured);
             Assert.Null(source.Config.MySqlHost);

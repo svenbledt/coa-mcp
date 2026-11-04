@@ -559,7 +559,7 @@ public class MergeRenderTests : IAsyncLifetime
         var line = GeneratedLine(await Get("path:Interface/Icons/Spell_Fire_Fireball.blp"));
         Assert.Contains("size = 300 (trust client", line);
         Assert.Contains("source CoA client file list", line);
-        Assert.Contains("source date", line);
+        Assert.Contains("client files dated", line);
         Assert.Contains("realm the CoA client (unproven)", line);
         Assert.Contains("project-built", line);
         Assert.Contains("not evidence about Ascension", line);

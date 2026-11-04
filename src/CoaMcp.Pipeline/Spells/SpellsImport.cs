@@ -7,9 +7,6 @@ public sealed record SpellsImportResult(int Spells, int Enums, int FlagKinds, in
 /// <summary>Builds the spells layer from a client DBC folder by running Spellwork's spell logic at build time.</summary>
 public static class SpellsImport
 {
-    public static SpellsImportResult Run(string dbcDir, string outPath, Action<int, int>? progress = null, string? version = null) =>
-        Run(SpellSource.Open(dbcDir), outPath, progress, version);
-
     public static SpellsImportResult Run(SpellSource source, string outPath, Action<int, int>? progress = null, string? version = null)
     {
         version = LayerVersion.Resolve(version);

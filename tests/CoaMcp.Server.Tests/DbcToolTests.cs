@@ -470,7 +470,8 @@ public class DbcToolTests : IClassFixture<DbcFixture>
         Assert.Contains("project", text);
         Assert.Contains("trust: client", text);
         Assert.Contains("source: CoA client DBC, per CLIENT-RELEASE.json, client revision 8", text);
-        Assert.Contains("source date: 2026-10-03", text);
+        Assert.Contains("client files dated 2026-10-03", text);
+        Assert.DoesNotContain("source date", text);
         Assert.Contains("the CoA client", text);
         Assert.DoesNotContain("Unused", text.Split("omitted")[0]);
     }
@@ -607,6 +608,14 @@ public class DbcToolTests : IClassFixture<DbcFixture>
 
         var (byField, _) = await _f.Call("search", A(("query", "Speed"), ("topic", "dbc")));
         Assert.Contains("dbc:Spell", byField);
+    }
+
+    [Fact]
+    public async Task Status_DatesClientLayersByTheirFiles_AndOtherLayersByTheirSource()
+    {
+        var (text, _) = await _f.Call("status", A());
+        Assert.Matches(@"(?m)^- dbc: v\S+, built \d{4}-\d\d-\d\d, client files dated \d{4}-\d\d-\d\d", text);
+        Assert.Matches(@"(?m)^- bisbeard: v\S+, built \d{4}-\d\d-\d\d, source date \d{4}-\d\d-\d\d", text);
     }
 
     [Fact]

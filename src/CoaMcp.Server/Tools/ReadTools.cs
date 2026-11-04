@@ -158,7 +158,7 @@ public sealed class ReadTools
         {
             using var doc = JsonDocument.Parse(e.DataJson);
             if (doc.RootElement.ValueKind != JsonValueKind.Object) return Array.Empty<GeneratedValue>();
-            var provenance = $"trust {Render.Trust(e.Trust)}, realm {Render.RealmText(e.Realm)}, source {Render.OneLine(e.Source, 150)}, source date {e.SourceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}, layer {layer.Name} v{layer.Version}";
+            var provenance = $"trust {Render.Trust(e.Trust)}, realm {Render.RealmText(e.Realm)}, source {Render.OneLine(e.Source, 150)}, {Render.Dated(layer, e.SourceDate)}, layer {layer.Name} v{layer.Version}";
             return doc.RootElement.EnumerateObject()
                 .Where(p => p.Value.ValueKind is JsonValueKind.String or JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False)
                 .Select(p => new GeneratedValue(p.Name, p.Value.ValueKind == JsonValueKind.String ? p.Value.GetString()! : p.Value.GetRawText(), provenance))

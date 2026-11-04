@@ -135,7 +135,7 @@ public static class TestLayers
         b.Add(new PathRecord("readme.txt", 10, "common.MPQ", "unknown", false, null, null, H(("common.MPQ", "unknown", 10, false, null))));
         b.Finish(new Dictionary<string, string>
         {
-            ["restore_date"] = "2026-11-03", ["ok"] = "9", ["delete_marker"] = "1", ["unnamed"] = "0", ["failed"] = "0", ["internal_skipped"] = "2",
+            ["client_date"] = "2026-11-03", ["ok"] = "9", ["delete_marker"] = "1", ["unnamed"] = "0", ["failed"] = "0", ["internal_skipped"] = "2",
         }, new DateOnly(2026, 11, 3));
     }
 

@@ -113,9 +113,19 @@ public sealed class DbcWorld : IDisposable
         return this;
     }
 
+    /// <summary>The config this world exports with: the real one unless a test needs another.</summary>
+    public ArchiveConfig Archives { get; set; } = ArchiveConfig.Load(Path.Combine(AppContext.BaseDirectory, "config", "archives.json"));
+
+    /// <summary>The real config, with one more archive marked project-built.</summary>
+    public static ArchiveConfig WithProject(string archive)
+    {
+        var real = ArchiveConfig.Load(Path.Combine(AppContext.BaseDirectory, "config", "archives.json"));
+        return real with { Archives = real.Archives.Select(a => a.Path == archive ? a with { Origin = "project" } : a).ToList() };
+    }
+
     public string BuildManifest()
     {
-        var config = ArchiveConfig.Load(Path.Combine(AppContext.BaseDirectory, "config", "archives.json"));
+        var config = Archives;
         var path = Path.Combine(Root, "manifest.sqlite");
         if (File.Exists(path)) File.Delete(path);
         using (var m = RestoreManifest.OpenForRestore(path))
@@ -145,7 +155,7 @@ public sealed class DbcWorld : IDisposable
 
     public DbcExportResult Export(ClientRelease? client = null)
     {
-        var result = DbcExporter.Run(new DbcExportOptions(BuildManifest(), ArchiveConfig.Load(Path.Combine(AppContext.BaseDirectory, "config", "archives.json")),
+        var result = DbcExporter.Run(new DbcExportOptions(BuildManifest(), Archives,
             Fields, Layer, Winners, "1", Client: client));
         SqliteConnection.ClearAllPools();
         return result;
@@ -592,19 +602,18 @@ public class DbcExportTests : IDisposable
     public void Export_ProjectWinner_AlsoExportsNextCopyAsBase_NotClaimedAsAscension()
     {
         _w.Add("common.MPQ", "Spell", Simple(1, 100))
-          .Add("patch-M.MPQ", "Spell", Simple(1, 200))
-          .Add("patch-B.MPQ", "Spell", Simple(1, 250))
-          .Add("patch-T.MPQ", "Spell", Simple(1, 300));
+          .Add("patch-A.MPQ", "Spell", Simple(1, 200))
+          .Add("patch-B.MPQ", "Spell", Simple(1, 300));
 
         var result = _w.Export();
 
         using var r = _w.Open();
         var t = Table(r, "Spell");
-        Assert.Equal("patch-T.MPQ", t["winner_archive"]);
+        Assert.Equal("patch-B.MPQ", t["winner_archive"]);
         Assert.Equal("project", t["origin"]);
         Assert.Equal(300L, r.Query("SELECT f1 FROM t_Spell").Single()["f1"]);
-        var b = Table(r, "Spell__base");   // patch-T (111), then patch-M (104): the next copy below the winner that is not project-built
-        Assert.Equal("patch-M.MPQ", b["winner_archive"]);
+        var b = Table(r, "Spell__base");   // patch-B (73), then patch-A (72): the next copy below the winner that is not project-built
+        Assert.Equal("patch-A.MPQ", b["winner_archive"]);
         Assert.Equal("unknown", b["origin"]);
         Assert.Equal("Spell", b["base_of"]);
         Assert.Equal(200L, r.Query("SELECT f1 FROM t_Spell__base").Single()["f1"]);
@@ -613,8 +622,24 @@ public class DbcExportTests : IDisposable
     }
 
     [Fact]
+    public void Export_UnknownOriginWinner_HasNoBaseTable_EvenAbovePatchB()
+    {
+        _w.Add("common.MPQ", "Spell", Simple(1, 100))
+          .Add("patch-B.MPQ", "Spell", Simple(1, 250))
+          .Add("patch-T.MPQ", "Spell", Simple(1, 300));
+
+        var result = _w.Export();
+
+        using var r = _w.Open();
+        Assert.Equal("unknown", Table(r, "Spell")["origin"]);
+        Assert.Empty(r.Query("SELECT name FROM dbc_tables WHERE base_of IS NOT NULL"));
+        Assert.Equal(0, result.BaseTables);
+    }
+
+    [Fact]
     public void Export_ProjectWinner_SkipsAnotherProjectCopyToFindTheBase()
     {
+        _w.Archives = DbcWorld.WithProject("patch-T.MPQ");   // the real config has one project archive; this rule needs two
         _w.Add("common.MPQ", "Spell", Simple(1, 100))
           .Add("patch-B.MPQ", "Spell", Simple(1, 250))
           .Add("patch-T.MPQ", "Spell", Simple(1, 300));
@@ -629,8 +654,8 @@ public class DbcExportTests : IDisposable
     [Fact]
     public void Export_BaseCopyUnreadable_IsReportedAndWinnerStays()
     {
-        _w.Add("patch-M.MPQ", "Spell", Encoding.ASCII.GetBytes("nope nope nope nope nope nope nope nope"))
-          .Add("patch-T.MPQ", "Spell", Simple(1, 300));
+        _w.Add("patch-A.MPQ", "Spell", Encoding.ASCII.GetBytes("nope nope nope nope nope nope nope nope"))
+          .Add("patch-B.MPQ", "Spell", Simple(1, 300));
 
         var result = _w.Export();
 
@@ -644,8 +669,8 @@ public class DbcExportTests : IDisposable
     public void Export_ProjectWinner_NextCopyIsDeleteMarker_NoBaseAndSaysSo()
     {
         _w.Add("common.MPQ", "Spell", Simple(1, 100))
-          .Marker("patch-M.MPQ", "Spell")
-          .Add("patch-T.MPQ", "Spell", Simple(1, 300));
+          .Marker("patch-A.MPQ", "Spell")
+          .Add("patch-B.MPQ", "Spell", Simple(1, 300));
 
         var result = _w.Export();
 
@@ -658,7 +683,7 @@ public class DbcExportTests : IDisposable
     [Fact]
     public void Export_ProjectWinner_NoOtherCopy_SaysSo()
     {
-        _w.Add("patch-T.MPQ", "Spell", Simple());
+        _w.Add("patch-B.MPQ", "Spell", Simple());
 
         _w.Export();
 
@@ -696,17 +721,29 @@ public class DbcExportTests : IDisposable
     }
 
     [Fact]
-    public void Export_SourceDate_IsTheWinningArchivesModifiedTime()
+    public void Export_EveryTableCarriesTheClientsOneDate_AndKeepsItsWinningArchive()
     {
         _w.Add("patch-M.MPQ", "Older", Simple(), DbcWorld.Oct3).Add("patch-ZG.MPQ", "Newer", Simple(), DbcWorld.Oct22);
 
         _w.Export();
 
         using var r = _w.Open();
-        Assert.Equal("2026-10-03", Table(r, "Older")["source_date"]);
+        Assert.Equal("2026-10-22", Table(r, "Older")["source_date"]);
+        Assert.Equal("patch-M.MPQ", Table(r, "Older")["winner_archive"]);
         Assert.Equal("2026-10-22", Table(r, "Newer")["source_date"]);
-        Assert.Equal(new DateOnly(2026, 10, 22), r.Meta.SourceDate);   // the newest winning archive
-        Assert.Equal("2026-10-22", DbcWinnerList.Read(_w.Winners).Files["Newer.dbc"].Date);
+        Assert.Equal(new DateOnly(2026, 10, 22), r.Meta.SourceDate);
+        Assert.Equal("2026-10-22", DbcWinnerList.Read(_w.Winners).ClientDate);
+    }
+
+    [Fact]
+    public void Export_SpellLayerGetsTheSameDateFromTheWinnersFolder_EvenWhenSpellDbcsArchiveIsOlder()
+    {
+        _w.Add("patch-M.MPQ", "Spell", Simple(), DbcWorld.Oct3).Add("patch-ZG.MPQ", "Newer", Simple(), DbcWorld.Oct22);
+
+        _w.Export();
+
+        using var r = _w.Open();
+        Assert.Equal(r.Meta.SourceDate, CoaMcp.Pipeline.Spells.SpellSource.SourceDateOf(_w.Winners));
     }
 
     [Fact]
@@ -745,7 +782,7 @@ public class DbcExportTests : IDisposable
     [Fact]
     public void Export_TableEntity_CarriesSourceTrustAndRealm()
     {
-        _w.Add("patch-T.MPQ", "Spell", Simple());
+        _w.Add("patch-B.MPQ", "Spell", Simple());
 
         _w.Export();
 
@@ -756,7 +793,7 @@ public class DbcExportTests : IDisposable
         Assert.Equal(Trust.Client, e.Trust);
         Assert.False(e.Realm.Proven);
         Assert.Contains("coa-client", e.Realm.Realms);
-        Assert.Contains("patch-T.MPQ", e.BodyMd);
+        Assert.Contains("patch-B.MPQ", e.BodyMd);
         Assert.Contains("project", e.BodyMd);
     }
 

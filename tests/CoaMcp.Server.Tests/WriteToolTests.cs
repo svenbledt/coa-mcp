@@ -503,7 +503,7 @@ public class WriteToolTests : IClassFixture<WriteFixture>
         Assert.Equal(exact, page);
         Assert.Contains("trust client", page);
         Assert.Contains("source CoA client file list", page);
-        Assert.Contains("source date", page);
+        Assert.Contains("client files dated", page);
         Assert.Contains("realm the CoA client (unproven)", page);
         Assert.DoesNotContain("A client file.", page);
     }

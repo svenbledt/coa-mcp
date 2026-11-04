@@ -60,7 +60,7 @@ public sealed class PathTools
         GeneratedValue.FromRow(row, Provenance(layer), Mark(row, layer.Meta.Client)));
 
     private static string Provenance(Layer layer) =>
-        $"trust {Render.Trust(Trust.Client)}, realm {Render.RealmText(ClientRealm)}, source {ClientRelease.Source(Source, layer.Meta.Client)}, source date {layer.Meta.SourceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}, layer {LayerName} v{layer.Meta.Version}";
+        $"trust {Render.Trust(Trust.Client)}, realm {Render.RealmText(ClientRealm)}, source {ClientRelease.Source(Source, layer.Meta.Client)}, {Render.Dated(layer.Meta, layer.Meta.SourceDate)}, layer {LayerName} v{layer.Meta.Version}";
 
     /// <summary>What limits a file's values as evidence: the same things its detail says.</summary>
     private static string? Mark(IReadOnlyDictionary<string, object?> r, ClientRelease? client)
@@ -153,7 +153,7 @@ public sealed class PathTools
     // ---- output ----
 
     private static string Header(Layer layer) =>
-        $"Client paths (realm {Render.RealmText(ClientRealm)}, trust {Render.Trust(Trust.Client)}, source {ClientRelease.Source(Source, layer.Meta.Client)}, source date {layer.Meta.SourceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}; layer paths v{layer.Meta.Version}). " +
+        $"Client paths (realm {Render.RealmText(ClientRealm)}, trust {Render.Trust(Trust.Client)}, source {ClientRelease.Source(Source, layer.Meta.Client)}, {Render.Dated(layer.Meta, layer.Meta.SourceDate)}; layer paths v{layer.Meta.Version}). " +
         "Paths only, no file content.";
 
     private static string Bytes(long n) => n.ToString("N0", CultureInfo.InvariantCulture) + " bytes";

@@ -28,7 +28,14 @@ public static class Render
     public static string Header(Entity e, LayerMeta layer) =>
         $"# {OneLine(e.Title, 200)}\n" +
         $"id: {e.Id} | type: {e.Type} | layer: {layer.Name} v{layer.Version} (built {layer.BuiltAt.UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)})\n" +
-        $"realm: {RealmText(e.Realm)} | trust: {Trust(e.Trust)} | source: {e.Source} | source date: {e.SourceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}";
+        $"realm: {RealmText(e.Realm)} | trust: {Trust(e.Trust)} | source: {e.Source} | {DatedHeader(layer, e.SourceDate)}";
+
+    /// <summary>A date with its label. Layers built from the client carry one date, when its archives last changed; other layers carry their source's date.</summary>
+    public static string Dated(LayerMeta layer, DateOnly date) =>
+        (layer.Client is not null ? "client files dated " : "source date ") + date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    private static string DatedHeader(LayerMeta layer, DateOnly date) =>
+        layer.Client is not null ? Dated(layer, date) : "source date: " + date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     /// <summary>The page for <paramref name="e"/>. With sections: just those. Without: the whole page, unless it is large and has sections, then the section list.</summary>
     public static string Entity(Entity e, LayerMeta layer, IReadOnlyList<string>? sections)

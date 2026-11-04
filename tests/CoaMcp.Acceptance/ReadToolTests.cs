@@ -135,11 +135,18 @@ public class ReadToolTests
     {
         var client = await Suite.Anonymous();
         var r = await client.Call("status", null, "normal use");
-        foreach (var layer in new[] { "bisbeard", "spells", "paths", "dbc", "notes" })
+        foreach (var layer in new[] { "bisbeard", "notes" })
         {
             var m = Regex.Match(r.Text, $@"^- {layer}: v\S+, built \d{{4}}-\d\d-\d\d, source date \d{{4}}-\d\d-\d\d", RegexOptions.Multiline);
             c.That(m.Success, $"status shows {layer}'s version, build date and source date", r.Text);
         }
+        var clientDates = new[] { "spells", "paths", "dbc" }.Select(layer =>
+        {
+            var m = Regex.Match(r.Text, $@"^- {layer}: v\S+, built \d{{4}}-\d\d-\d\d, client files dated (\d{{4}}-\d\d-\d\d)", RegexOptions.Multiline);
+            c.That(m.Success, $"status shows {layer}'s version, build date and client files date", r.Text);
+            return m.Groups[1].Value;
+        }).ToList();
+        c.Equal(1, clientDates.Distinct().Count(), "the client layers share one date");
         c.Has(r.Text, "cache: missing", "the missing cache layer is reported, not hidden");
         c.Has(r.Text, "Known gaps:", "known gaps are listed");
         c.Has(r.Text, "WotLK, Octo, Classic and S10 have BisBeard data only", "the design's realm gap is listed");
@@ -169,7 +176,7 @@ public class ReadToolTests
         if (maxA != maxB) c.Has(r.Text, $"levels.maxLevel: {maxA} | {maxB}", "a differing value matches Spellwork");
         c.Has(r.Text, "trust client", "shows trust");
         c.Has(r.Text, "realm the CoA client (unproven)", "shows the realm");
-        c.Has(r.Text, "source date", "shows the date");
+        c.Has(r.Text, "client files dated", "shows the date");
 
         var same = await client.Call("spell_compare", new { idA = "133", idB = "133" }, "a spell against itself");
         c.Has(same.Text, "0 differing fields", "a spell against itself differs in nothing");
@@ -193,7 +200,7 @@ public class ReadToolTests
         c.Has(normal.Text, "SPELL_SCHOOL_MASK_FIRE (0x4)", "bit 4");
         c.Has(normal.Text, "SPELL_SCHOOL_MASK_FROST (0x10)", "bit 16");
         c.Has(normal.Text, "trust client", "shows trust");
-        c.That(Regex.IsMatch(normal.Text, @"source date \d{4}-\d\d-\d\d"), "shows the date", normal.Text);
+        c.That(Regex.IsMatch(normal.Text, @"client files dated \d{4}-\d\d-\d\d"), "shows the date", normal.Text);
         c.Has(normal.Text, "realm the CoA client (unproven)", "the accuracy rule: every fact shows its realm");
         c.Has(normal.Text, "flag names from Spellwork's CoA enums", "says where flag names really come from");
         c.That(!Regex.IsMatch(normal.Text, @"\.MPQ|patch-", RegexOptions.IgnoreCase), "names no archive, since flag names don't come from one", normal.Text);
@@ -305,7 +312,7 @@ public class ReadToolTests
         var client = await Suite.Anonymous();
         var all = await client.Call("dbc_tables", new { limit = 5 }, "normal use");
         c.Has(all.Text, "realm the CoA client (unproven), trust client", "shows realm and trust");
-        c.Has(all.Text, "source date", "shows the date");
+        c.Has(all.Text, "client files dated", "shows the date");
         c.Has(all.Text, "More results may exist: use offset=5", "and how to page");
 
         var filter = await client.Call("dbc_tables", new { filter = "spellicon" }, "filter, any case");

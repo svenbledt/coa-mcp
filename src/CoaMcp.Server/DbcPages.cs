@@ -48,7 +48,7 @@ public static class DbcPages
     /// <summary>Realm, trust, source and date, then which copy this is and what it is worth as evidence.</summary>
     public static string Provenance(DbcTableRef t, Layer layer)
     {
-        var sb = new StringBuilder($"DBC {t.Name} (realm {Render.RealmText(Realm)}, trust {Render.Trust(Trust.Client)}, source {ClientRelease.Source(DbcLayerBuilder.Source, layer.Meta.Client)}, source date {Date(t.SourceDate)}; layer {LayerName} v{layer.Meta.Version}).\n");
+        var sb = new StringBuilder($"DBC {t.Name} (realm {Render.RealmText(Realm)}, trust {Render.Trust(Trust.Client)}, source {ClientRelease.Source(DbcLayerBuilder.Source, layer.Meta.Client)}, {Render.Dated(layer.Meta, t.SourceDate)}; layer {LayerName} v{layer.Meta.Version}).\n");
         sb.Append(CopyLine(t)).Append('\n');
         if (layer.Meta.Client?.MismatchLine(t.Archive) is { } mismatch) sb.Append(mismatch).Append('\n');
         if (BaseOf(layer, t) is { } b) sb.Append($"Base copy: DBC table {b.Name}.\n");
@@ -61,7 +61,6 @@ public static class DbcPages
     private static DbcTableRef? BaseOf(Layer layer, DbcTableRef t) =>
         t.BaseOf is null && layer.Query("SELECT * FROM dbc_tables WHERE base_of = $0", t.Name) is [var r] ? DbcTableRef.From(r) : null;
 
-    private static string Date(DateOnly d) => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     // ---- values ----
 
@@ -126,7 +125,7 @@ public static class DbcPages
         var idField = Fields(lease.Layer, t.Name).First(f => f.Name.Equals(t.IdColumn, StringComparison.OrdinalIgnoreCase));
         var rows = lease.Layer.Query($"SELECT * FROM {t.DataTable} WHERE {idField.Quoted} = $0 ORDER BY rowid LIMIT 1", rowId);
         if (rows.Count == 0) return null;
-        var provenance = $"trust {Render.Trust(Trust.Client)}, realm {Render.RealmText(Realm)}, source {ClientRelease.Source(DbcLayerBuilder.Source, lease.Layer.Meta.Client)}, source date {Date(t.SourceDate)}, layer {LayerName} v{lease.Layer.Meta.Version}";
+        var provenance = $"trust {Render.Trust(Trust.Client)}, realm {Render.RealmText(Realm)}, source {ClientRelease.Source(DbcLayerBuilder.Source, lease.Layer.Meta.Client)}, {Render.Dated(lease.Layer.Meta, t.SourceDate)}, layer {LayerName} v{lease.Layer.Meta.Version}";
         var mark = CopyLine(t) + (lease.Layer.Meta.Client?.MismatchLine(t.Archive) is { } mismatch ? " " + mismatch : "");
         return ($"dbc:{t.Name}:{rowId.ToString(CultureInfo.InvariantCulture)}", GeneratedValue.FromRow(rows[0], provenance, mark));
     }

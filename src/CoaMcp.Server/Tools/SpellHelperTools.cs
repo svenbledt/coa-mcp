@@ -34,8 +34,8 @@ public sealed partial class SpellHelperTools
         return "spell:" + m.Groups[1].Value.TrimStart('0').PadLeft(1, '0');
     }
 
-    private static string Source(Entity e) =>
-        $"realm {Render.RealmText(e.Realm)}, trust {Render.Trust(e.Trust)}, source {e.Source}, source date {e.SourceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}";
+    private static string Source(Entity e, Layer layer) =>
+        $"realm {Render.RealmText(e.Realm)}, trust {Render.Trust(e.Trust)}, source {e.Source}, {Render.Dated(layer.Meta, e.SourceDate)}";
 
     /// <summary>The layer holds a mismatch only for the archive that won Spell.dbc, so each one applies to every answer here.</summary>
     private static void AppendWarnings(StringBuilder sb, Layer layer)
@@ -69,8 +69,8 @@ public sealed partial class SpellHelperTools
         }
 
         var sb = new StringBuilder();
-        sb.Append($"A = {a.Id} {Render.OneLine(a.Title, 80)} ({Source(a)})\n");
-        sb.Append($"B = {b.Id} {Render.OneLine(b.Title, 80)} ({Source(b)})\n");
+        sb.Append($"A = {a.Id} {Render.OneLine(a.Title, 80)} ({Source(a, layer)})\n");
+        sb.Append($"B = {b.Id} {Render.OneLine(b.Title, 80)} ({Source(b, layer)})\n");
         AppendWarnings(sb, layer);
         sb.Append($"{diffs.Count} differing fields (A | B):\n");
         foreach (var d in diffs.Take(MaxDiffs)) sb.Append(d).Append('\n');
@@ -129,7 +129,7 @@ public sealed partial class SpellHelperTools
 
         // The names come from Spellwork's enums, not from Spell.dbc, so this answer names no archive and carries none of its warnings.
         var sb = new StringBuilder($"{match["kind"]} 0x{mask:X} ({mask}) from the spells layer v{layer.Meta.Version} " +
-            $"(realm {Render.RealmText(ClientRealm)}, trust {Render.Trust(Trust.Client)}, flag names from Spellwork's CoA enums, source date {layer.Meta.SourceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}):\n");
+            $"(realm {Render.RealmText(ClientRealm)}, trust {Render.Trust(Trust.Client)}, flag names from Spellwork's CoA enums, {Render.Dated(layer.Meta, layer.Meta.SourceDate)}):\n");
         if (mask == 0) sb.Append("no bits set\n");
         foreach (var m in set) sb.Append($"- {m.Label} (0x{m.Bits:X})\n");
         if (unmatched != 0) sb.Append($"unmatchedBits: 0x{unmatched:X}\n");
@@ -170,7 +170,7 @@ public sealed partial class SpellHelperTools
             .GroupBy(r => (long)r["value"]!) // several names can share one value
             .ToDictionary(g => g.Key, g => string.Join(" / ", g.Select(r => (string)r["label"]!)));
 
-        var sb = new StringBuilder($"{spell.Id} {Render.OneLine(spell.Title, 80)} at level {lvl} ({Source(spell)})\n");
+        var sb = new StringBuilder($"{spell.Id} {Render.OneLine(spell.Title, 80)} at level {lvl} ({Source(spell, layer)})\n");
         AppendWarnings(sb, layer);
         if (notes.Count > 0) sb.Append("Note: ").Append(string.Join("; ", notes)).Append(".\n");
         if (rows.Count == 0) sb.Append("This spell has no effects.\n");

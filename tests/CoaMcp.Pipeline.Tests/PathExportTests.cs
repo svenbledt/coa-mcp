@@ -11,7 +11,9 @@ public class PathExportTests : IDisposable
     private readonly TempDir _dir = new();
     public void Dispose() => _dir.Dispose();
 
-    private static ArchiveConfig Config() => ArchiveConfig.Load(Path.Combine(AppContext.BaseDirectory, "config", "archives.json"));
+    private ArchiveConfig _config = ArchiveConfig.Load(Path.Combine(AppContext.BaseDirectory, "config", "archives.json"));
+
+    private ArchiveConfig Config() => _config;
 
     /// <summary>One manifest row: which archive holds which path, how big, and in what state.</summary>
     private sealed record Entry(string Archive, string Path, long Size = 100, string Status = "ok", string NameSource = "own_listfile", bool Named = true);
@@ -26,7 +28,7 @@ public class PathExportTests : IDisposable
             foreach (var group in entries.GroupBy(e => e.Archive))
             {
                 var a = config.Archives.Single(x => x.Path == group.Key);
-                m.SaveArchive(new ArchiveInfo(a.Path, a.Priority, a.Origin, a.Realm), new ArchiveFacts(1, 1, 1, 0, 0), null);
+                m.SaveArchive(new ArchiveInfo(a.Path, a.Priority, a.Origin, a.Realm), new ArchiveFacts(1, 1, 1, 0, 0), new ArchiveIdentity(1, new DateTime(2026, 11, 3, 0, 0, 0, DateTimeKind.Utc).Ticks));
             }
             var rows = new List<FileRow>();
             foreach (var e in entries)
@@ -46,7 +48,7 @@ public class PathExportTests : IDisposable
     private string ExportFrom(string manifest)
     {
         var layer = _dir.File($"paths-{Guid.NewGuid():N}.sqlite");
-        PathExporter.Run(manifest, Config(), layer, "1", new DateOnly(2026, 11, 3));
+        PathExporter.Run(manifest, Config(), layer, "1");
         SqliteConnection.ClearAllPools();
         return layer;
     }
@@ -104,6 +106,26 @@ public class PathExportTests : IDisposable
 
         using var r = new LayerReader(layer);
         Assert.Equal(new DateOnly(2026, 10, 24), r.Meta.SourceDate);
+        Assert.Equal("2026-10-24", Stat(r, "client_date"));
+        Assert.Empty(r.Query("SELECT 1 FROM path_stats WHERE key = 'restore_date'"));
+    }
+
+    [Fact]
+    public void SourceDate_AnOpenedArchiveWithNoRecordedTime_IsRefused()
+    {
+        var config = Config();
+        var manifest = _dir.File($"manifest-{Guid.NewGuid():N}.sqlite");
+        using (var m = RestoreManifest.OpenForRestore(manifest))
+        {
+            var dated = config.Archives.Single(x => x.Path == "common.MPQ");
+            var undated = config.Archives.Single(x => x.Path == "patch-B.MPQ");
+            m.SaveArchive(new ArchiveInfo(dated.Path, dated.Priority, dated.Origin, dated.Realm), new ArchiveFacts(1, 1, 1, 0, 0), new ArchiveIdentity(1, new DateTime(2026, 10, 3, 0, 0, 0, DateTimeKind.Utc).Ticks));
+            m.SaveArchive(new ArchiveInfo(undated.Path, undated.Priority, undated.Origin, undated.Realm), new ArchiveFacts(1, 1, 1, 0, 0), null);
+        }
+        SqliteConnection.ClearAllPools();
+
+        var ex = Assert.Throws<InvalidDataException>(() => PathExporter.Run(manifest, config, _dir.File("undated.sqlite"), "1"));
+        Assert.Contains("patch-B.MPQ", ex.Message);
     }
 
     [Fact]
@@ -139,6 +161,7 @@ public class PathExportTests : IDisposable
     [Fact]
     public void Winner_ProjectArchive_ShowsBaseCopy()
     {
+        _config = DbcWorld.WithProject("patch-T.MPQ");   // the real config has one project archive; skipping a second needs two
         var layer = Export(
             new Entry("common.MPQ", "Interface/Icons/a.blp", 1),
             new Entry("patch-3.MPQ", "Interface/Icons/a.blp", 2),
@@ -160,7 +183,7 @@ public class PathExportTests : IDisposable
         var manifest = Manifest(new Entry("common.MPQ", "a/b.dbc", 1));
         var layer = _dir.File($"paths-{Guid.NewGuid():N}.sqlite");
 
-        PathExporter.Run(manifest, Config(), layer, "1", new DateOnly(2026, 11, 3), client: new ClientRelease(8, "rel-8", null));
+        PathExporter.Run(manifest, Config(), layer, "1", client: new ClientRelease(8, "rel-8", null));
         SqliteConnection.ClearAllPools();
 
         using (var r = new LayerReader(layer)) Assert.Equal(8, r.Meta.Client!.Revision);
@@ -174,11 +197,11 @@ public class PathExportTests : IDisposable
         var layer = Export(
             new Entry("common.MPQ", "Interface/Icons/a.blp", 1),
             new Entry("patch-3.MPQ", "Interface/Icons/a.blp", 0, "delete_marker"),
-            new Entry("patch-T.MPQ", "Interface/Icons/a.blp", 4));
+            new Entry("patch-B.MPQ", "Interface/Icons/a.blp", 4));
 
         var row = Row(layer, "Interface/Icons/a.blp")!;
 
-        Assert.Equal("patch-T.MPQ", row["winner_archive"]);
+        Assert.Equal("patch-B.MPQ", row["winner_archive"]);
         Assert.Null(row["base_winner"]);    // common.MPQ's copy is gone below the marker
         Assert.Null(row["base_size"]);
     }
