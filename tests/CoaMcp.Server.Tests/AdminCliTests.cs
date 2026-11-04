@@ -198,6 +198,11 @@ public sealed class AdminCliTests : IDisposable
         Assert.Equal(5, Scalar("SELECT COUNT(*) FROM entries_fts WHERE entries_fts MATCH 'alpha'", file));
         Assert.DoesNotContain(Directory.GetFiles(backups), f => f.EndsWith(".tmp"));
         if (!OperatingSystem.IsWindows())
+        {
+            Assert.Equal(UnixFileMode.None, File.GetUnixFileMode(backups) & (UnixFileMode.GroupWrite | UnixFileMode.OtherRead | UnixFileMode.OtherWrite | UnixFileMode.OtherExecute));
+            Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(file) & (UnixFileMode.UserRead | UnixFileMode.UserWrite));
+        }
+        if (!OperatingSystem.IsWindows())
             Assert.Equal(0, (int)(File.GetUnixFileMode(file) & (UnixFileMode.GroupWrite | UnixFileMode.OtherRead | UnixFileMode.OtherWrite | UnixFileMode.OtherExecute)));
 
         // A second run on the same day replaces the file, and still leaves one.

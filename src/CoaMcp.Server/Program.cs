@@ -6,12 +6,13 @@ using Microsoft.AspNetCore.Http.Features;
 using ModelContextProtocol.AspNetCore;
 using ModelContextProtocol.Server;
 
-// Owner commands (`coamcp admin ...`, run with docker exec) act on the store and exit. They never start the web host and need no token.
-if (args.Length > 0 && args[0] == "admin")
-    return CoaMcp.Server.Admin.AdminCli.Run(args, Environment.GetEnvironmentVariable("Layers__Root") ?? "/data", Console.Out, Console.Error);
-
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
+
+// Owner commands (`coamcp admin ...`, run with docker exec) act on the store and exit. They never start the web host and need no token.
+// They read the data root from the same configuration as the web path, so the two can't differ.
+if (args.Length > 0 && args[0] == "admin")
+    return CoaMcp.Server.Admin.AdminCli.Run(args, config["Layers:Root"] ?? "/data", Console.Out, Console.Error);
 
 // Request bodies for the read tools are tiny; refuse anything big before it is read. A valid token raises this below, for writes.
 builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = Limits.ReadRequestBytes);
