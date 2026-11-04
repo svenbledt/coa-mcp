@@ -16,8 +16,8 @@ public static class BisbeardImport
 
     public static RealmSet Proven(string realm) => new(new[] { realm }, true);
 
-    /// <param name="clientItems">The ids in the client's Item table. An item not among them loses coa; null means no narrowing.</param>
-    public static (int Items, int Classes, int Specs, int Markers, int Guides, int Talents, int Rules, int NarrowedItems) Run(
+    /// <param name="clientItems">The ids in the client's Item table. A page whose id isn't among them says so; null means no check.</param>
+    public static (int Items, int Classes, int Specs, int Markers, int Guides, int Talents, int Rules, int ItemsNotInClient) Run(
         string dataDir, string guidesConfig, string outPath, string? version = null, IReadOnlySet<int>? clientItems = null)
     {
         version = LayerVersion.Resolve(version);
@@ -25,12 +25,12 @@ public static class BisbeardImport
         var guides = GuideImporter.Load(dataDir, guidesConfig);
 
         using var w = new LayerWriter(outPath, "bisbeard", version);
-        var (items, narrowed) = ItemImporter.Import(dataDir, w, clientItems);
+        var (items, notInClient) = ItemImporter.Import(dataDir, w, clientItems);
         var (classes, specs, talents, rules) = RealmImporter.Import(dataDir, w);
         var markers = MarkerImporter.Import(dataDir, w);
         var guideCount = GuideImporter.Import(guides, w);
         w.Finish();
-        return (items, classes, specs, markers, guideCount, talents, rules, narrowed);
+        return (items, classes, specs, markers, guideCount, talents, rules, notInClient);
     }
 }
 

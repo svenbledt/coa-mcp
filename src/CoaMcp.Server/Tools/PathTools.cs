@@ -106,7 +106,7 @@ public sealed class PathTools
     // ---- output ----
 
     private static string Header(Layer layer) =>
-        $"Client paths (realm {Render.RealmText(ClientRealm)}, trust {Render.Trust(Trust.Client)}, source {Source}, source date {layer.Meta.SourceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}; layer paths v{layer.Meta.Version}). " +
+        $"Client paths (realm {Render.RealmText(ClientRealm)}, trust {Render.Trust(Trust.Client)}, source {ClientRelease.Source(Source, layer.Meta.Client)}, source date {layer.Meta.SourceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}; layer paths v{layer.Meta.Version}). " +
         "Paths only, no file content.";
 
     private static string Bytes(long n) => n.ToString("N0", CultureInfo.InvariantCulture) + " bytes";
@@ -168,7 +168,7 @@ public sealed class PathTools
             if (project)
                 sb.Append(r["base_winner"] is string b
                     ? $"base copy: {Render.OneLine(b, 60)}, {(r["base_size"] is long bs ? Bytes(bs) : "size unknown")}, origin unknown\n"
-                    : "base copy: none in an archive that is not project-built.\n");
+                    : NoBaseCopy(holders, win));
         }
 
         if (!IsDeleted(r) && holders.Count > 0)
@@ -181,6 +181,15 @@ public sealed class PathTools
         }
         sb.Append("Winners follow the client's archive order; ").Append(Gap);
         return sb.ToString();
+    }
+
+    /// <summary>Why a project-built winner has no base copy. The copy that would be it may be a delete marker: then the file was removed below the project's copy.</summary>
+    private static string NoBaseCopy(List<Holder> holders, string winner)
+    {
+        var next = holders.Where(h => h.Realm is null && !h.NotOpened && h.Archive != winner).FirstOrDefault(h => h.Origin != "project");
+        return next is { Deleted: true }
+            ? $"base copy: none. The next copy that isn't project-built is a delete marker in {Render.OneLine(next.Archive, 60)}, so the file was removed below this one.\n"
+            : "base copy: none in an archive that is not project-built.\n";
     }
 
     // ---- folders ----

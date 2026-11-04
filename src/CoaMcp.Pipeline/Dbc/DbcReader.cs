@@ -76,7 +76,10 @@ public sealed class DbcReader : IDisposable
         }
     }
 
-    /// <summary>The string at this offset, or null when the offset is outside the string block. Offset 0 is the empty string.</summary>
+    /// <summary>
+    /// The string at this offset, or null when the offset is outside the string block. Offset 0 is whatever the block starts with:
+    /// empty when the block starts with NUL, but a real string in the many client tables whose block doesn't.
+    /// </summary>
     public string? GetString(uint offset)
     {
         if (offset == 0 && _strings.Length == 0) return "";

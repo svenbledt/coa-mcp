@@ -66,6 +66,39 @@ public sealed class SpellExportTests(SpellFixture f)
         finally { Directory.Delete(dir, true); }
     }
 
+    [Theory]
+    [InlineData("patch-T.MPQ", "project", "CoA client DBC (via Spellwork), client revision 8, Spell.dbc from patch-T.MPQ (project-built archive)")]
+    [InlineData("patch-M.MPQ", "unknown", "CoA client DBC (via Spellwork), client revision 8, Spell.dbc from patch-M.MPQ (origin unknown)")]
+    public void Pages_FromAWinnersFolder_SayWhichArchiveWonSpellDbc(string archive, string origin, string expected)
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "coamcp-winners-" + Guid.NewGuid().ToString("N"));
+        FakeDbc.Create(dir);
+        var layer = Path.Combine(dir, "spells.sqlite");
+        try
+        {
+            CoaMcp.Pipeline.Dbc.DbcWinnerList.Write(dir, new Dictionary<string, CoaMcp.Pipeline.Dbc.DbcWinnerFile>
+            {
+                ["Spell.dbc"] = new(archive, origin, "2026-10-03"),
+            }, new ClientRelease(8, "rel-8", null));
+
+            SpellsImport.Run(SpellSource.OpenWinners(dir), layer);
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+
+            using var r = new LayerReader(layer);
+            var page = r.Get("spell:133")!;
+            Assert.Equal(expected, page.Source);
+            Assert.Contains("Source: " + expected + ".", page.BodyMd);
+            Assert.Equal(8, r.Meta.Client!.Revision);
+            Assert.Equal("spells", CoaMcp.Pipeline.Publish.PublishGuard.Check(layer).LayerName);
+            Assert.True(CoaMcp.Pipeline.Publish.PublishGuard.Check(layer).Ok);
+        }
+        finally
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            Directory.Delete(dir, true);
+        }
+    }
+
     [Fact]
     public void SourceDate_FolderWithoutAWinnersList_IsRefused()
     {

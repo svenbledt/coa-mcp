@@ -12,6 +12,7 @@ public static class Render
     private const int MaxListedSections = 100;
     private const int PreambleChars = 600;
     private const int SnippetChars = 160;
+    private const int MaxHitSourceChars = 130;   // long enough that a project-built archive's name is never cut off
 
     public static string Trust(Trust t) => t.ToString().ToLowerInvariant();
 
@@ -87,7 +88,7 @@ public static class Render
     public static string Hit(int number, LayerHit h)
     {
         var sb = new StringBuilder($"{number}. [{h.Realm.Label()} | {Trust(h.Trust)} | {h.Id}] {OneLine(h.Title, 120)} " +
-            $"({h.LayerName}; src: {OneLine(h.Source, 40)}, {h.SourceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)})");
+            $"({h.LayerName}; src: {OneLine(h.Source, MaxHitSourceChars)}, {h.SourceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)})");
         if (h.Count > 1)
         {
             var zones = (h.Zones ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

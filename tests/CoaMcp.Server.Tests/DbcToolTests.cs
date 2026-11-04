@@ -16,7 +16,7 @@ public static class TestDbc
     public static void Build(string path)
     {
         using var w = new LayerWriter(path, "dbc", "4");
-        var b = new DbcLayerBuilder(w);
+        var b = new DbcLayerBuilder(w, new ClientRelease(8, "test-release", "the release file's patch-B entry is off"));
 
         var spell = new[]
         {
@@ -45,8 +45,10 @@ public static class TestDbc
         {
             ins.Add(new object?[] { 7L, 11L, "Sword", 2.5, 0L });
             ins.Add(new object?[] { 8L, 21L, "Axe", 0.5, 0L });
+            ins.Add(new object?[] { 9L, 0L, "Map Trigger", 0.5, 0L });    // offset 0 is a real string when the block has no leading NUL
+            ins.Add(new object?[] { 10L, 0L, "", 0.5, 0L });
         }
-        b.AddTable(new DbcTableInfo("Thing", 2, 4, 0, "patch-M.MPQ", "unknown", null, "ok", null, null, "f0", true, "2026-10-03"), thing, Realm);
+        b.AddTable(new DbcTableInfo("Thing", 4, 4, 0, "patch-M.MPQ", "unknown", null, "ok", null, null, "f0", true, "2026-10-03"), thing, Realm);
 
         var dupes = new[] { C(0, "f0", "int", guessed: true, indexed: true), C(1, "f1", "int", guessed: true) };
         using (var ins = b.BeginTable("Dupes", dupes))
@@ -141,6 +143,14 @@ public class DbcToolTests : IClassFixture<DbcFixture>
         Assert.Contains("Gone", text);
         Assert.Contains("deleted", text);
         Assert.Contains("trust client", text);
+        Assert.Contains("source CoA client DBC, client revision 8", text);
+    }
+
+    [Fact]
+    public async Task Rows_SourceNamesTheClientRevision()
+    {
+        var (text, _) = await Rows(("table", "Spell"), ("limit", 1));
+        Assert.Contains("source CoA client DBC, client revision 8", text);
     }
 
     [Fact]
@@ -455,6 +465,7 @@ public class DbcToolTests : IClassFixture<DbcFixture>
         Assert.Contains("patch-T.MPQ", text);
         Assert.Contains("project", text);
         Assert.Contains("trust: client", text);
+        Assert.Contains("source: CoA client DBC, client revision 8", text);
         Assert.Contains("source date: 2026-10-03", text);
         Assert.Contains("the CoA client", text);
         Assert.DoesNotContain("Unused", text.Split("omitted")[0]);
@@ -487,6 +498,30 @@ public class DbcToolTests : IClassFixture<DbcFixture>
         Assert.Contains("guessed", text);
         Assert.Contains("f1 (guessed int_or_string): 11 \"Sword\"", text);
         Assert.Contains("f2 (guessed float): 2.5", text);
+    }
+
+    [Fact]
+    public async Task Get_MaybeStringAtOffsetZero_ShowsItsText()
+    {
+        var (text, _) = await _f.Call("get", A(("id", "dbc:Thing:9")));
+        Assert.Contains("f1 (guessed int_or_string): 0 \"Map Trigger\"", text);
+    }
+
+    [Fact]
+    public async Task Get_MaybeStringZeroWithEmptyText_IsLeftOut()
+    {
+        var (text, _) = await _f.Call("get", A(("id", "dbc:Thing:10")));
+        Assert.DoesNotContain("f1 (guessed", text);
+    }
+
+    [Fact]
+    public async Task Rows_MaybeStringAtOffsetZero_ShowsItsText()
+    {
+        var (text, _) = await Rows(("table", "Thing"), ("where", new[] { W("f0", "=", 9) }));
+        Assert.Contains("f1?=0 \"Map Trigger\"", text);
+
+        var (empty, _) = await Rows(("table", "Thing"), ("where", new[] { W("f0", "=", 10) }));
+        Assert.DoesNotContain("f1?", empty.Split("left out.")[1]);
     }
 
     [Fact]
@@ -536,6 +571,8 @@ public class DbcToolTests : IClassFixture<DbcFixture>
         Assert.Contains("dbc:", text);
         Assert.Contains("6 tables", text);
         Assert.Contains("guessed", text);
+        Assert.Contains("client revision 8 (test-release)", text);
+        Assert.Contains("the release file's patch-B entry is off", text);
     }
 
     [Fact]
@@ -548,6 +585,39 @@ public class DbcToolTests : IClassFixture<DbcFixture>
             var (text, isError) = await ServerHarness.CallAsync(client, "dbc_rows", A(("table", "Spell")));
             Assert.True(isError);
             Assert.Contains("not loaded", text);
+        }
+    }
+}
+
+/// <summary>The spell tools repeat a page's source, so each must carry which archive won Spell.dbc.</summary>
+public class SpellSourceToolTests
+{
+    private static Dictionary<string, object?> A(params (string, object?)[] pairs) => pairs.ToDictionary(p => p.Item1, p => p.Item2);
+
+    [Theory]
+    [InlineData("CoA client DBC (via Spellwork), client revision 8, Spell.dbc from patch-T.MPQ (project-built archive)")]
+    [InlineData("CoA client DBC (via Spellwork), client revision 8, Spell.dbc from enUS/patch-enUS-3.MPQ (origin unknown)")]
+    public async Task EverySpellAnswer_CarriesTheWinningArchive(string source)
+    {
+        var dir = TestLayers.Build(withSpells: false);
+        TestLayers.BuildSpells(Path.Combine(dir, "spells.sqlite"), source);
+        using var h = new ServerHarness(dir);
+        var client = await h.ConnectAsync();
+        await using (client)
+        {
+            foreach (var (tool, args) in new (string, Dictionary<string, object?>)[]
+            {
+                ("get", A(("id", "spell:133"))),
+                ("search", A(("query", "Fireball"), ("topic", "spells"))),
+                ("spell_compare", A(("idA", "spell:1"), ("idB", "spell:2"))),
+                ("spell_scaling", A(("id", "spell:10"), ("level", 80))),
+                ("decode_flags", A(("kind", "SpellSchoolMask"), ("value", "4"))),
+            })
+            {
+                var (text, isError) = await ServerHarness.CallAsync(client, tool, args);
+                Assert.False(isError, text);
+                Assert.True(text.Contains(source, StringComparison.Ordinal), $"{tool} did not carry the source: {text}");
+            }
         }
     }
 }

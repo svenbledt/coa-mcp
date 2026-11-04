@@ -8,12 +8,12 @@ using CoaMcp.Pipeline.Spells;
 const string Usage = """
     Usage: coamcp-pipeline bisbeard --data <DataCOA\data> --client-dbc <winners folder> --out <layer.sqlite> [--guides <bisbeard-guides.json>] [--version <v>]
            coamcp-pipeline spells --dbc <winners folder> --out <layer.sqlite> [--version <v>]
-           coamcp-pipeline dbc --manifest <manifest.sqlite> --winners <folder outside any repository> --out <layer.sqlite> [--config <archives.json>] [--fields <dbc-fields folder>] [--version <v>]
+           coamcp-pipeline dbc --manifest <manifest.sqlite> --client-release <CLIENT-RELEASE.json> --winners <folder outside any repository> --out <layer.sqlite> [--config <archives.json>] [--fields <dbc-fields folder>] [--version <v>]
            coamcp-pipeline publish --layer <layer.sqlite> --host <ssh host> [--dry-run]
            coamcp-pipeline restore --data <client Data folder> --out <dir> [--config <archives.json>] [--parallel <n>] [--prune-gone]
            coamcp-pipeline listfile --manifest <manifest.sqlite> --out <dir>
            coamcp-pipeline archive-check --data <client Data folder> [--config <archives.json>]
-           coamcp-pipeline paths --manifest <manifest.sqlite> --out <layer.sqlite> [--config <archives.json>] [--version <v>]
+           coamcp-pipeline paths --manifest <manifest.sqlite> --client-release <CLIENT-RELEASE.json> --out <layer.sqlite> [--config <archives.json>] [--version <v>]
     """;
 
 if (args.Length > 0 && args[0] == "publish") return await PublishCli.RunAsync(args[1..], Console.Out, Console.Error);
@@ -57,7 +57,7 @@ try
     if (data is null || output is null || clientDbc is null) { Console.Error.WriteLine(Usage); return 2; }
     var clientItems = DbcClientItems.Read(clientDbc);
     var n = BisbeardImport.Run(data, guides, output, version, clientItems);
-    Console.WriteLine($"bisbeard layer v{version} written to {output}: {n.Items} items ({n.NarrowedItems} lost coa: not among the client's {clientItems.Count} Item ids), {n.Classes} classes, {n.Specs} specs, {n.Markers} markers, {n.Guides} guides, {n.Talents} talents pages, {n.Rules} rules pages");
+    Console.WriteLine($"bisbeard layer v{version} written to {output}: {n.Items} items ({n.ItemsNotInClient} say their id isn't among the client's {clientItems.Count} Item ids), {n.Classes} classes, {n.Specs} specs, {n.Markers} markers, {n.Guides} guides, {n.Talents} talents pages, {n.Rules} rules pages");
     return 0;
 }
 catch (Exception ex) when (ex is InvalidOperationException or InvalidDataException or IOException or System.Text.Json.JsonException)

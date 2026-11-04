@@ -63,15 +63,15 @@ public sealed class BisbeardTests : IDisposable
     }
 
     [Fact]
-    public void Item_NotInClient_DropsCoa()
+    public void Item_NotInClient_KeepsUnprovenRealm_AndSaysSo()
     {
         using var r = ImportWithClientItems(10531);   // 100000 is in the fixture list, not in the client
 
         var e = r.Get("item:100000")!;
 
-        Assert.Equal(new[] { "classic", "s10" }, e.Realm.Realms);
+        Assert.Equal(new[] { "coa", "classic", "s10" }, e.Realm.Realms);   // absence proves nothing: such ids look server-generated
         Assert.False(e.Realm.Proven);
-        Assert.Contains("not in the CoA client", e.BodyMd);
+        Assert.Contains("This id isn't in the client's Item table; that alone doesn't prove which realm has it.", e.BodyMd);
     }
 
     [Fact]
@@ -83,22 +83,25 @@ public sealed class BisbeardTests : IDisposable
 
         Assert.Equal(new[] { "coa", "classic", "s10" }, e.Realm.Realms);   // being in the client is not proof it is CoA
         Assert.False(e.Realm.Proven);
-        Assert.DoesNotContain("not in the CoA client", e.BodyMd);
+        Assert.DoesNotContain("client's Item table", e.BodyMd);
     }
 
     [Fact]
-    public void Item_NarrowingNeverTouchesOtherRealmLists()
+    public void Item_ClientCheckNeverTouchesOtherRealmLists()
     {
         using var r = ImportWithClientItems();
 
-        Assert.Equal(new[] { "wotlk" }, r.Get("item:wotlk:100000")!.Realm.Realms);
+        var e = r.Get("item:wotlk:100000")!;
+
+        Assert.Equal(new[] { "wotlk" }, e.Realm.Realms);
+        Assert.DoesNotContain("client's Item table", e.BodyMd);
     }
 
     [Fact]
-    public void Item_NarrowCount_IsReported()
+    public void Item_NotInClientCount_IsReported()
     {
         var n = BisbeardImport.Run(_data, Path.Combine(Fixtures, "guides.json"), _out, clientItems: new HashSet<int> { 10531 });
-        Assert.Equal(1, n.NarrowedItems);
+        Assert.Equal(1, n.ItemsNotInClient);
     }
 
     [Fact]

@@ -20,7 +20,7 @@ public static class SpellExporter
             var root = doc.RootElement;
             if (!root.GetProperty("ok").GetBoolean())
                 throw new InvalidOperationException($"get_spell failed for spell {id}: {root.GetProperty("error").GetProperty("message").GetString()}");
-            w.Add(SpellPage.Build(root.GetProperty("result"), source.SpellName, Source, ClientRealm, source.SourceDate));
+            w.Add(SpellPage.Build(root.GetProperty("result"), source.SpellName, source.SourceText, ClientRealm, source.SourceDate));
             done++;
             progress?.Invoke(done, ids.Count);
         }

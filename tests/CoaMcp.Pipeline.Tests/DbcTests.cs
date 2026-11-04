@@ -143,10 +143,10 @@ public sealed class DbcWorld : IDisposable
         return path;
     }
 
-    public DbcExportResult Export()
+    public DbcExportResult Export(ClientRelease? client = null)
     {
         var result = DbcExporter.Run(new DbcExportOptions(BuildManifest(), ArchiveConfig.Load(Path.Combine(AppContext.BaseDirectory, "config", "archives.json")),
-            Fields, Layer, Winners, "1"));
+            Fields, Layer, Winners, "1", Client: client));
         SqliteConnection.ClearAllPools();
         return result;
     }
@@ -183,6 +183,18 @@ public class DbcReaderTests : IDisposable
         Assert.Null(r.GetString(100_000));
         Assert.True(r.IsStringStart(fire));
         Assert.False(r.IsStringStart(fire + 1));
+    }
+
+    [Fact]
+    public void Reader_StringBlockWithoutLeadingNul_OffsetZeroIsARealString()
+    {
+        var strings = Encoding.UTF8.GetBytes("Map Trigger\0Other\0");
+        var rec = BitConverter.GetBytes(1u).Concat(BitConverter.GetBytes(0u)).ToArray();
+
+        using var r = DbcReader.Open(Write(DbcBytes.Packed(2, 8, 1, rec, strings)));
+
+        Assert.Equal("Map Trigger", r.GetString(0));
+        Assert.Equal("Other", r.GetString(12));
     }
 
     [Fact]
@@ -344,6 +356,21 @@ public class DbcExportTests : IDisposable
         Assert.Equal((long)s, row["f1"]);          // the original integer stays
         Assert.Equal("Sword", row["f1__str"]);
         Assert.Equal(2.5, row["f2"]);
+    }
+
+    [Fact]
+    public void Export_OffsetZeroInABlockWithoutLeadingNul_KeepsItsText()
+    {
+        var strings = Encoding.UTF8.GetBytes("Map Trigger\0Other\0");
+        var recs = new[] { 1u, 0u, 2u, 12u }.SelectMany(BitConverter.GetBytes).ToArray();
+        _w.Add("patch-M.MPQ", "Creature", DbcBytes.Packed(2, 8, 2, recs, strings));
+
+        _w.Export();
+
+        using var r = _w.Open();
+        var row = r.Query("SELECT * FROM t_Creature WHERE f0 = 1").Single();
+        Assert.Equal(0L, row["f1"]);
+        Assert.Equal("Map Trigger", row["f1__str"]);
     }
 
     [Fact]
@@ -734,6 +761,22 @@ public class DbcExportTests : IDisposable
     }
 
     [Fact]
+    public void Export_ClientRelease_IsInMetaSourceAndWinnersList()
+    {
+        _w.Add("patch-T.MPQ", "Spell", Simple());
+
+        _w.Export(new ClientRelease(8, "rel-8", "a note"));
+
+        using var r = _w.Open();
+        Assert.Equal(8, r.Meta.Client!.Revision);
+        Assert.Equal("rel-8", r.Meta.Client.ReleaseId);
+        Assert.Equal("a note", r.Meta.Client.Note);
+        Assert.Equal("CoA client DBC, client revision 8", r.Get("dbc:Spell")!.Source);
+        Assert.Equal(8, DbcWinnerList.Read(_w.Winners).Client!.Revision);
+        Assert.True(PublishGuard.Check(_w.Layer).Ok);
+    }
+
+    [Fact]
     public void Tables_All368Listed()
     {
         for (var i = 0; i < 368; i++) _w.Add("patch-M.MPQ", $"Table{i}", Simple((uint)i));
@@ -761,6 +804,68 @@ public class DbcExportTests : IDisposable
         Assert.True(g.Ok, string.Join("; ", g.Problems));
         Assert.Equal("dbc", g.LayerName);
     }
+}
+
+public class ClientReleaseFileTests : IDisposable
+{
+    private readonly TempDir _dir = new();
+    public void Dispose() => _dir.Dispose();
+
+    private string File_(string json)
+    {
+        var path = _dir.File("CLIENT-RELEASE.json");
+        File.WriteAllText(path, json);
+        return path;
+    }
+
+    private const string Release = """
+        {"releaseId":"rel-8","clientRevision":8,
+         "previousPackage":{"name":"old","clientRevision":7,"Data/patch-B.MPQ":{"bytes":8982122}},
+         "files":{"README.txt":{"bytes":5},"Data/patch-B.MPQ":{"bytes":8987639},"Data/patch-T.MPQ":{"bytes":19507059}}}
+        """;
+
+    [Fact]
+    public void Read_SizesMatch_NoNote()
+    {
+        var c = ClientReleaseFile.Read(File_(Release), new Dictionary<string, long> { ["patch-B.MPQ"] = 8987639, ["patch-T.MPQ"] = 19507059 });
+
+        Assert.Equal(8, c.Revision);
+        Assert.Equal("rel-8", c.ReleaseId);
+        Assert.Null(c.Note);
+    }
+
+    [Fact]
+    public void Read_ArchiveMatchesNeitherEntry_SaysExactlyThat()
+    {
+        var c = ClientReleaseFile.Read(File_(Release), new Dictionary<string, long> { ["patch-B.MPQ"] = 228738210, ["patch-T.MPQ"] = 19507059 });
+
+        Assert.Contains("patch-B.MPQ", c.Note);
+        Assert.Contains("8,987,639", c.Note);
+        Assert.Contains("8,982,122", c.Note);
+        Assert.Contains("228,738,210", c.Note);
+        Assert.DoesNotContain("patch-T.MPQ", c.Note);
+    }
+
+    [Fact]
+    public void Read_ArchiveMatchesThePreviousPackage_SaysThat()
+    {
+        var c = ClientReleaseFile.Read(File_(Release), new Dictionary<string, long> { ["patch-B.MPQ"] = 8982122, ["patch-T.MPQ"] = 19507059 });
+
+        Assert.Contains("previous package", c.Note);
+        Assert.Contains("revision 7", c.Note);
+    }
+
+    [Theory]
+    [InlineData("not json")]
+    [InlineData("""{"releaseId":"x"}""")]
+    [InlineData("""{"clientRevision":8}""")]
+    [InlineData("""{"releaseId":5,"clientRevision":"eight"}""")]
+    public void Read_Malformed_FailsLoudly(string json) =>
+        Assert.Throws<InvalidDataException>(() => ClientReleaseFile.Read(File_(json), new Dictionary<string, long>()));
+
+    [Fact]
+    public void Read_Missing_FailsLoudly() =>
+        Assert.Throws<InvalidDataException>(() => ClientReleaseFile.Read(_dir.File("nope.json"), new Dictionary<string, long>()));
 }
 
 public class DbcFieldConfigTests : IDisposable

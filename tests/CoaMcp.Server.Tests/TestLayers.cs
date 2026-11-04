@@ -112,6 +112,7 @@ public static class TestLayers
     public static void BuildPaths(string path)
     {
         using var w = new LayerWriter(path, "paths", "2");
+        w.SetClient(new ClientRelease(8, "test-release", null));
         var b = new PathsLayerBuilder(w);
         b.Add(new PathRecord("DBFilesClient/Map.dbc", 900, "patch-S.MPQ", "unknown", false, null, null,
             H(("patch-S.MPQ", "unknown", 900, false, null), ("common.MPQ", "unknown", 800, false, null))));
@@ -127,6 +128,8 @@ public static class TestLayers
             H(("patch-X.MPQ", "unknown", null, true, null), ("common.MPQ", "unknown", 120, false, null))));
         b.Add(new PathRecord("Realm/Only.txt", null, null, null, false, null, null,
             H(("area-52/patch-D.MPQ", "unknown", 5, false, "area-52"))));
+        b.Add(new PathRecord("Sound/Project/Gone.mp3", 70, "patch-T.MPQ", "project", false, null, null,
+            H(("patch-T.MPQ", "project", 70, false, null), ("patch-3.MPQ", "unknown", null, true, null), ("common.MPQ", "unknown", 60, false, null))));
         b.Add(new PathRecord("Sound/Music/Theme.mp3", 5000, "common.MPQ", "unknown", false, null, null,
             H(("area-52/patch-D.MPQ", "unknown", 6000, false, "area-52"), ("common.MPQ", "unknown", 5000, false, null))));
         b.Add(new PathRecord("readme.txt", 10, "common.MPQ", "unknown", false, null, null, H(("common.MPQ", "unknown", 10, false, null))));
@@ -136,21 +139,23 @@ public static class TestLayers
         }, new DateOnly(2026, 11, 3));
     }
 
-    private static void BuildSpells(string path)
+    public const string SpellSourceText = "CoA client DBC (via Spellwork)";
+
+    public static void BuildSpells(string path, string source = SpellSourceText)
     {
         using var w = new LayerWriter(path, "spells", "3");
         w.Add(E("spell:1", "spell", "Fire Blast",
             "## summary\nSpell 1: Fire Blast\n\n## effects\nEFFECTSMARK\n\n## triggers\nTriggers no spells.\n\n## visuals\nVISUALSMARK\n",
-            "CoA client DBC (via Spellwork)", Trust.Client, new[] { "coa-client" }, false,
+            source, Trust.Client, new[] { "coa-client" }, false,
             """{"id":1,"name":"Fire Blast","schoolMask":4,"effects":[{"index":0,"basePoints":10}],"misc":{"speed":24}}"""));
         w.Add(E("spell:133", "spell", "Fireball", "## summary\nSpell 133: Fireball, hurls a fiery ball.\n",
-            "CoA client DBC (via Spellwork)", Trust.Client, new[] { "coa-client" }, false, "{\"id\":133}"));
+            source, Trust.Client, new[] { "coa-client" }, false, "{\"id\":133}"));
         w.Add(E("spell:2", "spell", "Fire Blast Improved",
             "## summary\nSpell 2: Fire Blast Improved\n\n## effects\nEFFECTS2\n\n## triggers\nnone\n\n## visuals\nnone\n",
-            "CoA client DBC (via Spellwork)", Trust.Client, new[] { "coa-client" }, false,
+            source, Trust.Client, new[] { "coa-client" }, false,
             """{"id":2,"name":"Fire Blast Improved","schoolMask":4,"effects":[{"index":0,"basePoints":25}],"misc":{"speed":24},"extra":true}"""));
         foreach (var id in new[] { 10, 11, 12 })
-            w.Add(E($"spell:{id}", "spell", $"Scaling Test {id}", $"## summary\nSpell {id}\n", "CoA client DBC (via Spellwork)",
+            w.Add(E($"spell:{id}", "spell", $"Scaling Test {id}", $"## summary\nSpell {id}\n", source,
                 Trust.Client, new[] { "coa-client" }, false, $$"""{"id":{{id}}}"""));
 
         w.Execute("CREATE TABLE enums(name TEXT NOT NULL, value INTEGER NOT NULL, value_text TEXT NOT NULL, label TEXT NOT NULL)");

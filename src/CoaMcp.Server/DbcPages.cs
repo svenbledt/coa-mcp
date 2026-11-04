@@ -48,7 +48,7 @@ public static class DbcPages
     /// <summary>Realm, trust, source and date, then which copy this is and what it is worth as evidence.</summary>
     public static string Provenance(DbcTableRef t, Layer layer)
     {
-        var sb = new StringBuilder($"DBC {t.Name} (realm {Render.RealmText(Realm)}, trust {Render.Trust(Trust.Client)}, source {DbcLayerBuilder.Source}, source date {Date(t.SourceDate)}; layer {LayerName} v{layer.Meta.Version}).\n");
+        var sb = new StringBuilder($"DBC {t.Name} (realm {Render.RealmText(Realm)}, trust {Render.Trust(Trust.Client)}, source {ClientRelease.Source(DbcLayerBuilder.Source, layer.Meta.Client)}, source date {Date(t.SourceDate)}; layer {LayerName} v{layer.Meta.Version}).\n");
         sb.Append(CopyLine(t)).Append('\n');
         if (BaseOf(layer, t) is { } b) sb.Append($"Base copy: DBC table {b.Name}.\n");
         if (t.Problem is not null) sb.Append("Note: ").Append(Render.OneLine(t.Problem, 400)).Append('\n');
@@ -73,7 +73,10 @@ public static class DbcPages
         _ => v.ToString() ?? "null",
     };
 
-    private static bool IsZeroOrEmpty(object? v) => v is null or 0L or 0.0 or "";
+    /// <summary>Whether a field has nothing to show. A maybe-string of 0 can still have text: offset 0 is a real string when the block has no leading NUL.</summary>
+    private static bool IsNothing(DbcFieldRef f, IReadOnlyDictionary<string, object?> row) =>
+        row[f.Name] is null or 0L or 0.0 or ""
+        && !(f.Type == DbcTypes.IntOrString && row.TryGetValue(f.Name + DbcColumn.StringSuffix, out var s) && s is string { Length: > 0 });
 
     /// <summary>A value, joined with its maybe-string text when the row has that too, so an integer and what it might mean are read side by side.</summary>
     private static string Shown(DbcFieldRef f, IReadOnlyDictionary<string, object?> row, int maxText)
@@ -92,7 +95,7 @@ public static class DbcPages
         {
             if (!row.ContainsKey(f.Name)) continue;
             if (f.IsMaybeStringText && row.ContainsKey(f.Name[..^DbcColumn.StringSuffix.Length])) continue;   // shown with its integer
-            if (!showAll && IsZeroOrEmpty(row[f.Name]) && parts.Count > 0) continue;
+            if (!showAll && IsNothing(f, row) && parts.Count > 0) continue;
             parts.Add($"{f.Shown}={Shown(f, row, MaxListTextChars)}");
         }
         return "- " + string.Join(" | ", parts);
@@ -132,7 +135,7 @@ public static class DbcPages
         var rows = layer.Query($"SELECT * FROM {t.DataTable} WHERE {idField.Quoted} = $0 ORDER BY rowid LIMIT {MaxRowsPerId + 1}", rowId);
         if (rows.Count == 0) return $"No row with {idField.Name} = {rowId} in DBC table {t.Name} ({t.Rows.ToString("N0", CultureInfo.InvariantCulture)} rows). Use dbc_rows to look around.";
 
-        var page = new Entity($"dbc:{t.Name}:{rowId}", "dbc_row", $"{t.Name} row {rowId}", Realm, Trust.Client, DbcLayerBuilder.Source, t.SourceDate, "", null, Array.Empty<Link>());
+        var page = new Entity($"dbc:{t.Name}:{rowId}", "dbc_row", $"{t.Name} row {rowId}", Realm, Trust.Client, ClientRelease.Source(DbcLayerBuilder.Source, layer.Meta.Client), t.SourceDate, "", null, Array.Empty<Link>());
         var sb = new StringBuilder(Render.Header(page, layer.Meta)).Append("\n\n");
         sb.Append(CopyLine(t)).Append('\n');
         if (t.NamesSource is not null) sb.Append("Field names from: ").Append(Render.OneLine(t.NamesSource, 200)).Append('\n');
@@ -158,7 +161,7 @@ public static class DbcPages
         foreach (var f in fields)
         {
             if (f.IsMaybeStringText) continue;   // shown with its integer
-            if (IsZeroOrEmpty(row[f.Name])) { omitted++; continue; }
+            if (IsNothing(f, row)) { omitted++; continue; }
             sb.Append(f.Guessed ? $"{f.Name} (guessed {f.Type})" : f.Name).Append(": ").Append(Shown(f, row, MaxTextChars)).Append('\n');
         }
         if (omitted > 0) sb.Append($"{omitted} zero or empty fields omitted; name them in dbc_rows(columns) to see them.\n");

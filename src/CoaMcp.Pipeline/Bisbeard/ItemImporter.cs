@@ -19,16 +19,16 @@ public static class ItemImporter
             new DateOnly(2026, 8, 10), "BisBeard Octo item API"),
     };
 
-    private const string NotInClient = "This item's id is not in the CoA client: the client's Item table has no such row, so it is not counted as CoA.";
+    private const string NotInClient = "This id isn't in the client's Item table; that alone doesn't prove which realm has it.";
 
     /// <summary>
-    /// Imports every list. With <paramref name="clientItems"/>, an item from a list that claims CoA, whose id isn't in the client's Item table, loses coa.
-    /// An item that is there stays unproven: being in the client isn't proof it is CoA.
+    /// Imports every list. With <paramref name="clientItems"/>, a page from a list that may be CoA says so when its id isn't in the client's Item table.
+    /// The realm stays as it is either way: such ids look server-generated, so absence proves nothing, and being in the client isn't proof it is CoA.
     /// </summary>
-    public static (int Items, int Narrowed) Import(string dataDir, LayerWriter w, IReadOnlySet<int>? clientItems = null)
+    public static (int Items, int NotInClient) Import(string dataDir, LayerWriter w, IReadOnlySet<int>? clientItems = null)
     {
         var count = 0;
-        var narrowed = 0;
+        var notInClient = 0;
         foreach (var list in Lists)
         {
             using var stream = File.OpenRead(Path.Combine(dataDir, list.RelativePath));
@@ -37,18 +37,14 @@ public static class ItemImporter
                 var entity = ToEntity(item, list);
                 if (clientItems is not null && entity.Realm.Realms.Contains("coa") && !InClient(item, clientItems))
                 {
-                    entity = entity with
-                    {
-                        Realm = entity.Realm with { Realms = entity.Realm.Realms.Where(r => r != "coa").ToList() },
-                        BodyMd = entity.BodyMd + "\n" + NotInClient + "\n",
-                    };
-                    narrowed++;
+                    entity = entity with { BodyMd = entity.BodyMd + "\n" + NotInClient + "\n" };
+                    notInClient++;
                 }
                 w.Add(entity);
                 count++;
             }
         }
-        return (count, narrowed);
+        return (count, notInClient);
     }
 
     private static bool InClient(JsonElement item, IReadOnlySet<int> clientItems) =>

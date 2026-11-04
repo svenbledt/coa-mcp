@@ -1,3 +1,4 @@
+using CoaMcp.Core;
 using Microsoft.Extensions.Logging.Abstractions;
 using SpellWork.Mcp;
 using SpellWork.Mcp.Tools;
@@ -24,13 +25,20 @@ public sealed class SpellSource
     public string DbcDir { get; }
     public DateOnly SourceDate { get; }
 
-    private SpellSource(McpServerConfig config, SpellDataService service, string dbcDir, DateOnly sourceDate)
+    /// <summary>What each spell page gives as its source. From a winners folder it names the client and the archive that won Spell.dbc.</summary>
+    public string SourceText { get; }
+
+    public ClientRelease? Client { get; }
+
+    private SpellSource(McpServerConfig config, SpellDataService service, string dbcDir, DateOnly sourceDate, string sourceText, ClientRelease? client)
     {
         Config = config;
         Spells = new SpellTools(service);
         Decoder = new DecoderTools(service);
         DbcDir = dbcDir;
         SourceDate = sourceDate;
+        SourceText = sourceText;
+        Client = client;
     }
 
     /// <summary>All spell ids in the loaded data, ascending.</summary>
@@ -55,9 +63,16 @@ public sealed class SpellSource
     }
 
     /// <summary>Loads a winners folder made by the dbc command, dated by its winners list.</summary>
-    public static SpellSource OpenWinners(string winnersDir, string locale = "enUS") => Open(winnersDir, locale, SourceDateOf(winnersDir));
+    public static SpellSource OpenWinners(string winnersDir, string locale = "enUS")
+    {
+        var date = SourceDateOf(winnersDir);
+        var list = CoaMcp.Pipeline.Dbc.DbcWinnerList.Read(winnersDir);
+        var spell = list.Files["Spell.dbc"];
+        var origin = spell.Origin == "project" ? "project-built archive" : $"origin {spell.Origin}";
+        return Open(winnersDir, locale, date, $"{ClientRelease.Source(SpellExporter.Source, list.Client)}, Spell.dbc from {spell.Archive} ({origin})", list.Client);
+    }
 
-    public static SpellSource Open(string dbcDir, string locale = "enUS", DateOnly? sourceDate = null)
+    public static SpellSource Open(string dbcDir, string locale = "enUS", DateOnly? sourceDate = null, string? sourceText = null, ClientRelease? client = null)
     {
         var spellFile = Path.Combine(dbcDir, "Spell.dbc");
         if (!File.Exists(spellFile)) throw new InvalidOperationException($"No Spell.dbc in '{dbcDir}'.");
@@ -83,6 +98,6 @@ public sealed class SpellSource
         var data = service.GetAsync().GetAwaiter().GetResult();
         if (!data.Loaded) throw new InvalidOperationException($"Spellwork could not load '{dbcDir}': {data.ErrorMessage}");
 
-        return new SpellSource(config, service, dbcDir, sourceDate ?? DateOnly.FromDateTime(File.GetLastWriteTimeUtc(spellFile)));
+        return new SpellSource(config, service, dbcDir, sourceDate ?? DateOnly.FromDateTime(File.GetLastWriteTimeUtc(spellFile)), sourceText ?? SpellExporter.Source, client);
     }
 }

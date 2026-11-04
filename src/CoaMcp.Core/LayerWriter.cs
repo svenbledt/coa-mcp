@@ -72,6 +72,14 @@ public sealed class LayerWriter : IDisposable
     /// <summary>Runs code-defined SQL (never user text). Args bind to $0, $1, ...</summary>
     public void Execute(string sql, params object?[] args) => Run(sql, args);
 
+    /// <summary>Records which client this layer describes. Only layers built from the client have this table, so an older layer simply has none.</summary>
+    public void SetClient(ClientRelease client)
+    {
+        Run("CREATE TABLE layer_client(key TEXT PRIMARY KEY, value TEXT NOT NULL)");
+        Run("INSERT INTO layer_client VALUES ('revision', $0), ('release_id', $1)", client.Revision.ToString(CultureInfo.InvariantCulture), client.ReleaseId);
+        if (client.Note is not null) Run("INSERT INTO layer_client VALUES ('note', $0)", client.Note);
+    }
+
     /// <summary>A prepared insert for large tables. <paramref name="table"/> and <paramref name="columns"/> are code-defined names, never user text.</summary>
     public BulkInsert BeginInsert(string table, IReadOnlyList<string> columns) => new(_db, _tx, table, columns);
 

@@ -64,7 +64,7 @@ public sealed class DbcTools
             ? layer.Query("SELECT * FROM dbc_tables ORDER BY name LIMIT $0 OFFSET $1", (long)lim + 1, (long)off)
             : layer.Query("SELECT * FROM dbc_tables WHERE instr(lower(name), lower($2)) > 0 ORDER BY name LIMIT $0 OFFSET $1", (long)lim + 1, (long)off, text);
 
-        var sb = new StringBuilder($"DBC tables (realm the CoA client (unproven), trust {Render.Trust(Trust.Client)}, source {DbcLayerBuilder.Source}; layer {DbcPages.LayerName} v{layer.Meta.Version}, source date {layer.Meta.SourceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}).\n");
+        var sb = new StringBuilder($"DBC tables (realm the CoA client (unproven), trust {Render.Trust(Trust.Client)}, source {ClientRelease.Source(DbcLayerBuilder.Source, layer.Meta.Client)}; layer {DbcPages.LayerName} v{layer.Meta.Version}, source date {layer.Meta.SourceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}).\n");
         if (note is not null) sb.Append(note).Append('\n');
         sb.Append($"{Math.Min(rows.Count, lim)} tables (offset {off}, limit {lim}). A project-built winner is not evidence about Ascension. A base table is not claimed as Ascension either.\n");
         foreach (var r in rows.Take(lim)) sb.Append(TableLine(DbcTableRef.From(r))).Append('\n');

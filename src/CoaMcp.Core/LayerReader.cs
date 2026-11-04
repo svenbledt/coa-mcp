@@ -49,7 +49,14 @@ public sealed class LayerReader : IDisposable
         var m = rows[0];
         return new LayerMeta((string)m["name"]!, (string)m["version"]!,
             DateTimeOffset.Parse((string)m["built_at"]!, CultureInfo.InvariantCulture),
-            DateOnly.ParseExact((string)m["source_date"]!, "yyyy-MM-dd", CultureInfo.InvariantCulture));
+            DateOnly.ParseExact((string)m["source_date"]!, "yyyy-MM-dd", CultureInfo.InvariantCulture), ReadClient());
+    }
+
+    private ClientRelease? ReadClient()
+    {
+        if (Query("SELECT 1 AS x FROM sqlite_master WHERE type = 'table' AND name = 'layer_client'").Count == 0) return null;
+        var v = Query("SELECT key, value FROM layer_client").ToDictionary(r => (string)r["key"]!, r => (string)r["value"]!);
+        return new ClientRelease(int.Parse(v["revision"], CultureInfo.InvariantCulture), v["release_id"], v.GetValueOrDefault("note"));
     }
 
     public Entity? Get(string id)

@@ -147,7 +147,7 @@ All 83 recovered files are in `enUS/backup-enUS.MPQ`, which has no failures, mar
 `coamcp-pipeline dbc` parses each table's winning copy, under the default client's rules (the same code as the paths layer), into the `dbc` layer. It also copies the winning raw files to a private folder for Spellwork and the item check: `F:\WorkDir\CoaRestored\.dbc-winners`. That folder never reaches the server and is refused inside a git repository.
 
 ```
-coamcp-pipeline dbc --manifest F:\WorkDir\CoaRestored\manifest.sqlite --winners F:\WorkDir\CoaRestored\.dbc-winners --out dbc.sqlite
+coamcp-pipeline dbc --manifest F:\WorkDir\CoaRestored\manifest.sqlite --client-release D:\WoW\Coa\CLIENT-RELEASE.json --winners F:\WorkDir\CoaRestored\.dbc-winners --out dbc.sqlite
 coamcp-pipeline spells --dbc F:\WorkDir\CoaRestored\.dbc-winners --out spells.sqlite
 coamcp-pipeline bisbeard --data D:\WoW\Coa\DataCOA\data --client-dbc F:\WorkDir\CoaRestored\.dbc-winners --out bisbeard.sqlite
 ```
@@ -191,4 +191,4 @@ Winners by archive: `patch-M.MPQ` 286, `patch-S.MPQ` 48, `enUS/locale-enUS.MPQ` 
 | `spells` | 2026-10-03 | the archive that won `Spell.dbc` (`patch-T.MPQ`) |
 | `paths` | 2026-10-24 | newest archive the default client reads (`patch-B.MPQ`) |
 
-`CLIENT-RELEASE.json` wasn't used, because it no longer describes this client: it lists `patch-B.MPQ` at 8,987,639 bytes, and the file on disk is 228,738,210 bytes and dated a month after that release. It also doesn't cover `patch-ZG.MPQ`, `patch-M.MPQ` or `patch-S.MPQ`. These dates have a limit too: 76 of the 78 archives carry the same few minutes of 2026-10-03, which looks like when the client was installed, so the date says the data is no newer than that, not when it was built.
+`CLIENT-RELEASE.json` wasn't used for dates, because its `patch-B.MPQ` entries don't describe the file on disk: it lists 8,987,639 bytes for revision 8 and 8,982,122 bytes for the previous package, and the file is 228,738,210 bytes, dated a month after that release. It also doesn't cover `patch-ZG.MPQ`, `patch-M.MPQ` or `patch-S.MPQ`. Its `patch-T.MPQ` entry does match, in size and SHA-256. The `paths`, `dbc` and `spells` layers still name the client as the file states it (`clientRevision` 8, `descension-names-20260924`), and `status` repeats this size mismatch beside it. These dates have a limit too: 76 of the 78 archives carry the same few minutes of 2026-10-03, which looks like when the client was installed, so the date says the data is no newer than that, not when it was built.

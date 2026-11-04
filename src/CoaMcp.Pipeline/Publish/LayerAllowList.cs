@@ -13,15 +13,18 @@ public static partial class LayerAllowList
 
     private const string PathsFts = "paths_fts";
 
+    /// <summary>Which client a layer describes. Only layers built from the client have it.</summary>
+    private const string Client = "layer_client";
+
     private static readonly IReadOnlyDictionary<string, string[]> Layers = new Dictionary<string, string[]>(StringComparer.Ordinal)
     {
         ["bisbeard"] = Base,
         ["spells"] = Base.Concat(new[]
         {
-            "enums", "flag_kinds", "spell_scaling_inputs", "golden_scaling", "ScalingStatValues", "ScalingStatDistribution",
+            "enums", "flag_kinds", "spell_scaling_inputs", "golden_scaling", "ScalingStatValues", "ScalingStatDistribution", Client,
         }).ToArray(),
-        ["paths"] = Base.Concat(new[] { "paths", "dirs", "path_stats", PathsFts }).ToArray(),
-        ["dbc"] = Base.Concat(new[] { "dbc_tables", "dbc_fields", "dbc_meta" }).ToArray(),
+        ["paths"] = Base.Concat(new[] { "paths", "dirs", "path_stats", PathsFts, Client }).ToArray(),
+        ["dbc"] = Base.Concat(new[] { "dbc_tables", "dbc_fields", "dbc_meta", Client }).ToArray(),
     };
 
     [GeneratedRegex("^t_[A-Za-z0-9_]{1,80}$")]

@@ -155,6 +155,35 @@ public class PathExportTests : IDisposable
     }
 
     [Fact]
+    public void ClientRelease_IsInTheLayerMeta_AndGuardPasses()
+    {
+        var manifest = Manifest(new Entry("common.MPQ", "a/b.dbc", 1));
+        var layer = _dir.File($"paths-{Guid.NewGuid():N}.sqlite");
+
+        PathExporter.Run(manifest, Config(), layer, "1", new DateOnly(2026, 11, 3), client: new ClientRelease(8, "rel-8", null));
+        SqliteConnection.ClearAllPools();
+
+        using (var r = new LayerReader(layer)) Assert.Equal(8, r.Meta.Client!.Revision);
+        SqliteConnection.ClearAllPools();
+        Assert.True(PublishGuard.Check(layer).Ok);
+    }
+
+    [Fact]
+    public void Winner_ProjectWinner_NextCopyIsDeleteMarker_HasNoBase()
+    {
+        var layer = Export(
+            new Entry("common.MPQ", "Interface/Icons/a.blp", 1),
+            new Entry("patch-3.MPQ", "Interface/Icons/a.blp", 0, "delete_marker"),
+            new Entry("patch-T.MPQ", "Interface/Icons/a.blp", 4));
+
+        var row = Row(layer, "Interface/Icons/a.blp")!;
+
+        Assert.Equal("patch-T.MPQ", row["winner_archive"]);
+        Assert.Null(row["base_winner"]);    // common.MPQ's copy is gone below the marker
+        Assert.Null(row["base_size"]);
+    }
+
+    [Fact]
     public void Winner_NonProjectWinner_HasNoBaseColumns()
     {
         var layer = Export(

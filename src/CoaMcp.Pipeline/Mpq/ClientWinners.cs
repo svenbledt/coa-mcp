@@ -105,5 +105,16 @@ public static class ClientWinners
         return dates;
     }
 
+    /// <summary>Each archive's size on the client's disk, as the restore recorded it.</summary>
+    public static Dictionary<string, long> ArchiveSizes(SqliteConnection db)
+    {
+        using var cmd = db.CreateCommand();
+        cmd.CommandText = "SELECT archive, file_size FROM archives WHERE file_size IS NOT NULL";
+        using var rd = cmd.ExecuteReader();
+        var sizes = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        while (rd.Read()) sizes[rd.GetString(0)] = rd.GetInt64(1);
+        return sizes;
+    }
+
     public static string Text(DateOnly date) => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 }

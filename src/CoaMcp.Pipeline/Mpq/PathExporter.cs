@@ -14,7 +14,7 @@ public sealed record PathExportResult(long Paths, long Deleted, long Unavailable
 public static class PathExporter
 {
     public static PathExportResult Run(string manifestPath, ArchiveConfig config, string outPath, string? version = null, DateOnly? sourceDate = null,
-        Action<long>? progress = null)
+        Action<long>? progress = null, ClientRelease? client = null)
     {
         version = LayerVersion.Resolve(version);
         var byArchive = config.Archives.ToDictionary(a => a.Path, StringComparer.OrdinalIgnoreCase);
@@ -28,6 +28,7 @@ public static class PathExporter
         var writer = new LayerWriter(outPath, "paths", version);
         try
         {
+            if (client is not null) writer.SetClient(client);
             var builder = new PathsLayerBuilder(writer);
             using var cmd = db.CreateCommand();
             cmd.CommandText = """
@@ -109,15 +110,10 @@ public static class PathExporter
         var deleted = win.IsDeleteMarker;
         string? baseArchive = null;
         long? baseSize = null;
-        if (!deleted && win.IsProject)
+        if (!deleted && win.IsProject && copies.NextNonProject is { IsDeleteMarker: false } next)
         {
-            foreach (var h in copies.Loaded.Skip(1))
-            {
-                if (h.IsProject || h.IsDeleteMarker) continue;
-                baseArchive = h.Copy.Archive;
-                baseSize = h.Copy.Size;
-                break;
-            }
+            baseArchive = next.Copy.Archive;
+            baseSize = next.Copy.Size;
         }
         return new PathRecord(win.Copy.Path, deleted ? null : win.Copy.Size, win.Copy.Archive, win.Archive.Origin, deleted, baseArchive, baseSize, json);
     }

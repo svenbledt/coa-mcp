@@ -43,10 +43,13 @@ public sealed class DbcLayerBuilder
     public const string BaseSuffix = "__base";
 
     private readonly LayerWriter _w;
+    private readonly string _source;
 
-    public DbcLayerBuilder(LayerWriter writer)
+    public DbcLayerBuilder(LayerWriter writer, ClientRelease? client = null)
     {
         _w = writer;
+        _source = ClientRelease.Source(Source, client);
+        if (client is not null) _w.SetClient(client);
         _w.Execute("""
             CREATE TABLE dbc_tables(
               name TEXT PRIMARY KEY COLLATE NOCASE, rows INTEGER NOT NULL, fields INTEGER NOT NULL, named INTEGER NOT NULL,
@@ -78,7 +81,7 @@ public sealed class DbcLayerBuilder
         foreach (var c in columns)
             _w.Execute("INSERT INTO dbc_fields VALUES ($0,$1,$2,$3,$4,$5,$6)", t.Name, (long)c.Index, c.Name, c.Type, c.Guessed ? 1L : 0L, c.Indexed ? 1L : 0L, c.Note);
 
-        _w.Add(new Entity("dbc:" + t.Name, EntityType, t.Name, realm, Trust.Client, Source,
+        _w.Add(new Entity("dbc:" + t.Name, EntityType, t.Name, realm, Trust.Client, _source,
             DateOnly.ParseExact(t.SourceDate, "yyyy-MM-dd", CultureInfo.InvariantCulture), Body(t, columns), null, Array.Empty<Link>()));
     }
 

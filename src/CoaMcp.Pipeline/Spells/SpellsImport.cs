@@ -14,6 +14,7 @@ public static class SpellsImport
     {
         version = LayerVersion.Resolve(version);
         using var w = new LayerWriter(outPath, "spells", version);
+        if (source.Client is not null) w.SetClient(source.Client);
         var spells = SpellExporter.Export(source, w, progress);
         var (members, kinds) = EnumExporter.Export(source, w);
         var (inputs, golden) = ScalingExporter.Export(source, source.DbcDir, w);

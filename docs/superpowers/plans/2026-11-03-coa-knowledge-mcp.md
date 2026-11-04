@@ -240,7 +240,7 @@ Row Markdown says `guessed` for inferred types. Filters never accept raw SQL: ta
 - [ ] **Step 2: Run them.** Expected: FAIL.
 - [ ] **Step 3: Implement.** Seed `config/dbc-fields` from the 30 tables Spellwork models, and from `F:\WorkDir\ascension-extensions-reconstruction` where it proves names. Export spells from the same winning DBC folder. Add indexes on id columns and `Name` fields.
 - [ ] **Step 4: Run tests and export.** Expected: PASS. Row counts match: `ItemStat` 1,513,931, `Creature` 127,343, `Spell` 209,510, `Item` 563,769. If they differ from those measured in the azerothcore folder, list the differences in `docs/client-restore-report.md`, since that shows where the server's DBCs drifted from the client.
-- [ ] **Step 5: Narrow item realms.** Add test `Item_NotInClient_DropsCoa`, then in the BisBeard importer drop `coa` from an item's realm when its id isn't in client `Item`. Rerun Task 2's tests.
+- [ ] **Step 5: Narrow item realms.** Ruling after review: absence from client `Item` proves nothing, because bloodforged and affixed ids look server-generated. Add test `Item_NotInClient_KeepsUnprovenRealm_AndSaysSo`; in the BisBeard importer keep the unproven realm and add a line to the page when an id isn't in client `Item`. Rerun Task 2's tests.
 - [ ] **Step 6: Commit** `feat: serve all client DBC tables`.
 
 ### Task 9: Notes, project site and player caches

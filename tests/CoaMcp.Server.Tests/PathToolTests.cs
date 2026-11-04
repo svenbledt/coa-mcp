@@ -32,9 +32,19 @@ public class PathToolTests : IClassFixture<ReadFixture>
         Assert.Contains("common.MPQ", text);   // the older copy is listed as a holder
         Assert.Contains("trust client", text);
         Assert.Contains("realm the CoA client", text);
-        Assert.Contains("source CoA client file list", text);
+        Assert.Contains("source CoA client file list, client revision 8", text);
         Assert.Contains("2026-11-03", text);
         Assert.Contains("paths only", text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ExactPath_ProjectWinner_NextCopyIsMarker_SaysItWasRemovedBelow()
+    {
+        var (text, _) = await Paths(("query", "Sound/Project/Gone.mp3"));
+
+        Assert.Contains("base copy: none", text);
+        Assert.Contains("delete marker in patch-3.MPQ", text);
+        Assert.Contains("removed", text);
     }
 
     [Fact]
@@ -267,7 +277,7 @@ public class PathToolTests : IClassFixture<ReadFixture>
         var (text, _) = await _f.Call("status");
 
         Assert.Contains("paths: v2", text);
-        Assert.Contains("9 client paths", text);
+        Assert.Contains("10 client paths", text);
         Assert.Contains("1 removed by a later patch", text);
         Assert.Contains("1 not in the default client", text);
         Assert.Contains("0 unnamed", text);

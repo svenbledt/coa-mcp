@@ -6,7 +6,7 @@ using Microsoft.Data.Sqlite;
 
 namespace CoaMcp.Pipeline.Dbc;
 
-public sealed record DbcExportOptions(string ManifestPath, ArchiveConfig Config, string FieldsDir, string OutPath, string WinnersDir, string? Version = null, Action<string>? Progress = null);
+public sealed record DbcExportOptions(string ManifestPath, ArchiveConfig Config, string FieldsDir, string OutPath, string WinnersDir, string? Version = null, Action<string>? Progress = null, ClientRelease? Client = null);
 
 public sealed record DbcExportResult(int Tables, long Rows, int BaseTables, int NamedTables, IReadOnlyList<string> Deleted, IReadOnlyList<string> Unreadable, IReadOnlyList<string> Problems);
 
@@ -52,7 +52,7 @@ public static partial class DbcExporter
         var writer = new LayerWriter(o.OutPath, "dbc", version);
         try
         {
-            var builder = new DbcLayerBuilder(writer);
+            var builder = new DbcLayerBuilder(writer, o.Client);
             foreach (var copies in tables)
             {
                 var name = TableName(copies.Holders[0].Copy.Path);
@@ -111,7 +111,7 @@ public static partial class DbcExporter
         writer.Dispose();
         SqliteConnection.ClearAllPools();
 
-        Materialize(o.WinnersDir, winners);
+        Materialize(o.WinnersDir, winners, o.Client);
         return new DbcExportResult(tables.Count, run.Rows, run.BaseTables, run.NamedTables, run.Deleted, run.Unreadable, run.Problems);
     }
 
@@ -160,14 +160,14 @@ public static partial class DbcExporter
     }
 
     /// <summary>Writes the winning files and their list, and removes files left from an earlier run.</summary>
-    private static void Materialize(string dir, Dictionary<string, (string File, DbcWinnerFile Info)> winners)
+    private static void Materialize(string dir, Dictionary<string, (string File, DbcWinnerFile Info)> winners, ClientRelease? client)
     {
         Directory.CreateDirectory(dir);
         foreach (var stale in Directory.GetFiles(dir, "*.dbc"))
             if (!winners.ContainsKey(Path.GetFileName(stale))) File.Delete(stale);
         foreach (var (name, (file, _)) in winners)
             File.Copy(file, Path.Combine(dir, name), overwrite: true);
-        DbcWinnerList.Write(dir, winners.ToDictionary(w => w.Key, w => w.Value.Info));
+        DbcWinnerList.Write(dir, winners.ToDictionary(w => w.Key, w => w.Value.Info), client);
     }
 
     /// <summary>What one export keeps while it walks the tables.</summary>
