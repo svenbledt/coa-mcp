@@ -116,6 +116,28 @@ public static class DbcPages
 
     public static bool IsRowId(string id) => id.StartsWith("dbc:", StringComparison.Ordinal) && id.Count(c => c == ':') == 2;
 
+    /// <summary>The canonical id and first row for a DBC row id, or null when there is no such row here.</summary>
+    public static (string Id, IReadOnlyDictionary<string, object?> Row)? FindRow(LayerSet layers, string id)
+    {
+        var parts = id.Split(':');
+        using var lease = layers.Lease(LayerName);
+        if (lease is null || parts.Length != 3 || Find(lease.Layer, parts[1]) is not { } t || NotReadable(t) is not null || t.IdColumn is null) return null;
+        if (!long.TryParse(parts[2], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var rowId)) return null;
+        var idField = Fields(lease.Layer, t.Name).First(f => f.Name.Equals(t.IdColumn, StringComparison.OrdinalIgnoreCase));
+        var rows = lease.Layer.Query($"SELECT * FROM {t.DataTable} WHERE {idField.Quoted} = $0 ORDER BY rowid LIMIT 1", rowId);
+        return rows.Count == 0 ? null : ($"dbc:{t.Name}:{rowId.ToString(CultureInfo.InvariantCulture)}", rows[0]);
+    }
+
+    /// <summary>A stored value as plain text, for comparing with a written value: floats read the way they are shown.</summary>
+    public static string? PlainValue(object? v) => v switch
+    {
+        null => null,
+        string s => s,
+        double d => ((float)d).ToString("R", CultureInfo.InvariantCulture),
+        IFormattable n => n.ToString(null, CultureInfo.InvariantCulture),
+        _ => v.ToString(),
+    };
+
     /// <summary>The page for a DBC row, or a plain explanation. Called with a shape <see cref="IsRowId"/> accepted.</summary>
     public static string Row(LayerSet layers, string id)
     {

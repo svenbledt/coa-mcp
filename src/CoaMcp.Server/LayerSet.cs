@@ -10,6 +10,9 @@ namespace CoaMcp.Server;
 /// </summary>
 public sealed record LayerState(string Name, Layer? Layer, string? Problem, string? Notice = null);
 
+/// <summary>A page of search results around the written entries: exact title matches, then the given slice of entries, then the rest.</summary>
+public sealed record SearchWindow(IReadOnlyList<LayerHit> Exact, int EntrySkip, int EntryTake, IReadOnlyList<LayerHit> Rest);
+
 /// <summary>
 /// The layers the server answers from, by name. A missing or broken layer is reported, never fatal.
 /// <see cref="Reload"/> re-reads current.json and swaps in new versions: operations started afterwards use the new
@@ -162,8 +165,18 @@ public sealed class LayerSet : IDisposable
     /// </summary>
     public IReadOnlyList<LayerHit> Search(string text, IReadOnlyList<string>? types, string? realm, int limit, int offset)
     {
+        var w = SearchAround(text, types, realm, limit, offset, 0);
+        return w.Exact.Concat(w.Rest).ToList();
+    }
+
+    /// <summary>
+    /// One page of a ranking with <paramref name="entryCount"/> written entries placed after the exact title matches and before everything else.
+    /// Says which entries belong on the page, so the caller fetches only those.
+    /// </summary>
+    public SearchWindow SearchAround(string text, IReadOnlyList<string>? types, string? realm, int limit, int offset, int entryCount)
+    {
         var q = FtsQuery.FromUser(text);
-        if (q.IsEmpty) return Array.Empty<LayerHit>();
+        if (q.IsEmpty) return new SearchWindow(Array.Empty<LayerHit>(), 0, 0, Array.Empty<LayerHit>());
         var lower = string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)).ToLowerInvariant();
 
         var all = new List<Candidate>();
@@ -173,12 +186,19 @@ public sealed class LayerSet : IDisposable
             foreach (var (name, lease) in leases)
                 all.AddRange(LayerSearch.Run(lease.Layer, name, q, lower, types, realm, limit + offset));
 
-            return all.OrderByDescending(c => c.Exact).ThenBy(c => LayerSearch.Priority(c.Type)).ThenBy(c => c.Rank)
-                .ThenBy(c => c.Id, StringComparer.Ordinal)
-                .Skip(offset).Take(limit)
-                .Select(c => new LayerHit(c.LayerName, c.Id, c.Type, c.Title, c.Count == 1 ? LayerSearch.Snippet(c, q) : "",
-                    c.Realm, c.Trust, c.Source, c.SourceDate, c.Count, c.Zones))
-                .ToList();
+            var ordered = all.OrderByDescending(c => c.Exact).ThenBy(c => LayerSearch.Priority(c.Type)).ThenBy(c => c.Rank)
+                .ThenBy(c => c.Id, StringComparer.Ordinal).ToList();
+
+            var exactCount = ordered.TakeWhile(c => c.Exact).Count();
+            var exact = ordered.Take(exactCount).Skip(offset).Take(limit).ToList();
+            var room = limit - exact.Count;
+            var entrySkip = Math.Max(0, offset - exactCount);
+            var entryTake = Math.Min(room, Math.Max(0, entryCount - entrySkip));
+            var rest = ordered.Skip(exactCount + Math.Max(0, offset - exactCount - entryCount)).Take(room - entryTake).ToList();
+
+            LayerHit Hit(Candidate c) => new(c.LayerName, c.Id, c.Type, c.Title, c.Count == 1 ? LayerSearch.Snippet(c, q) : "",
+                c.Realm, c.Trust, c.Source, c.SourceDate, c.Count, c.Zones);
+            return new SearchWindow(exact.Select(Hit).ToList(), entrySkip, entryTake, rest.Select(Hit).ToList());
         }
         finally { foreach (var (_, lease) in leases) lease.Dispose(); }
     }

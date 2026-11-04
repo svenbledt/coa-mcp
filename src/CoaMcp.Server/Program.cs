@@ -1,13 +1,32 @@
 using System.Threading.RateLimiting;
 using CoaMcp.Server;
 using CoaMcp.Server.Tools;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Http.Features;
 using ModelContextProtocol.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
 
-// Request bodies for the tools are tiny; refuse anything big before it is read.
-builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 64 * 1024);
+// Request bodies for the read tools are tiny; refuse anything big before it is read. A valid token raises this below, for writes.
+builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = Limits.ReadRequestBytes);
+
+// The SDK's trace logs would show message bodies, so they stay off whatever the log level is set to.
+builder.Logging.AddFilter("ModelContextProtocol", LogLevel.Information);
+
+// The token is the one secret. Nothing logs it. Reads work with or without it, so a bad one is not an error.
+builder.Services.AddSingleton(new TokenAuth(config[TokenAuth.EnvVar]));
+builder.Services.AddAuthentication(TokenAuth.Scheme).AddScheme<AuthenticationSchemeOptions, TokenAuthHandler>(TokenAuth.Scheme, null);
+builder.Services.AddAuthorization();
+
+// Writes go to one writable store, created by the first write. Its size cap stops a token holder filling the disk.
+builder.Services.AddSingleton(sp => new WriteStore(
+    Path.Combine(config["Layers:Root"] ?? "/data", "writable", "store.sqlite"),
+    sp.GetRequiredService<ILoggerFactory>().CreateLogger("Store"),
+    config.GetValue("Store:MaxBytes", WriteStore.DefaultMaxBytes)));
+builder.Services.AddSingleton(new WriteLimiter(
+    config.GetValue("RateLimit:WritesPerMinute", WriteLimiter.DefaultPerMinute),
+    config.GetValue("RateLimit:WritesPerDay", WriteLimiter.DefaultPerDay)));
 
 // Layers live under Layers:Root as layers/<name>/<version>.sqlite, and current.json names the live versions.
 // The server only reads there. LayerReloader re-reads current.json every Layers:ReloadSeconds (default 30).
@@ -38,13 +57,16 @@ builder.Services.AddMcpServer(o => o.ServerInstructions =
     .WithTools<ReadTools>()
     .WithTools<SpellHelperTools>()
     .WithTools<PathTools>()
-    .WithTools<DbcTools>();
+    .WithTools<DbcTools>()
+    .WithTools<WriteTools>()
+    .AddAuthorizationFilters();
 
 var app = builder.Build();
 
 PeerNetworks.Log(app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Network"), peerNetworks, cloudflare);
 // Load and verify the layers before the server starts listening, so the first request never waits for it.
 app.Services.GetRequiredService<LayerSet>();
+app.Services.GetRequiredService<TokenAuth>().LogState(app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Writes"));
 
 app.Use((ctx, next) =>
 {
@@ -54,6 +76,15 @@ app.Use((ctx, next) =>
     return next(ctx);
 });
 app.UseRateLimiter();
+app.UseAuthentication();
+app.Use((ctx, next) =>
+{
+    // Only a token holder may send a body big enough for a full entry.
+    if (ctx.User.Identity?.IsAuthenticated == true && ctx.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } body)
+        body.MaxRequestBodySize = Limits.WriteRequestBytes;
+    return next(ctx);
+});
+app.UseAuthorization();
 app.MapGet("/healthz", () => Results.Ok());
 app.MapMcp("/mcp");
 

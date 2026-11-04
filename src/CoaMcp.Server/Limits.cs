@@ -10,6 +10,13 @@ public static class Limits
     public const int MaxIdChars = 200;
     public const int MaxSections = 20;
     public const int LargePageBytes = 8 * 1024;
+    public const int DefaultEntries = 20;
+
+    /// <summary>The body any caller may send.</summary>
+    public const long ReadRequestBytes = 64 * 1024;
+
+    /// <summary>The body a token holder may send: 32 KB of content can reach six times that once JSON-escaped, plus the other arguments.</summary>
+    public const long WriteRequestBytes = 256 * 1024;
 
     /// <summary>How long one DBC row query may run before SQLite stops it. Config Dbc:QueryBudgetMs overrides it.</summary>
     public const int DbcQueryBudgetMs = 2000;

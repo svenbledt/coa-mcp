@@ -42,6 +42,7 @@ public sealed class ServerHarness : IDisposable
         {
             b.UseSetting("Layers:Root", Root);
             b.UseSetting("RateLimit:PerMinute", "100000");
+            b.UseSetting("COA_MCP_BEARER_TOKEN", "");   // hermetic: no test inherits a token from the machine
             foreach (var (k, v) in settings ?? new Dictionary<string, string?>()) b.UseSetting(k, v);
             b.ConfigureServices(s => s.AddSingleton<IStartupFilter, PeerFilter>());
             if (logging is not null) b.ConfigureLogging(logging);
@@ -49,6 +50,33 @@ public sealed class ServerHarness : IDisposable
     }
 
     public HttpClient Http() => _factory.CreateClient();
+
+    public IServiceProvider Services => _factory.Services;
+
+    /// <summary>Starts the server on a real socket, because only Kestrel enforces body size limits. Returns its address.</summary>
+    public Uri StartOnKestrel()
+    {
+        _factory.UseKestrel(0);
+        _factory.StartServer();
+        return new Uri(_factory.Services.GetRequiredService<Microsoft.AspNetCore.Hosting.Server.IServer>()
+            .Features.Get<Microsoft.AspNetCore.Hosting.Server.Features.IServerAddressesFeature>()!.Addresses.First());
+    }
+
+    /// <summary>Where the writable store lives under this harness's data root.</summary>
+    public string StorePath => Path.Combine(Root, "writable", "store.sqlite");
+
+    /// <summary>A client that sends this exact Authorization value (null for none), as this peer address.</summary>
+    public async Task<McpClient> ConnectAsync(string? authorization, string? peer = null)
+    {
+        var http = _factory.CreateClient();
+        if (authorization is not null) http.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", authorization);
+        if (peer is not null) http.DefaultRequestHeaders.TryAddWithoutValidation("X-Test-Peer", peer);
+        return await McpClient.CreateAsync(new HttpClientTransport(new HttpClientTransportOptions
+        {
+            Endpoint = new Uri("http://localhost/mcp"),
+            TransportMode = HttpTransportMode.StreamableHttp,
+        }, http, loggerFactory: null, ownsHttpClient: true));
+    }
 
     public async Task<McpClient> ConnectAsync() =>
         await McpClient.CreateAsync(new HttpClientTransport(new HttpClientTransportOptions
@@ -66,10 +94,11 @@ public sealed class ServerHarness : IDisposable
     public void Dispose()
     {
         _factory.Dispose();
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         foreach (var d in new[] { LayerDir, Root })
         {
             try { Directory.Delete(d, recursive: true); }
-            catch (IOException) { /* temp data; the OS cleans it eventually */ }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* temp data; the OS cleans it eventually */ }
         }
     }
 }
