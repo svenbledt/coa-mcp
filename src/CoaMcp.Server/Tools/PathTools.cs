@@ -68,7 +68,7 @@ public sealed class PathTools
         var win = r["winner_archive"] as string;
         if (IsDeleted(r)) return $"This file is removed by {Render.OneLine(win!, 60)}: the client does not see it.";
         if (win is null) return "This file is not in the default client.";
-        var origin = r["winner_origin"] as string switch
+        var origin = (r["winner_origin"] as string) switch
         {
             ArchiveOrigin.Project => "Won by a project-built archive: project files are not evidence about Ascension.",
             ArchiveOrigin.Ascension => $"Won by {Render.OneLine(win, 60)}: {ArchiveOrigin.AscensionNote}.",
@@ -174,7 +174,7 @@ public sealed class PathTools
         if (IsDeleted(r)) return $"{Path(r)} | removed by {Render.OneLine(win!, 60)}";
         if (win is null) return $"{Path(r)} | not in the default client";
         var size = r["size"] is long s ? Bytes(s) : "size unknown";
-        return $"{Path(r)} | {size} | {Render.OneLine(win, 60)}" + (r["winner_origin"] as string switch
+        return $"{Path(r)} | {size} | {Render.OneLine(win, 60)}" + ((r["winner_origin"] as string) switch
         {
             ArchiveOrigin.Project => " (project-built archive)",
             ArchiveOrigin.Ascension => $" ({ArchiveOrigin.AscensionNote})",
@@ -229,7 +229,7 @@ public sealed class PathTools
             var size = r["size"] is long s ? Bytes(s) : "size unknown";
             var project = r["winner_origin"] as string == "project";
             sb.Append($"winner: {Render.OneLine(win, 60)}, {size}, ");
-            sb.Append(r["winner_origin"] as string switch
+            sb.Append((r["winner_origin"] as string) switch
             {
                 ArchiveOrigin.Project => "project-built archive (project files are not evidence about Ascension)",
                 ArchiveOrigin.Ascension => ArchiveOrigin.AscensionNote,
