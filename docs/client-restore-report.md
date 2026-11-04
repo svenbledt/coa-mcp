@@ -93,7 +93,7 @@ Limits of this evidence:
 - The table puts `expansion` above `lichking` above `common`, which looks backwards for WotLK. It changes nothing in practice: the base archives share no paths apart from `(listfile)` and `(attributes)`.
 - The eight HD archives (`patch-4`, `-5`, `-Q`, `-R`, `-U`, `-V`, `-X`, `-Z`) don't load on a `-hd 0` client. Winning copies below assume HD is on.
 
-Origins: `patch-B.MPQ` is `project`, because the release files record its build. `patch-T.MPQ` was shipped in the project's client package, unchanged since revision 7, but who built it is unconfirmed, so it is `unknown` like everything else until the owner confirms it. Outside the realm archive, `patch-B.MPQ` holds the winning copy of 1,590 paths and `patch-T.MPQ` of 2, ignoring markers.
+Origins: `patch-B.MPQ` is `project`, because the release files record its build. `patch-T.MPQ` is `ascension`, by the project's own records: gameplay scenarios say "CoA's Spell.dbc (Ascension patch-T)" and "the CoA client patch-T and Ascension live patch-T agree per #10485's own body". It isn't byte-proven against live, and answers say this copy may lag live. Everything else is `unknown` until the owner confirms it. Outside the realm archive, `patch-B.MPQ` holds the winning copy of 1,590 paths and `patch-T.MPQ` of 2, ignoring markers.
 
 ## Checks
 
@@ -152,18 +152,18 @@ coamcp-pipeline spells --dbc F:\WorkDir\CoaWinners --out spells.sqlite
 coamcp-pipeline bisbeard --data D:\WoW\Coa\DataCOA\data --client-dbc F:\WorkDir\CoaWinners --out bisbeard.sqlite
 ```
 
-**The server's DBCs have not drifted from the client.** All 368 files in `F:\WorkDir\azerothcore-wotlk-coa\env\dist\data\dbc` are byte-identical to the client winners, including `Spell.dbc` and `CharBaseInfo.dbc`, which come from `patch-T.MPQ` (origin unknown). Since every byte matches, every row count and spot row does too. This was a one-off comparison on 2026-11-04, and it needs repeating when either side changes.
+**The server's DBCs have not drifted from the client.** All 368 files in `F:\WorkDir\azerothcore-wotlk-coa\env\dist\data\dbc` are byte-identical to the client winners, including `Spell.dbc` and `CharBaseInfo.dbc`, which come from `patch-T.MPQ`. Since every byte matches, every row count and spot row does too. This was a one-off comparison on 2026-11-04, and it needs repeating when either side changes.
 
 | Table | Rows | Winner | Origin |
 | --- | ---: | --- | --- |
 | `ItemStat` | 1,513,931 | `patch-M.MPQ` | unknown |
 | `Item` | 563,769 | `patch-M.MPQ` | unknown |
-| `Spell` | 209,510 | `patch-T.MPQ` | unknown |
+| `Spell` | 209,510 | `patch-T.MPQ` | ascension |
 | `Creature` | 127,343 | `patch-M.MPQ` | unknown |
 
 Winners by archive: `patch-M.MPQ` 286, `patch-S.MPQ` 48, `enUS/locale-enUS.MPQ` 18, `enUS/patch-enUS.MPQ` 7, `enUS/patch-enUS-3.MPQ` 5, `patch-T.MPQ` 2, `patch-ZG.MPQ` 1, `enUS/patch-enUS-2.MPQ` 1.
 
-**Project-built winners.** No table is won by a project archive, because `patch-B.MPQ` holds no DBC, so the layer has no `t_<name>__base` tables. If one ever is, the next copy is exported beside it under that name. `Spell` and `CharBaseInfo` are won by `patch-T.MPQ`, of unknown origin, and like every unknown winner they aren't claimed as Ascension.
+**Project-built winners.** No table is won by a project archive, because `patch-B.MPQ` holds no DBC, so the layer has no `t_<name>__base` tables. If one ever is, the next copy is exported beside it under that name. `Spell` and `CharBaseInfo` are won by `patch-T.MPQ`, and answers word its origin as Ascension's archive per project records, whose copy may lag live.
 
 **Delete markers.** No table has one on top, so no table is left out for that reason. The only marker on a DBC is `CharVariations.dbc` in `enUS/patch-enUS.MPQ`, under a newer real copy. No table is unreadable.
 
@@ -179,6 +179,6 @@ Winners by archive: `patch-M.MPQ` 286, `patch-S.MPQ` 48, `enUS/locale-enUS.MPQ` 
 
 **Source dates.** One client has one date. The `dbc`, `spells` and `paths` layers, and every table in `dbc`, carry 2026-10-24, labeled `client files dated`: the newest modified time among the archives the default client reads (`patch-B.MPQ`), as the restore manifest recorded it, not when anything was copied. Each table still names the archive that won it.
 
-`CLIENT-RELEASE.json` wasn't used for dates, because its `patch-B.MPQ` entries don't describe the file on disk: it lists 8,987,639 bytes for revision 8 and 8,982,122 bytes for the previous package, and the file is 228,738,210 bytes, dated a month after that release. It also doesn't cover `patch-ZG.MPQ`, `patch-M.MPQ` or `patch-S.MPQ`. Its `patch-T.MPQ` entry does match, in size and SHA-256. The `paths`, `dbc` and `spells` layers name the client as a claim, `per CLIENT-RELEASE.json, client revision 8`, because nothing checks it beyond these sizes. `status` repeats the mismatch, and any answer whose winning archive has one adds a line saying so: on the real data that is the 1,590 paths won by `patch-B.MPQ`, and no DBC table or spell page. The date has a limit too: 76 of the 78 archives carry the same few minutes of 2026-10-03, which looks like when the client was installed, so it says the client's files are no newer than that, not when any of them was built.
+`CLIENT-RELEASE.json` wasn't used for dates, because its `patch-B.MPQ` entries don't describe the file on disk: it lists 8,987,639 bytes for revision 8 and 8,982,122 bytes for the previous package, and the file is 228,738,210 bytes, dated a month after that release. It also doesn't cover `patch-ZG.MPQ`, `patch-M.MPQ` or `patch-S.MPQ`. Its `patch-T.MPQ` entry does match, in size and SHA-256. The `paths`, `dbc` and `spells` layers therefore name the client from the launcher's state file, `client 2026-10-30-01 (launcher)`. Its size for each of the 78 archives matches the disk, so no answer carries a mismatch line. One would appear only for an archive that differs from its entry. The older revision 8 wording remains as the fallback when no state file exists. The date has a limit too: 76 of the 78 archives carry the same few minutes of 2026-10-03, which looks like when the client was installed, so it says the client's files are no newer than that, not when any of them was built.
 
 **Notes, project pages and player caches.** The `notes` layer holds five reviewed notes and two project pages (`notes` and `project` types). The `cache` layer reads only `creaturecache.wdb` records that fit the 3.3.5 layout exactly; `config/wdb-sources.json` is empty, so no cache layer exists, and `status` says `not built: no approved cache source yet`. `cache-item` and `cache-quest` are not produced: the one local item cache sample (`Pale Reach`, not listed because its server is unconfirmed) did not follow the standard item layout, and these wait for an approved source of caches and a proven layout.

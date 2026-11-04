@@ -25,6 +25,10 @@ dotnet run --project src/CoaMcp.Pipeline -- paths --manifest <restore manifest.s
 dotnet run --project src/CoaMcp.Pipeline -- bisbeard --data <DataCOA\data> --client-dbc <winners folder> --out bisbeard.sqlite
 ```
 
+`dbc` and `paths` name the client from the launcher's `.coa-launcher/state.json` beside the release file, and compare each archive's size with its entry: an answer adds a mismatch line only for an archive that differs. Without a state file they fall back to `CLIENT-RELEASE.json`'s wording. A damaged state file stops the build.
+
+`config/archives.json` holds each archive's origin. `ascension` means Ascension's by the project's records, not compared with live, so answers say `Ascension's archive per project records; this copy may lag live`. Area 52's archive never counts as a winner: its DBCs are exported as `<table>__area52`, realm `area-52`, and it gets no spell pages.
+
 Each build is versioned with its UTC build time (`yyyyMMddHHmmss`), because a published version never changes and every rebuild differs. Pass `--version <v>` to choose one (letters, digits, `.`, `_`, `-`). Then:
 
 ```
