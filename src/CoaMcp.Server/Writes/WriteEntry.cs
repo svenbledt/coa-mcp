@@ -6,13 +6,13 @@ namespace CoaMcp.Server;
 /// <summary>A validated write, ready to store. Only <see cref="WriteRules"/> builds these from caller input.</summary>
 public sealed record NewEntry(
     string SubjectId, string Kind, IReadOnlyList<string> Realms, Trust Trust, string ContentMd,
-    string EvidenceJson, string? Field, string? Value, string? PositionJson, string Author);
+    string EvidenceJson, string? Field, string? Value, string? PositionJson, string Author, string? RequestedKind = null);
 
 /// <summary>One stored entry. <paramref name="SupersededBy"/> is the next live page version, worked out when read.</summary>
 public sealed record WriteEntry(
     long Id, string SubjectId, string Kind, IReadOnlyList<string> Realms, Trust Trust, string ContentMd,
     string EvidenceJson, string? Field, string? Value, string? PositionJson, string Author, string CreatedAt,
-    long? SupersedesId, string? UndoneAt, string? UndoneBy, long? SupersededBy = null);
+    long? SupersedesId, string? UndoneAt, string? UndoneBy, long? SupersededBy = null, string? RequestedKind = null);
 
 /// <summary>The evidence argument of write_entry, and the shape of evidence_json.</summary>
 public sealed record EntryEvidence(
@@ -30,10 +30,16 @@ public sealed record EntryPosition(
     [property: JsonPropertyName("leftPct"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] double? LeftPct = null,
     [property: JsonPropertyName("topPct"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] double? TopPct = null);
 
-/// <summary>What get shows for one subject. <paramref name="Fields"/> are all live entries with a structured field, for conflict checks.</summary>
+/// <summary>
+/// One distinct value of a structured field on a subject, with the best entry that gives it: the shape conflict checks work from, without any entry's content.
+/// <paramref name="SameValue"/> entries give this value and <paramref name="DistinctValues"/> values exist for the field, of which only the first few are read.
+/// </summary>
+public sealed record FieldClaim(long Id, string Field, string Value, Trust Trust, string Author, IReadOnlyList<string> Realms, int SameValue, int DistinctValues);
+
+/// <summary>What get shows for one subject. <paramref name="ClaimsTruncated"/> says some structured values were not read, so a conflict could be missing.</summary>
 public sealed record SubjectEntries(
     IReadOnlyList<WriteEntry> Page, int Live, int Undone, int Superseded,
-    IReadOnlyList<long> HiddenIds, IReadOnlyList<WriteEntry> Fields);
+    IReadOnlyList<long> HiddenIds, IReadOnlyList<FieldClaim> Claims, bool ClaimsTruncated);
 
 public sealed record EntryHit(WriteEntry Entry, string Snippet);
 

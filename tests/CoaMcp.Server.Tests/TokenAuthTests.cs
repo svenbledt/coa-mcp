@@ -13,9 +13,7 @@ internal static class W
 
     public static ServerHarness Harness(string? token, IDictionary<string, string?>? extra = null, Action<ILoggingBuilder>? logging = null, string? layerDir = null)
     {
-        var settings = new Dictionary<string, string?>(extra ?? new Dictionary<string, string?>());
-        if (token is not null) settings["COA_MCP_BEARER_TOKEN"] = token;
-        return new ServerHarness(layerDir, settings, logging);
+        return new ServerHarness(layerDir, extra, logging, token);
     }
 
     public static Task<McpClient> Writer(ServerHarness h, string token, string? peer = null) => h.ConnectAsync("Bearer " + token, peer);
@@ -328,9 +326,74 @@ public class TokenAuthTests
         Assert.Contains("per minute", text);
         // Reads are not on the write allowance.
         Assert.False((await W.Call(other, "get", new() { ["id"] = "test:rate" })).IsError);
-        var (undo, undoError) = await W.Call(other, "undo_entry", new() { ["id"] = 1L, ["author"] = "Ann" });
-        Assert.True(undoError);
-        Assert.Contains("rate limit", undo, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Undo is the remedy for bad writes, so a runaway writer using up its allowance must not block it.</summary>
+    [Fact]
+    public async Task Undo_HasItsOwnAllowance()
+    {
+        var token = W.NewToken();
+        using var h = W.Harness(token, new Dictionary<string, string?> { ["RateLimit:WritesPerMinute"] = "1", ["RateLimit:UndosPerMinute"] = "2" });
+        await using var c = await W.Writer(h, token);
+        var id = await W.Write(c, W.Entry("test:rate"));
+        Assert.True((await W.Call(c, "write_entry", W.Entry("test:rate"))).IsError);
+
+        var first = await W.Call(c, "undo_entry", new() { ["id"] = id, ["author"] = "Ann" });
+        Assert.False(first.IsError, first.Text);
+        Assert.False((await W.Call(c, "undo_entry", new() { ["id"] = id, ["author"] = "Ann" })).IsError);
+        var (text, isError) = await W.Call(c, "undo_entry", new() { ["id"] = id, ["author"] = "Ann" });
+        Assert.True(isError);
+        Assert.Contains("rate limit", text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The one test that uses the real environment variable. Every other harness injects its own token, so changing it here affects nothing else.</summary>
+    [Fact]
+    public async Task Token_ComesFromTheEnvironmentVariableOnly()
+    {
+        var token = W.NewToken();
+        var settings = new Dictionary<string, string?> { [TokenAuth.EnvVar] = token };
+        var before = Environment.GetEnvironmentVariable(TokenAuth.EnvVar);
+        try
+        {
+            Environment.SetEnvironmentVariable(TokenAuth.EnvVar, null);
+            using (var viaConfig = new ServerHarness(settings: settings, realTokenEnvironment: true))
+            {
+                await using var c = await W.Writer(viaConfig, token);
+                Assert.True((await W.Call(c, "write_entry", W.Entry("test:env"))).IsError);
+            }
+
+            Environment.SetEnvironmentVariable(TokenAuth.EnvVar, token);
+            using var viaEnv = new ServerHarness(realTokenEnvironment: true);
+            await using var writer = await W.Writer(viaEnv, token);
+            await W.Write(writer, W.Entry("test:env"));
+        }
+        finally { Environment.SetEnvironmentVariable(TokenAuth.EnvVar, before); }
+    }
+
+    /// <summary>The endpoint is public: a refused or malformed call is the caller's mistake, and must not fill the log with stack traces.</summary>
+    [Fact]
+    public async Task RefusedCalls_LogNoStackTrace_AndStayRefused()
+    {
+        var logs = new CaptureLogs();
+        var token = W.NewToken();
+        using var h = W.Harness(token, logging: b => b.AddProvider(logs));
+        await using var anon = await h.ConnectAsync(null);
+        await using var writer = await W.Writer(h, token);
+
+        Assert.True((await W.Call(anon, "write_entry", W.Entry("test:quiet"))).IsError);
+        Assert.True((await W.Call(anon, "undo_entry", new() { ["id"] = 1L, ["author"] = "Ann" })).IsError);
+        Assert.True((await W.Call(anon, "no_such_tool", new())).IsError);
+        Assert.True((await W.Call(anon, "get", new() { ["id"] = "" })).IsError);
+        Assert.True((await W.Call(anon, "get", new())).IsError);
+        Assert.True((await W.Call(anon, "get", new() { ["id"] = "item:1", ["entries_offset"] = "soon" })).IsError);
+        Assert.True((await W.Call(writer, "write_entry", W.Entry("test:quiet", trust: "client"))).IsError);
+        Assert.True((await W.Call(writer, "write_entry", W.Entry("test:quiet", more: ("position", "somewhere")))).IsError);
+
+        Assert.Empty(logs.Lines.Where(l => l.Text.Contains("   at ", StringComparison.Ordinal)).Select(l => $"{l.Level} {l.Text[..Math.Min(200, l.Text.Length)]}"));
+        var (refusal, refused) = await W.Call(anon, "write_entry", W.Entry("test:quiet"));
+        Assert.True(refused);
+        Assert.Contains("authorization", refusal);
+        Assert.False(File.Exists(h.StorePath));
     }
 
     [Fact]

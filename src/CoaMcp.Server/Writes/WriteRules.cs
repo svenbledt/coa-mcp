@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using CoaMcp.Core;
+using CoaMcp.Server.Tools;
 using ModelContextProtocol;
 
 namespace CoaMcp.Server;
@@ -20,7 +21,7 @@ public static partial class WriteRules
     public const double MaxCoordinate = 100_000;
 
     public static readonly string[] Kinds = { "observation", "note", "correction", "page" };
-    public static readonly string[] SubjectTypes = { "npc", "dungeon", "encounter", "mechanic", "spell", "item", "class", "quest", "note", "test" };
+    public static readonly string[] SubjectTypes = { "npc", "dungeon", "encounter", "mechanic", "spell", "item", "class", "quest", "note", "test", PathTools.SubjectType };
     public static readonly string[] KnownRealms = { "coa", "wotlk", "octo", "classic", "s10" };
     public const string UnknownRealm = "unknown";
 
@@ -31,6 +32,8 @@ public static partial class WriteRules
     [GeneratedRegex(@"\A[A-Za-z0-9 ._-]{1,64}\z")] private static partial Regex AuthorShape();
     [GeneratedRegex(@"\A[a-z-]+:[a-z0-9][a-z0-9._:-]*\z")] private static partial Regex SubjectShape();
     [GeneratedRegex(@"\A[\p{L}\p{N} ._'-]{1,64}\z")] private static partial Regex MapShape();
+    /// <summary>Every character found in the 639,153 real client paths, plus the backslash they can be written with.</summary>
+    [GeneratedRegex(@"\Apath:[A-Za-z0-9 !&'()+,\-./\\\[\]_]+\z")] private static partial Regex PathShape();
     [GeneratedRegex(@"\A(?=.)(\d{1,5}h)?(\d{1,5}m)?(\d{1,7}s?)?\z")] private static partial Regex DurationShape();
     [GeneratedRegex(@"\A\d{1,3}:\d{2}(:\d{2})?\z")] private static partial Regex ClockShape();
 
@@ -70,6 +73,10 @@ public static partial class WriteRules
         var allowed = $"subject must be an existing id, or a new <type>:<slug> in lower case, with type one of: {string.Join(", ", SubjectTypes)}.";
         if (string.IsNullOrEmpty(subject) || subject.Length > Limits.MaxIdChars || TextProblem(subject, multiline: false) is not null) throw Refuse(allowed);
 
+        if (PathTools.IsSubject(subject))
+            return PathShape().IsMatch(subject) && PathTools.FindRow(layers, subject) is { } file
+                ? (file.Id, true)
+                : throw Refuse("subject names a client file that does not exist here, or has characters no client path has. Check it with client_paths.");
         if (DbcPages.IsRowId(subject))
             return DbcPages.FindRow(layers, subject) is { } row
                 ? (row.Id, true)
@@ -157,7 +164,7 @@ public static partial class WriteRules
     public static string? Position(EntryPosition? p)
     {
         if (p is null) return null;
-        if (string.IsNullOrWhiteSpace(p.Map) || !MapShape().IsMatch(p.Map))
+        if (string.IsNullOrWhiteSpace(p.Map) || !MapShape().IsMatch(p.Map) || TextProblem(p.Map, multiline: false) is not null)
             throw Refuse("position needs a map: 1 to 64 letters, digits, spaces and . _ ' -.");
         var hasCoordinates = p.X is not null || p.Y is not null || p.Z is not null;
         var hasPercents = p.LeftPct is not null || p.TopPct is not null;
@@ -170,6 +177,16 @@ public static partial class WriteRules
         return JsonSerializer.Serialize(p);
     }
 
+    /// <summary>
+    /// Text that shows nothing can make what a person reads differ from what an agent reads: all of Unicode's format characters (category Cf,
+    /// which includes bidi controls, zero width characters, soft hyphen and tags) and its other default-ignorable characters (variation selectors, fillers).
+    /// Zero width joiners go too. Allowing them only where a script needs them isn't worth the complexity here, at the cost of some emoji sequences and of Indic and Persian spellings.
+    /// </summary>
+    private static bool IsInvisible(Rune r) =>
+        Rune.GetUnicodeCategory(r) == UnicodeCategory.Format
+        || r.Value is 0x034F or 0x115F or 0x1160 or 0x17B4 or 0x17B5 or 0x3164 or 0xFFA0
+            or (>= 0x180B and <= 0x180F) or (>= 0x2060 and <= 0x206F) or (>= 0xFE00 and <= 0xFE0F) or (>= 0xFFF0 and <= 0xFFF8) or (>= 0xE0000 and <= 0xE0FFF);
+
     /// <summary>Why this text can't be stored, or null. Refused rather than stripped, so what is stored is what was sent.</summary>
     private static string? TextProblem(string text, bool multiline)
     {
@@ -178,13 +195,10 @@ public static partial class WriteRules
 
         foreach (var r in text.EnumerateRunes())
         {
-            var c = r.Value;
-            if (multiline && c is '\n' or '\r' or '\t') continue;
+            if (multiline && r.Value is '\n' or '\r' or '\t') continue;
             if (Rune.IsControl(r)) return "has a control character";
             if (Rune.GetUnicodeCategory(r) is UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator) return "has a line separator character";
-            // Invisible text can make what a person reads differ from what an agent reads: bidi overrides, byte order marks and tag characters.
-            if (c is (>= 0x202A and <= 0x202E) or (>= 0x2066 and <= 0x2069) or 0xFEFF or (>= 0xE0000 and <= 0xE007F) or (>= 0xFFF9 and <= 0xFFFB))
-                return "has an invisible formatting character";
+            if (IsInvisible(r)) return "has an invisible character";
         }
         return null;
     }

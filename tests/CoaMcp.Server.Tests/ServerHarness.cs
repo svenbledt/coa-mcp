@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using System.Net;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
@@ -33,7 +34,8 @@ public sealed class ServerHarness : IDisposable
     /// <summary>The data root the server reads: layers/&lt;name&gt;/&lt;version&gt;.sqlite and current.json.</summary>
     public string Root { get; }
 
-    public ServerHarness(string? layerDir = null, IDictionary<string, string?>? settings = null, Action<ILoggingBuilder>? logging = null)
+    public ServerHarness(string? layerDir = null, IDictionary<string, string?>? settings = null, Action<ILoggingBuilder>? logging = null,
+        string? token = null, bool realTokenEnvironment = false)
     {
         LayerDir = layerDir ?? TestLayers.Build();
         Root = TestLayers.Publish(LayerDir);
@@ -42,10 +44,11 @@ public sealed class ServerHarness : IDisposable
         {
             b.UseSetting("Layers:Root", Root);
             b.UseSetting("RateLimit:PerMinute", "100000");
-            b.UseSetting("COA_MCP_BEARER_TOKEN", "");   // hermetic: no test inherits a token from the machine
             foreach (var (k, v) in settings ?? new Dictionary<string, string?>()) b.UseSetting(k, v);
             b.ConfigureServices(s => s.AddSingleton<IStartupFilter, PeerFilter>());
             if (logging is not null) b.ConfigureLogging(logging);
+            // The server reads its token from the process environment, which tests running side by side share. So each test gets its own as a service.
+            if (!realTokenEnvironment) b.ConfigureTestServices(t => t.AddSingleton(new TokenAuth(token)));
         });
     }
 

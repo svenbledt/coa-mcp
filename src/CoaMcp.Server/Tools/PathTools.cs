@@ -24,9 +24,32 @@ public sealed class PathTools
     private const string Source = "CoA client file list";
     private static readonly RealmSet ClientRealm = new(new[] { "coa-client" }, false);
 
-    private readonly LayerSet _layers;
+    public const string SubjectType = "path";
+    public const string LayerName = "paths";
+    private const string SubjectPrefix = SubjectType + ":";
 
-    public PathTools(LayerSet layers) => _layers = layers;
+    private readonly LayerSet _layers;
+    private readonly WriteStore _store;
+
+    public PathTools(LayerSet layers, WriteStore store)
+    {
+        _layers = layers;
+        _store = store;
+    }
+
+    public static bool IsSubject(string id) => id.StartsWith(SubjectPrefix, StringComparison.Ordinal);
+
+    /// <summary>The canonical path:&lt;path&gt; id and row of a client file, in either slash and any case, or null when the client has no such file.</summary>
+    public static (string Id, IReadOnlyDictionary<string, object?> Row)? FindRow(LayerSet layers, string id)
+    {
+        var path = id[SubjectPrefix.Length..].Replace('\\', '/');
+        if (path.Any(char.IsControl)) return null;
+        while (path.Contains("//")) path = path.Replace("//", "/");
+        path = path.TrimStart('/');
+        if (path.Length == 0 || path.EndsWith('/')) return null;
+        using var lease = layers.Lease(LayerName);
+        return lease?.Layer.Query("SELECT * FROM paths WHERE path = $0", path) is [var row] ? (SubjectPrefix + (string)row["path"]!, row) : null;
+    }
 
     [McpServerTool(Name = "client_paths", ReadOnly = true), Description(
         "Find or browse file paths in the CoA client (paths and sizes only, no file content). query: words that must all appear in the path, any case, 3+ characters each. " +
@@ -45,7 +68,7 @@ public sealed class PathTools
             throw new McpException("Give at least one of query, prefix or ext. Example: query=\"spellvisual\", prefix=\"DBFilesClient/\", ext=\"dbc\".");
 
         var (lim, off, note) = Limits.Page(limit, offset, words is null ? MaxBrowseOffset : MaxSearchOffset);
-        using var lease = _layers.Lease("paths") ?? throw new McpException("The paths layer is not loaded on this server. See the status tool.");
+        using var lease = _layers.Lease(LayerName) ?? throw new McpException("The paths layer is not loaded on this server. See the status tool.");
         var layer = lease.Layer;
         var sb = new StringBuilder(Header(layer)).Append('\n');
         if (note is not null) sb.Append(note).Append('\n');
@@ -53,7 +76,8 @@ public sealed class PathTools
         // One whole path, in either spelling and any case, gets the full answer.
         var whole = words is null ? start : (type is null && start is null ? Join(query).TrimStart('/') : null);
         if (whole is not null && whole.Length > 0 && !whole.EndsWith('/') && layer.Query("SELECT * FROM paths WHERE path = $0", whole) is [var exact])
-            return sb.Append(Detail(exact, layer.Meta.Client)).ToString().TrimEnd();
+            return EntryRender.AfterPage(_store, sb.Append(Detail(exact, layer.Meta.Client)).ToString().TrimEnd(), SubjectPrefix + (string)exact["path"]!,
+                GeneratedValue.FromRow(exact, Trust.Client, LayerName), Limits.DefaultEntries, 0, null);
 
         if (words is null && type is null && start is not null && Folder(layer, start) is { } folder)
             Browse(layer, folder, lim, off, sb);

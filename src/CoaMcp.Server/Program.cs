@@ -4,6 +4,7 @@ using CoaMcp.Server.Tools;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http.Features;
 using ModelContextProtocol.AspNetCore;
+using ModelContextProtocol.Server;
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
@@ -15,7 +16,7 @@ builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = Limits.ReadR
 builder.Logging.AddFilter("ModelContextProtocol", LogLevel.Information);
 
 // The token is the one secret. Nothing logs it. Reads work with or without it, so a bad one is not an error.
-builder.Services.AddSingleton(new TokenAuth(config[TokenAuth.EnvVar]));
+builder.Services.AddSingleton(new TokenAuth(Environment.GetEnvironmentVariable(TokenAuth.EnvVar)));
 builder.Services.AddAuthentication(TokenAuth.Scheme).AddScheme<AuthenticationSchemeOptions, TokenAuthHandler>(TokenAuth.Scheme, null);
 builder.Services.AddAuthorization();
 
@@ -26,7 +27,9 @@ builder.Services.AddSingleton(sp => new WriteStore(
     config.GetValue("Store:MaxBytes", WriteStore.DefaultMaxBytes)));
 builder.Services.AddSingleton(new WriteLimiter(
     config.GetValue("RateLimit:WritesPerMinute", WriteLimiter.DefaultPerMinute),
-    config.GetValue("RateLimit:WritesPerDay", WriteLimiter.DefaultPerDay)));
+    config.GetValue("RateLimit:WritesPerDay", WriteLimiter.DefaultPerDay),
+    config.GetValue("RateLimit:UndosPerMinute", WriteLimiter.DefaultPerMinute),
+    config.GetValue("RateLimit:UndosPerDay", WriteLimiter.DefaultPerDay)));
 
 // Layers live under Layers:Root as layers/<name>/<version>.sqlite, and current.json names the live versions.
 // The server only reads there. LayerReloader re-reads current.json every Layers:ReloadSeconds (default 30).
@@ -59,7 +62,13 @@ builder.Services.AddMcpServer(o => o.ServerInstructions =
     .WithTools<PathTools>()
     .WithTools<DbcTools>()
     .WithTools<WriteTools>()
+    .WithRequestFilters(f => f.AddCallToolFilter(RefusedCalls.InsideTool))
     .AddAuthorizationFilters();
+
+// After AddAuthorizationFilters and first in the list, so this filter wraps the authorization check too.
+#pragma warning disable MCPEXP002   // see RefusedCalls
+builder.Services.PostConfigure<McpServerOptions>(o => o.Filters.Request.CallToolWithAlternateFilters.Insert(0, RefusedCalls.AroundAuthorization));
+#pragma warning restore MCPEXP002
 
 var app = builder.Build();
 

@@ -17,14 +17,24 @@ public sealed class WriteStore : IDisposable
     private const int BusyTimeoutMs = 5_000;
     private const long PageBytes = 4_096;
     private const int MaxHiddenIds = 10;
-    private const int MaxFieldRows = 200;
+    public const int MaxFieldRows = 600;
+
+    /// <summary>Distinct values read per structured field: one more than a conflict note shows, to tell when there are more.</summary>
+    public const int MaxValuesPerField = 6;
+
     private const int SqliteBusy = 5, SqliteLocked = 6, SqliteFull = 13;
 
-    /// <summary>A live entry: not undone, and not a page with a newer live version.</summary>
+    /// <summary>
+    /// A live entry: not undone, and not a page with a newer live version of the same or higher trust (a lower number is higher trust).
+    /// A memory page never replaces an observed one, so then both stay live.
+    /// </summary>
     private const string Live = """
         (e.undone_at IS NULL AND NOT (e.kind = 'page' AND EXISTS (
-            SELECT 1 FROM entries n WHERE n.subject_id = e.subject_id AND n.kind = 'page' AND n.undone_at IS NULL AND n.id > e.id)))
+            SELECT 1 FROM entries n WHERE n.subject_id = e.subject_id AND n.kind = 'page' AND n.undone_at IS NULL AND n.id > e.id AND n.trust <= e.trust)))
         """;
+
+    /// <summary>Written for test runs: readable by id, but not in anyone's search.</summary>
+    private const string NotTest = "substr(e.subject_id, 1, 5) <> 'test:'";
 
     private const string Schema = """
         CREATE TABLE schema_version(version INTEGER NOT NULL);
@@ -32,6 +42,7 @@ public sealed class WriteStore : IDisposable
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           subject_id TEXT NOT NULL,
           kind TEXT NOT NULL CHECK (kind IN ('observation','note','correction','page')),
+          requested_kind TEXT NOT NULL CHECK (requested_kind IN ('observation','note','correction','page')),
           realm_json TEXT NOT NULL,
           trust INTEGER NOT NULL CHECK (trust IN (4, 5)),
           content_md TEXT NOT NULL,
@@ -204,12 +215,12 @@ public sealed class WriteStore : IDisposable
     {
         using var tx = c.BeginTransaction();   // BEGIN IMMEDIATE: the writer lock is taken up front, and a busy database waits out the timeout
         var supersedes = e.Kind == "page"
-            ? Scalar(c, tx, "SELECT MAX(id) FROM entries WHERE subject_id = $0 AND kind = 'page' AND undone_at IS NULL", e.SubjectId) as long?
+            ? Scalar(c, tx, "SELECT MAX(id) FROM entries WHERE subject_id = $0 AND kind = 'page' AND undone_at IS NULL AND trust >= $1", e.SubjectId, (long)e.Trust) as long?
             : null;
         Exec(c, tx, """
-            INSERT INTO entries(subject_id, kind, realm_json, trust, content_md, evidence_json, field, value, position_json, author, created_at, supersedes_id)
-            VALUES ($0, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-            """, e.SubjectId, e.Kind, JsonSerializer.Serialize(e.Realms), (long)e.Trust, e.ContentMd, e.EvidenceJson, e.Field, e.Value, e.PositionJson, e.Author, Now(), supersedes);
+            INSERT INTO entries(subject_id, kind, realm_json, trust, content_md, evidence_json, field, value, position_json, author, created_at, supersedes_id, requested_kind)
+            VALUES ($0, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            """, e.SubjectId, e.Kind, JsonSerializer.Serialize(e.Realms), (long)e.Trust, e.ContentMd, e.EvidenceJson, e.Field, e.Value, e.PositionJson, e.Author, Now(), supersedes, e.RequestedKind ?? e.Kind);
         var id = (long)Scalar(c, tx, "SELECT last_insert_rowid()")!;
         Exec(c, tx, "INSERT INTO entries_fts(rowid, subject_id, content_md, field, value) VALUES ($0, $1, $2, $3, $4)", id, e.SubjectId, e.ContentMd, e.Field, e.Value);
         tx.Commit();
@@ -251,13 +262,13 @@ public sealed class WriteStore : IDisposable
     private static WriteEntry ToEntry(SqliteDataReader r) => new(
         (long)r["id"], (string)r["subject_id"], (string)r["kind"], JsonSerializer.Deserialize<string[]>((string)r["realm_json"])!, (Trust)(long)r["trust"],
         (string)r["content_md"], (string)r["evidence_json"], Text(r, "field"), Text(r, "value"), Text(r, "position_json"), (string)r["author"], (string)r["created_at"],
-        r["supersedes_id"] as long?, Text(r, "undone_at"), Text(r, "undone_by"), r["superseded_by"] as long?);
+        r["supersedes_id"] as long?, Text(r, "undone_at"), Text(r, "undone_by"), r["superseded_by"] as long?, Text(r, "requested_kind"));
 
     /// <returns>The entry, with what replaced it if it is an old page version. Null with <paramref name="unavailable"/> false means no such entry.</returns>
     public WriteEntry? Get(long id, out bool unavailable)
     {
         var rows = Reading(new List<WriteEntry>(), c => Query(c, null, """
-            SELECT e.*, (SELECT MIN(n.id) FROM entries n WHERE e.kind = 'page' AND n.subject_id = e.subject_id AND n.kind = 'page' AND n.undone_at IS NULL AND n.id > e.id) AS superseded_by
+            SELECT e.*, (SELECT MIN(n.id) FROM entries n WHERE e.kind = 'page' AND n.subject_id = e.subject_id AND n.kind = 'page' AND n.undone_at IS NULL AND n.id > e.id AND n.trust <= e.trust) AS superseded_by
             FROM entries e WHERE e.id = $0
             """, id));
         unavailable = rows is null;
@@ -266,16 +277,44 @@ public sealed class WriteStore : IDisposable
 
     /// <summary>One page of a subject's live entries, higher trust first, newest first within a level. Null if the store is unavailable.</summary>
     public SubjectEntries? ForSubject(string subject, int limit, int offset) =>
-        Reading(new SubjectEntries(Array.Empty<WriteEntry>(), 0, 0, 0, Array.Empty<long>(), Array.Empty<WriteEntry>()), c =>
+        Reading(new SubjectEntries(Array.Empty<WriteEntry>(), 0, 0, 0, Array.Empty<long>(), Array.Empty<FieldClaim>(), false), c =>
         {
             var page = Query(c, null, $"SELECT e.*, NULL AS superseded_by FROM entries e WHERE e.subject_id = $0 AND {Live} ORDER BY e.trust ASC, e.id DESC LIMIT $1 OFFSET $2", subject, (long)limit, (long)offset);
             var live = Count(c, $"SELECT COUNT(*) FROM entries e WHERE e.subject_id = $0 AND {Live}", subject);
             var undone = Count(c, "SELECT COUNT(*) FROM entries e WHERE e.subject_id = $0 AND e.undone_at IS NOT NULL", subject);
             var superseded = Count(c, $"SELECT COUNT(*) FROM entries e WHERE e.subject_id = $0 AND e.undone_at IS NULL AND NOT {Live}", subject);
             var hidden = Rows(c, null, $"SELECT e.id FROM entries e WHERE e.subject_id = $0 AND NOT {Live} ORDER BY e.id DESC LIMIT $1", new object?[] { subject, (long)MaxHiddenIds }, r => (long)r["id"]);
-            var fields = Query(c, null, $"SELECT e.*, NULL AS superseded_by FROM entries e WHERE e.subject_id = $0 AND e.field IS NOT NULL AND {Live} ORDER BY e.field, e.trust ASC, e.id DESC LIMIT $1", subject, (long)MaxFieldRows);
-            return new SubjectEntries(page, live, undone, superseded, hidden, fields);
+            var (claims, truncated) = Claims(c, subject);
+            return new SubjectEntries(page, live, undone, superseded, hidden, claims, truncated);
         });
+
+    /// <summary>
+    /// The distinct values of each structured field, best entry first. One field can't crowd out another: values are capped per field, and fields with
+    /// more than one value come before the rest. If the total cap is still reached, the caller is told, so a conflict is never dropped silently.
+    /// </summary>
+    private static (List<FieldClaim> Claims, bool Truncated) Claims(SqliteConnection c, string subject)
+    {
+        var total = 0L;
+        var claims = Rows(c, null, $"""
+            WITH live AS (
+                SELECT e.id, e.field, e.value, e.trust, e.author, e.realm_json,
+                       COUNT(*) OVER (PARTITION BY e.field, e.value) AS same_value,
+                       ROW_NUMBER() OVER (PARTITION BY e.field, e.value ORDER BY e.trust, e.id DESC) AS best
+                FROM entries e WHERE e.subject_id = $0 AND e.field IS NOT NULL AND {Live}),
+            vals AS (
+                SELECT *, COUNT(*) OVER (PARTITION BY field) AS distinct_values,
+                       ROW_NUMBER() OVER (PARTITION BY field ORDER BY trust, id DESC) AS place
+                FROM live WHERE best = 1),
+            kept AS (SELECT *, COUNT(*) OVER () AS total FROM vals WHERE place <= $1)
+            SELECT * FROM kept ORDER BY distinct_values > 1 DESC, field, place LIMIT $2
+            """, new object?[] { subject, (long)MaxValuesPerField, (long)MaxFieldRows }, r =>
+        {
+            total = (long)r["total"];
+            return new FieldClaim((long)r["id"], (string)r["field"], (string)r["value"], (Trust)(long)r["trust"], (string)r["author"],
+                JsonSerializer.Deserialize<string[]>((string)r["realm_json"])!, (int)(long)r["same_value"], (int)(long)r["distinct_values"]);
+        });
+        return (claims, total > MaxFieldRows);
+    }
 
     private static (string Where, List<object?> Args) Matching(FtsQuery q, string? realm, IReadOnlyList<string>? subjectTypes)
     {
@@ -288,7 +327,7 @@ public sealed class WriteStore : IDisposable
             args.AddRange(subjectTypes);
         }
         return ($"""
-            f.entries_fts MATCH $0 AND {Live}
+            f.entries_fts MATCH $0 AND {Live} AND {NotTest}
             AND ($1 IS NULL OR EXISTS (SELECT 1 FROM json_each(e.realm_json) j WHERE j.value = $1)){types}
             """, args);
     }

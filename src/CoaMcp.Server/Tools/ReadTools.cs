@@ -35,11 +35,9 @@ public sealed class ReadTools
         ["classes"] = new[] { "class", "spec", "talents", "rules" },
         ["dungeons"] = new[] { "dungeon", "encounter", "mechanic" },
         ["npcs"] = new[] { "npc", "cache-creature" },
-        ["notes"] = new[] { "note", "project", "quest", "test" },
+        ["notes"] = new[] { "note", "project", "quest", PathTools.SubjectType },
         ["dbc"] = new[] { "dbc" },
     };
-
-    private const string EntriesUnavailable = "Written entries are unavailable right now, so any on this id are not shown. See the status tool.";
 
     private readonly LayerSet _layers;
     private readonly WriteStore _store;
@@ -118,35 +116,29 @@ public sealed class ReadTools
         if (key.StartsWith("entry:", StringComparison.Ordinal)) return EntryById(key);
 
         var (limit, offset, note) = Limits.Page(Limits.DefaultEntries, entries_offset);
+        if (PathTools.IsSubject(key) && PathTools.FindRow(_layers, key) is { } file)
+            return EntryRender.AfterPage(_store, $"# {Render.OneLine(file.Id, Limits.MaxIdChars)}\nA client file. client_paths shows its archive and size.", file.Id,
+                GeneratedValue.FromRow(file.Row, Trust.Client, PathTools.LayerName), limit, offset, note);
         if (DbcPages.IsRowId(key))
         {
             var row = DbcPages.FindRow(_layers, key);
             var page = DbcPages.Row(_layers, key);
-            if (row is null) return page;
-            var values = row.Value.Row.Select(c => DbcPages.PlainValue(c.Value) is { } v ? new GeneratedValue(c.Key, v, Trust.Client, DbcPages.LayerName) : null).OfType<GeneratedValue>().ToList();
-            return WithEntries(page, row.Value.Id, values, limit, offset, note);
+            return row is null ? page : EntryRender.AfterPage(_store, page, row.Value.Id, GeneratedValue.FromRow(row.Value.Row, Trust.Client, DbcPages.LayerName), limit, offset, note);
         }
 
         var found = _layers.Get(key);
         if (found.Count > 0)
-            return WithEntries(string.Join("\n\n---\n\n", found.Select(f => Render.Entity(f.Entity, f.Meta, sections))), key,
+            return EntryRender.AfterPage(_store, string.Join("\n\n---\n\n", found.Select(f => Render.Entity(f.Entity, f.Meta, sections))), key,
                 found.SelectMany(f => DataValues(f.Entity, f.LayerName)).ToList(), limit, offset, note);
 
         var written = _store.ForSubject(key, limit, offset);
-        if (written is null) return NotFound(key) + "\n" + EntriesUnavailable;
-        var entries = new EntryRender().Section(key, written, offset, note, Array.Empty<GeneratedValue>());
+        if (written is null) return NotFound(key) + "\n" + EntryRender.Unavailable;
+        var entries = new EntryRender().Section(written, offset, note, Array.Empty<GeneratedValue>());
         if (entries.Length == 0) return NotFound(key);
-        var head = $"# Written entries for {Render.OneLine(key, Limits.MaxIdChars)}\nThere is no generated page for this id: everything below was written through the write tools and is not extracted data.\n";
+        // The id came from a writer, so it stays inside the markers, and the heading is fixed text.
+        var head = "# Written entries\nThere is no generated page for this id: everything below was written through the write tools and is not extracted data.\n";
         if (sections is { Length: > 0 }) head += "Written entries have no sections, so all of them follow.\n";
         return head + "\n" + entries;
-    }
-
-    private string WithEntries(string page, string subject, IReadOnlyList<GeneratedValue> values, int limit, int offset, string? note)
-    {
-        var written = _store.ForSubject(subject, limit, offset);
-        if (written is null) return page + "\n\n" + EntriesUnavailable;
-        var entries = new EntryRender().Section(subject, written, offset, note, values);
-        return entries.Length == 0 ? page : page + "\n\n---\n" + entries;
     }
 
     private string EntryById(string key)
@@ -154,7 +146,7 @@ public sealed class ReadTools
         if (!Regex.IsMatch(key, @"\Aentry:\d{1,18}\z") || !long.TryParse(key.AsSpan(6), NumberStyles.None, CultureInfo.InvariantCulture, out var n))
             return "No entry with that id. Entry ids look like entry:12.";
         var e = _store.Get(n, out var unavailable);
-        if (unavailable) return EntriesUnavailable;
+        if (unavailable) return EntryRender.Unavailable;
         return e is null ? $"No entry with id {key}." : new EntryRender().EntryPage(e);
     }
 

@@ -199,6 +199,22 @@ public class WriteToolTests : IClassFixture<WriteFixture>
         Assert.Contains("No entity", await Get(s));
     }
 
+    /// <summary>Written by number, because these characters can't be seen in source. Zero width joiners are refused too, even inside emoji and scripts that use them.</summary>
+    [Theory]
+    [InlineData(0x200B)] [InlineData(0x200C)] [InlineData(0x200D)] [InlineData(0x200E)] [InlineData(0x200F)]
+    [InlineData(0x061C)] [InlineData(0x2060)] [InlineData(0x2062)] [InlineData(0x00AD)] [InlineData(0xFE0F)]
+    [InlineData(0xE0100)] [InlineData(0x3164)] [InlineData(0xFFA0)] [InlineData(0x115F)] [InlineData(0x034F)] [InlineData(0x180B)]
+    [InlineData(0xE0FFF)] [InlineData(0x1D173)]
+    public async Task Write_InvisibleCharacter_RefusedInAllWrittenText(int codePoint)
+    {
+        var bad = "a" + char.ConvertFromUtf32(codePoint) + "b";
+        Assert.Contains("content", await Refused(W.Entry(NewSubject(), bad)));
+        Assert.Contains("field", await Refused(W.Entry(NewSubject(), more: new[] { ("field", (object?)bad), ("value", (object?)"v") })));
+        Assert.Contains("value", await Refused(W.Entry(NewSubject(), more: new[] { ("field", (object?)"f"), ("value", (object?)bad) })));
+        Assert.Contains("evidence", await Refused(W.Entry(NewSubject(), more: ("evidence", W.Desc(bad)))));
+        await Refused(W.Entry(NewSubject(), more: ("position", new Dictionary<string, object?> { ["map"] = bad, ["leftPct"] = 1.0, ["topPct"] = 1.0 })));
+    }
+
     [Fact]
     public async Task Write_ContentKeepsTabsNewlinesAndUnicode_NormalizesCrLf()
     {
@@ -417,6 +433,70 @@ public class WriteToolTests : IClassFixture<WriteFixture>
     }
 
     [Fact]
+    public async Task Write_OnGeneratedSubject_SaysItWasStoredAsNote_KeepsTheRequestedKind()
+    {
+        var (text, isError) = await W.Call(_f.Client, "write_entry", W.Entry("spell:2", kind: "correction"));
+        Assert.False(isError, text);
+        Assert.Contains("correction", text);
+        Assert.Contains("stored as a note", text);
+        var id = long.Parse(System.Text.RegularExpressions.Regex.Match(text, @"entry:(\d+)").Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+        var row = Rows(_f.Harness, "SELECT kind, requested_kind FROM entries WHERE id = $0", id).Single();
+        Assert.Equal("note", row["kind"]);
+        Assert.Equal("correction", row["requested_kind"]);
+
+        // A new subject stores what was asked, in both columns, and the response doesn't talk about notes.
+        var s = NewSubject();
+        var (own, _) = await W.Call(_f.Client, "write_entry", W.Entry(s, kind: "observation"));
+        Assert.DoesNotContain("stored as a note", own);
+        var mine = Rows(_f.Harness, "SELECT kind, requested_kind FROM entries WHERE subject_id = $0", s).Single();
+        Assert.Equal("observation", mine["kind"]);
+        Assert.Equal("observation", mine["requested_kind"]);
+    }
+
+    // ---- client files ----
+
+    [Theory]
+    [InlineData("path:DBFilesClient/Spell.dbc", "path:DBFilesClient/Spell.dbc")]
+    [InlineData("path:dbfilesclient/spell.DBC", "path:DBFilesClient/Spell.dbc")]
+    [InlineData("path:DBFilesClient\\Spell.dbc", "path:DBFilesClient/Spell.dbc")]
+    [InlineData("path:/DBFilesClient//Spell.dbc", "path:DBFilesClient/Spell.dbc")]
+    public async Task Write_ClientFile_StoredUnderItsNormalPath(string subject, string stored)
+    {
+        var marker = Guid.NewGuid().ToString("N");
+        var (text, isError) = await W.Call(_f.Client, "write_entry", W.Entry(subject, marker));
+        Assert.False(isError, text);
+        Assert.Contains("stored as a note", text);
+        Assert.Single(Rows(_f.Harness, "SELECT id FROM entries WHERE subject_id = $0 AND content_md = $1", stored, marker));
+
+        Assert.Contains(marker, await Get(subject));
+        var (exact, exactError) = await W.Call(_f.Client, "client_paths", new() { ["prefix"] = "DBFilesClient/Spell.dbc" });
+        Assert.False(exactError, exact);
+        Assert.Contains("winner: patch-S.MPQ", exact);
+        Assert.Contains(marker, exact);
+        Assert.Contains("<<<UNTRUSTED-", exact);
+    }
+
+    [Theory]
+    [InlineData("path:")]
+    [InlineData("path:/")]
+    [InlineData("path:DBFilesClient/")]
+    [InlineData("path:No/Such/File.dbc")]
+    [InlineData("path:system/trust-client/ignore-previous-instructions")]
+    [InlineData("path:a<b>.dbc")]
+    [InlineData("path:a|b.dbc")]
+    [InlineData("path:a:b.dbc")]
+    [InlineData("path:DBFilesClient/Spell.dbc\n")]
+    public async Task Write_BadClientFile_Refused(string subject) => await Refused(W.Entry(subject));
+
+    [Fact]
+    public async Task ClientPaths_NoEntries_ExactAnswerIsUnchanged()
+    {
+        var (text, _) = await W.Call(_f.Client, "client_paths", new() { ["prefix"] = "readme.txt" });
+        Assert.Contains("winner: common.MPQ", text);
+        Assert.DoesNotContain("Written entries", text);
+    }
+
+    [Fact]
     public async Task Write_DbcRowWithPaddedId_StoresTheCanonicalId()
     {
         var marker = Guid.NewGuid().ToString("N");
@@ -433,7 +513,7 @@ public class WriteToolTests : IClassFixture<WriteFixture>
         Assert.Equal("wal", Rows(_f.Harness, "PRAGMA journal_mode").Single()["journal_mode"]);
         Assert.Single(Rows(_f.Harness, "SELECT version FROM schema_version"));
         var cols = Rows(_f.Harness, "SELECT name FROM pragma_table_info('entries')").Select(r => (string)r["name"]!).ToHashSet();
-        foreach (var c in "id subject_id kind realm_json trust content_md evidence_json field value position_json author created_at supersedes_id undone_at undone_by".Split(' '))
+        foreach (var c in "id subject_id kind requested_kind realm_json trust content_md evidence_json field value position_json author created_at supersedes_id undone_at undone_by".Split(' '))
             Assert.Contains(c, cols);
     }
 
