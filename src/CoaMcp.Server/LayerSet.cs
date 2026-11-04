@@ -23,12 +23,23 @@ public sealed class LayerSet : IDisposable
     /// <summary>Layers the server expects. Later tasks add to this list.</summary>
     public static readonly string[] ExpectedLayers = { "bisbeard", "spells", "paths", "dbc", "notes", "cache" };
 
+    private const string CacheLayer = "cache";
+
+    /// <summary>What status says for the cache layer until one is published. It is planned work, not a deployment fault.</summary>
+    public const string CacheNotBuilt = "not built: no approved cache source yet";
+
+    private const string Missing = "missing: no layer file found";
+
+    /// <summary>A read that fails this many reloads running is a real problem. Fewer is usually the publisher replacing the file.</summary>
+    private const int PersistentReadFailures = 3;
+
     private readonly string _root;
     private readonly ILogger? _log;
     private readonly object _reloadLock = new();
     private readonly Dictionary<string, ManifestEntry> _live = new();
     private readonly Dictionary<string, (string Key, string Notice)> _failed = new();
     private string? _lastManifestError;
+    private int _readFailures;
     private volatile IReadOnlyList<LayerState> _layers;
 
     private LayerSet(string root, ILogger? log)
@@ -49,6 +60,7 @@ public sealed class LayerSet : IDisposable
     /// <summary>
     /// Re-reads current.json and loads any layer whose entry changed. Verification reads whole files, so call this off the request path.
     /// A broken current.json or a layer that fails verification leaves what is loaded as it is and logs an error.
+    /// A current.json that can't be opened is tried again next time, and is an error only once it has failed <see cref="PersistentReadFailures"/> reloads running.
     /// </summary>
     public void Reload()
     {
@@ -59,8 +71,19 @@ public sealed class LayerSet : IDisposable
             {
                 manifest = Manifest.ReadFile(Path.Combine(_root, Manifest.FileName));
                 _lastManifestError = null;
+                _readFailures = 0;
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidDataException)
+            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException and not (FileNotFoundException or DirectoryNotFoundException))
+            {
+                // On Windows, the publisher renaming over the file can briefly refuse a read. The content is never partial.
+                _readFailures++;
+                if (_readFailures < PersistentReadFailures)
+                    _log?.LogWarning("{File} could not be opened ({Reason}); trying again at the next reload.", Manifest.FileName, ex.Message);
+                else if (_readFailures == PersistentReadFailures)
+                    _log?.LogError(ex, "{File} could not be read for {Count} reloads running; keeping the layers that are loaded.", Manifest.FileName, PersistentReadFailures);
+                return;
+            }
+            catch (Exception ex) when (ex is IOException or System.Text.Json.JsonException or InvalidDataException)
             {
                 // Log a persistent problem once, not every 30 seconds.
                 if (_lastManifestError != ex.Message)

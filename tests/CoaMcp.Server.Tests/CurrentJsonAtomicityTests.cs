@@ -50,6 +50,52 @@ public class CurrentJsonAtomicityTests : IDisposable
     }
 
     [Fact]
+    public void UnreadableCurrentJson_WarnsAtFirst_AndLogsOneErrorWhenItPersistsAcrossThreeReloads()
+    {
+        var log = new ListLogger();
+        using var layers = LayerSet.Open(_root, log);
+        var path = Path.Combine(_root, "current.json");
+        var good = File.ReadAllText(path);
+        void Unreadable() { File.Delete(path); Directory.CreateDirectory(path); }   // refuses a read on every OS, like a replace in progress
+        void Readable() { Directory.Delete(path); File.WriteAllText(path, good); }
+        int Warnings() => log.Lines.Count(l => l.Level == Microsoft.Extensions.Logging.LogLevel.Warning);
+
+        Unreadable();
+        layers.Reload();
+        layers.Reload();
+        Assert.Empty(log.Errors);
+        Assert.Equal(2, Warnings());
+
+        layers.Reload();
+        Assert.Single(log.Errors);
+        layers.Reload();
+        layers.Reload();
+        Assert.Single(log.Errors);   // one error for one outage, not one every 30 seconds
+        Assert.Equal(2, Warnings());
+
+        Readable();
+        layers.Reload();
+        Unreadable();
+        layers.Reload();
+        layers.Reload();
+        Assert.Single(log.Errors);   // a good read starts the count again
+        Assert.Equal(4, Warnings());
+        Readable();
+    }
+
+    [Fact]
+    public void DamagedCurrentJson_IsAnErrorAtOnce()
+    {
+        var log = new ListLogger();
+        using var layers = LayerSet.Open(_root, log);
+        File.WriteAllText(Path.Combine(_root, "current.json"), "{ not json");
+
+        layers.Reload();
+
+        Assert.Single(log.Errors);   // a rename never leaves this, so waiting would only hide it
+    }
+
+    [Fact]
     public async Task ReloadRunningWhileCurrentJsonIsReplaced_LogsNoError()
     {
         var log = new ListLogger();
