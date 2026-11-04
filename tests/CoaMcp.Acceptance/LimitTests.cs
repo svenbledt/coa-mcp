@@ -99,7 +99,14 @@ public class LimitTests
     });
 
     [SkippableFact]
-    public Task DirectToOrigin_ForgedHeadersStillLimited() => Suite.Run(Area, "direct to the origin with forged headers, it's still limited", async c =>
+    public Task DirectToOrigin_ForgedHeadersStillLimited()
+    {
+        const string Test = "direct to the origin with forged headers, it's still limited";
+        if (Settings.OriginIp is null) Suite.NotRun(Area, Test, "COA_ACCEPT_ORIGIN_IP is not set: the origin address stays out of the repository, so this test has to be given it");
+        return DirectToOrigin(Test);
+    }
+
+    private static Task DirectToOrigin(string test) => Suite.Run(Area, test, async c =>
     {
         await NextWindow();
         using var direct = Raw.PinnedToOrigin();
@@ -129,7 +136,7 @@ public class LimitTests
         var cloudflareForged = await Raw.Post(direct, Raw.ToolsList, new[] { ("X-Forwarded-For", "9.9.9.9, 173.245.48.1"), ("CF-Connecting-IP", "9.9.9.9") });
         var after = await Raw.Post(direct, Raw.ToolsList);
         if (before.Status == 429 && after.Status == 429)
-            c.Equal(429, cloudflareForged.Status, "claiming to come through a Cloudflare address doesn't help");
+            c.Equal(429, cloudflareForged.Status, "direct to the origin, claiming to come through a Cloudflare address doesn't help");
         else c.Book.Observe("A window rolled over during the direct check; its last statuses prove nothing alone.");
     });
 

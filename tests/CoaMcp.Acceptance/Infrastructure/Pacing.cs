@@ -125,7 +125,7 @@ public static class Raw
                 var socket = new System.Net.Sockets.Socket(System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp) { NoDelay = true };
                 try
                 {
-                    await socket.ConnectAsync(IPAddress.Parse(Settings.OriginIp), context.DnsEndPoint.Port, ct);
+                    await socket.ConnectAsync(IPAddress.Parse(Settings.OriginIp!), context.DnsEndPoint.Port, ct);
                     return new System.Net.Sockets.NetworkStream(socket, ownsSocket: true);
                 }
                 catch

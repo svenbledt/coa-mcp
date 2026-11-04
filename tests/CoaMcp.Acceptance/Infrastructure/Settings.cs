@@ -55,7 +55,10 @@ public static class Settings
     public static string ReportPath => Environment.GetEnvironmentVariable("COA_ACCEPT_REPORT") is { Length: > 0 } p ? p : Path.Combine(RepoRoot, "docs", "acceptance-report.md");
 
     public static string SshHost => Environment.GetEnvironmentVariable("COA_ACCEPT_SSH_HOST") is { Length: > 0 } h ? h : "BledtIT";
-    public const string OriginIp = "ORIGIN-ADDRESS-REMOVED";
+
+    /// <summary>The server's direct address, for the test that goes past Cloudflare. It stays out of the repository. Without it that test is NOT RUN.</summary>
+    public static string? OriginIp => Environment.GetEnvironmentVariable("COA_ACCEPT_ORIGIN_IP") is { Length: > 0 } ip ? ip : null;
+
     public const string CoolifyAppId = "ukfeegudmo0pfyq1nxe7tadz";
 
     /// <summary>The one test that changes production publishes and rolls back a layer. It runs only when asked for.</summary>
@@ -84,6 +87,6 @@ public static class Settings
     /// <summary>Roots replaced in everything the report shows, so it doesn't describe this machine.</summary>
     public static IReadOnlyList<string> LocalRoots { get; } = new[]
     {
-        RepoRoot, RestoredRoot, @"F:\WorkDir", @"D:\WoW", Path.GetTempPath().TrimEnd('\\', '/'), Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+        RepoRoot, RestoredRoot, @"F:\WorkDir", @"D:\WoW", Path.GetTempPath().TrimEnd('\\', '/'), Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), OriginIp ?? "",
     }.Where(r => !string.IsNullOrEmpty(r)).Distinct().ToList();
 }
