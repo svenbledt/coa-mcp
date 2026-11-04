@@ -138,6 +138,8 @@ public static partial class Suite
     /// <summary>Live written entries when the run began, from status. Null when status gave no count.</summary>
     public static int? LiveAtStart { get; private set; }
 
+    public static string WrittenLineAtStart { get; private set; } = "";
+
     /// <summary>Every entry this run wrote, so the last test can check each one, whatever happened along the way.</summary>
     public static System.Collections.Concurrent.ConcurrentDictionary<long, bool> WrittenIds { get; } = new();
 
@@ -229,6 +231,7 @@ public static partial class Suite
 
         ServerWritesEnabled = WritesEnabled(status.Text);
         LiveAtStart = LiveEntries(status.Text);
+        WrittenLineAtStart = WrittenLine(status.Text);
         var state = status.Text.Split('\n').FirstOrDefault(l => l.StartsWith("Writes:", StringComparison.Ordinal)) ?? "(status has no Writes line)";
         Book.Header($"Write state from `status` at the start: \"{state}\" and \"{WrittenLine(status.Text)}\"");
         Book.Header(ServerWritesEnabled

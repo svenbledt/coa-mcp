@@ -108,6 +108,21 @@ public class SelfCheckTests
     }
 
     [Theory]
+    [InlineData("640", true)]
+    [InlineData("600", true)]
+    [InlineData("0640", true)]
+    [InlineData("400", true)]
+    [InlineData("644", false)]
+    [InlineData("660", false)]
+    [InlineData("750", false)]
+    [InlineData("4640", false)]
+    public void AtMost640_ReadsModes(string mode, bool expected)
+    {
+        Assert.Equal(expected, AdminTests.AtMost640(mode));
+        Record("the file mode check reads modes correctly");
+    }
+
+    [Theory]
     [InlineData("Written entries: none yet.", 0)]
     [InlineData("Written entries: 7 live (observed 2, memory 5), 3 undone, 1 superseded. Their authors are self-declared.", 7)]
     [InlineData("Written entries: unavailable, the writable store could not be opened (see the server log).", null)]

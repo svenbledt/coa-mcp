@@ -163,7 +163,7 @@ public class WriteTests
 
         /// <summary>Every subject the suite writes to. They're fixed, so that a later run can find what a crashed one left.</summary>
         public static readonly string[] Slugs =
-            { "basic", "evidence", "trust", "author", "kind", "size", "position", "marker", "conflict", "noconflict", "lookalike", "page", "merge", "restart", "wrongtoken" };
+            { "basic", "evidence", "trust", "author", "kind", "size", "position", "marker", "conflict", "noconflict", "lookalike", "page", "merge", "restart", "wrongtoken", "admin" };
 
         public static string SubjectFor(string slug) => $"test:acceptance-{slug}";
 
@@ -312,7 +312,7 @@ public class WriteTests
             // The server keeps test: subjects out of search on purpose, so test data never reaches a reader looking for facts.
             var found = await (await Suite.Anonymous()).Call("search", new { query = word });
             c.Lacks(found.Text, $"entry:{id}", "a test: entry stays out of search");
-            c.Lacks(found.Text, word, "and so does its text");
+            c.Has(found.Text, ": 0 hits", "and nothing else matches its word");
 
             var undo = await w.Undo(id!.Value, "normal undo");
             c.Has(undo.Text, $"Undid entry:{id}", "undo reports the entry");

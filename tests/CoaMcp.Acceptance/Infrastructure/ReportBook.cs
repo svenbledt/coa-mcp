@@ -19,7 +19,7 @@ public sealed class ReportBook
     public static readonly string[] Areas =
     {
         "Protocol", "Read tools", "Accuracy: items", "Accuracy: spells", "Accuracy: scaling", "Accuracy: DBC", "Accuracy: paths", "Accuracy: status counts", "Accuracy: spot checks",
-        "Hostile input", "Limits", "Writes: refused", "Writes: with token", "Merge", "Live update", "Restart", "Load", "Real client", "Final state", "Suite self-checks",
+        "Hostile input", "Limits", "Writes: refused", "Writes: with token", "Merge", "Live update", "Restart", "Admin", "Load", "Real client", "Final state", "Suite self-checks",
     };
 
     /// <summary>The nine tools the design's anonymous list holds, then the two hidden write tools. Sets the order of the Tool responses section.</summary>

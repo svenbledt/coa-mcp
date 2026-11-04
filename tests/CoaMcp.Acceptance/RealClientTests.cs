@@ -166,6 +166,8 @@ public class FinalStateTests
             c.Has(entry.Text, "status: undone", $"entry:{id}, written by this run, is undone");
         }
         c.Book.Observe($"Final state: {Suite.WrittenIds.Count} entries written by this run were each checked with get(entry:n).");
+        if (!Suite.WrittenIds.IsEmpty)
+            c.Book.ProductionChange($"Wrote {Suite.WrittenIds.Count} entries by acceptance-test on test: subjects, and undid them. Nothing is deleted, so they stay in the store's history as undone. Status at the start said \"{Suite.WrittenLineAtStart}\" and now says \"{Suite.WrittenLine(status.Text)}\".");
 
         foreach (var slug in WriteTests.Writer.Slugs)
         {
