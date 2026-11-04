@@ -199,6 +199,8 @@ public sealed class ReadTools
             sb.Append("Client release: ").Append(Render.OneLine(note, 400)).Append('\n');
         sb.Append("Known gaps: ").Append(KnownGaps).Append('\n');
         sb.Append("Known gap (client paths): ").Append(PathTools.Gap).Append('\n');
+        if (_layers.Status().Any(l => l.Problem == LayerSet.CacheNotBuilt))
+            sb.Append("Known gap (cache): no approved cache source yet, so the npcs topic has no player-cache data.\n");
         sb.Append(_token.Enabled ? "Writes: enabled, for holders of the bearer token.\n" : "Writes: disabled on this server.\n");
         var store = _store.Status();
         if (store.Problem is not null) sb.Append("Written entries: unavailable, the writable store could not be opened (see the server log). Generated data is unaffected.\n");

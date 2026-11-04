@@ -147,7 +147,8 @@ public class ReadToolTests
             return m.Groups[1].Value;
         }).ToList();
         c.Equal(1, clientDates.Distinct().Count(), "the client layers share one date");
-        c.Has(r.Text, "cache: missing", "the missing cache layer is reported, not hidden");
+        c.Has(r.Text, "cache: not built: no approved cache source yet", "the unbuilt cache layer is reported, not hidden");
+        c.Has(r.Text, "Known gap (cache)", "and listed as a gap");
         c.Has(r.Text, "Known gaps:", "known gaps are listed");
         c.Has(r.Text, "WotLK, Octo, Classic and S10 have BisBeard data only", "the design's realm gap is listed");
         c.Has(r.Text, "Known gap (client paths)", "the winners' assumption is listed");

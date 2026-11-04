@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Client;
 
 namespace CoaMcp.Server.Tests;
@@ -302,6 +303,31 @@ public class ReadToolTests : IClassFixture<ReadFixture>
         Assert.Contains("v3", text);
         Assert.Contains("2026-08-27", text);
         Assert.Contains("Known gaps: dungeon behavior and NPC positions have no data until observations arrive; WotLK, Octo, Classic and S10 have BisBeard data only.", text);
+    }
+
+    [Fact]
+    public async Task Status_NoCacheLayer_SaysNotBuilt_NotMissing_AndListsTheGap()
+    {
+        var (text, _) = await _f.Call("status");
+        Assert.Contains("- cache: not built: no approved cache source yet", text);
+        Assert.DoesNotContain("cache: missing", text);
+        Assert.Contains("Known gap (cache): no approved cache source yet", text);
+    }
+
+    [Fact]
+    public async Task Status_CacheListedButItsFileGone_IsStillMissing()
+    {
+        using var h = new ServerHarness();
+        var current = Path.Combine(h.Root, CoaMcp.Core.Manifest.FileName);
+        h.Services.GetRequiredService<LayerSet>();
+        TestLayers.WriteManifestAtomic(current, CoaMcp.Core.Manifest.ReadFile(current).With("cache", CoaMcp.Core.ManifestEntry.For("cache", "1", new string('a', 64))));
+        h.Services.GetRequiredService<LayerSet>().Reload();
+
+        await using var client = await h.ConnectAsync();
+        var (text, _) = await ServerHarness.CallAsync(client, "status");
+
+        Assert.Contains("- cache: missing: no layer file found", text);   // published but absent is a deployment fault
+        Assert.DoesNotContain("Known gap (cache)", text);
     }
 
     [Fact]

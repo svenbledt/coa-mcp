@@ -46,7 +46,7 @@ public sealed class LayerSet : IDisposable
     {
         _root = root;
         _log = log;
-        _layers = ExpectedLayers.Select(n => new LayerState(n, null, "missing: no layer file found")).ToList();
+        _layers = ExpectedLayers.Select(n => new LayerState(n, null, n == CacheLayer ? CacheNotBuilt : Missing)).ToList();
     }
 
     /// <summary>Loads every expected layer named in <c>current.json</c> under <paramref name="root"/>. Nothing here throws for a bad layer.</summary>
@@ -128,7 +128,7 @@ public sealed class LayerSet : IDisposable
                     _failed[name] = (key, notice);
                     next[i] = next[i].Layer is not null
                         ? next[i] with { Notice = notice }
-                        : new LayerState(name, null, ex is FileNotFoundException ? "missing: no layer file found" : "could not be opened (see the server log)");
+                        : new LayerState(name, null, ex is FileNotFoundException ? Missing : "could not be opened (see the server log)");
                 }
             }
             _layers = next;
@@ -193,6 +193,20 @@ public sealed class LayerSet : IDisposable
     }
 
     /// <summary>
+    /// Suggestions for an id that was not found. They are a courtesy, so a miss takes a search slot only if one is free right now and never queues behind real searches.
+    /// Busy means no suggestions, not an error.
+    /// </summary>
+    public IReadOnlyList<LayerHit> Suggest(string text, int limit)
+    {
+        try
+        {
+            var w = SearchAround(text, null, null, limit, 0, 0, TimeSpan.Zero);
+            return w.Exact.Concat(w.Rest).ToList();
+        }
+        catch (LayerBusyException) { return Array.Empty<LayerHit>(); }
+    }
+
+    /// <summary>
     /// One page of a ranking with <paramref name="entryCount"/> written entries placed after the exact title matches and before everything else.
     /// Says which entries belong on the page, so the caller fetches only those.
     /// </summary>
@@ -215,20 +229,6 @@ public sealed class LayerSet : IDisposable
             var exactCount = ordered.TakeWhile(c => c.Exact).Count();
             var exact = ordered.Take(exactCount).Skip(offset).Take(limit).ToList();
             var room = limit - exact.Count;
-    /// <summary>
-    /// Suggestions for an id that was not found. They are a courtesy, so a miss takes a search slot only if one is free right now and never queues behind real searches.
-    /// Busy means no suggestions, not an error.
-    /// </summary>
-    public IReadOnlyList<LayerHit> Suggest(string text, int limit)
-    {
-        try
-        {
-            var w = SearchAround(text, null, null, limit, 0, 0, TimeSpan.Zero);
-            return w.Exact.Concat(w.Rest).ToList();
-        }
-        catch (LayerBusyException) { return Array.Empty<LayerHit>(); }
-    }
-
             var entrySkip = Math.Max(0, offset - exactCount);
             var entryTake = Math.Min(room, Math.Max(0, entryCount - entrySkip));
             var rest = ordered.Skip(exactCount + Math.Max(0, offset - exactCount - entryCount)).Take(room - entryTake).ToList();

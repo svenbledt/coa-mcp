@@ -57,7 +57,8 @@ public class LayerSwapTests : IDisposable
     {
         File.Delete(Path.Combine(_root, "current.json"));
         using var layers = Open();
-        Assert.All(layers.Status(), s => { Assert.Null(s.Layer); Assert.Contains("missing", s.Problem); });
+        Assert.All(layers.Status().Where(s => s.Name != "cache"), s => { Assert.Null(s.Layer); Assert.Contains("missing", s.Problem); });
+        Assert.Equal(LayerSet.CacheNotBuilt, layers.Status().Single(s => s.Name == "cache").Problem);
         Assert.NotEmpty(_log.Errors);
     }
 
