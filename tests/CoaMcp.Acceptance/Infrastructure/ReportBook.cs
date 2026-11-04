@@ -192,6 +192,18 @@ public sealed class ReportBook
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var tmp = path + ".tmp";
         File.WriteAllText(tmp, text, new UTF8Encoding(false));
-        File.Move(tmp, path, overwrite: true);
+        // On Windows the rename fails while anything else has the report open. That says nothing about the server, so it mustn't fail the test that happened to be writing.
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                File.Move(tmp, path, overwrite: true);
+                return;
+            }
+            catch (Exception ex) when (attempt < 10 && ex is IOException or UnauthorizedAccessException)
+            {
+                Thread.Sleep(500);
+            }
+        }
     }
 }
