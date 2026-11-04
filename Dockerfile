@@ -24,6 +24,6 @@ ENV ASPNETCORE_HTTP_PORTS= \
 EXPOSE 8080
 # The aspnet image has no curl or wget, so the check opens a TCP connection with bash and reads the status line.
 # Loading and verifying the layers happens before the server listens, hence the long start period.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=300s --retries=3 \
     CMD ["bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /healthz HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && head -n 1 <&3 | grep -q ' 200 '"]
 ENTRYPOINT ["dotnet", "CoaMcp.Server.dll"]
