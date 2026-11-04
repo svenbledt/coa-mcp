@@ -1,0 +1,46 @@
+# Decisions made during the build
+
+Choices made without asking, while building, in order. Each says why and what it costs if wrong.
+
+- work in place on feat/knowledge-mcp with no linked worktree — repo was empty, nothing to protect, and the owner works only here — if wrong, moving to a worktree later costs minutes.
+- main holds one root commit with docs and .gitignore; Task 1 does not re-commit spec/plan — a branch needs a base commit — if wrong, one history tidy-up.
+- LayerWriter gets `Execute(string sql, params object?[] args)` and LayerReader gets `Query(string sql, params object?[] args) -> IReadOnlyList<IReadOnlyDictionary<string,object?>>`, for code-defined SQL only, never user text — later tasks need custom tables and the plan didn't define access — if wrong, a small API change.
+- realm value `coa-client` marks data from the D:\WoW\Coa client; RealmSet.Label renders it "the CoA client"; a realm filter of `coa` also matches `coa-client` — spec says client data isn't assumed CoA-only yet CoA agents need it — if wrong, a filter tweak.
+- reviewer's commit-step gap (spec and plan not in diff) stands as no defect — both are on main in 48f3a42 per the earlier ruling — no cost if wrong.
+- reviewer's claim that Project Ascension is "a different server" is wrong, since Ascension is the target; the guide stays but its realm becomes unknown — keeps relevant guidance without faking a realm — if wrong, one config line.
+- guides get a realm only where their text states it, otherwise realm unknown — spec forbids guessing — if wrong, CoA filters miss some guides until labeled.
+- plan gap: talents, essences and race/equipment rules from realm data are added in this task's fix — spec's Classes topic requires them and no other task covers it — if wrong, some extra pages.
+- 1.06 GB spell layer is accepted — BledtIT has 183 GB free and SQLite reads from disk — if wrong, trim visuals later.
+- System.Drawing.Common advisory suppressed in pipeline and its tests only — that code runs only locally on trusted DBCs and never ships in the server image — if wrong, a dependency swap in Spellwork.
+- search order is exact title match first, then type priority (spell, item, class, talents, spec, rules, guide, marker), then bm25 within each type, with identical marker titles collapsed — bm25 across databases isn't comparable and agents need the answer first — if wrong, a reorder.
+- Task 5 deploy steps run after its code passes review, as a separate step — keeps unreviewed code off the public internet — if wrong, a short delay.
+- compose mounts /data/coamcp:/data read-write; layers stay read-only by ownership (root-owned, 0644) and writable/ is owned by UID 10001 — plan needs /data/writable on the same volume — if wrong, a mount change.
+- layer version is built per run as UTC timestamp yyyyMMddHHmmss, with --version to override — a rebuild must be publishable — if wrong, a CLI tweak.
+- name COA_MCP_BEARER_TOKEN, one shared token, writes must declare an author (self-declared, shown as such), undo by author, unset or under 32 chars disables writes — owner asked for a single env var, attribution still needed for undo — if wrong, multiple tokens can be added via a comma-separated variable.
+- merge is a manual pull-writes command exporting to knowledge/entries as one Markdown file per entry, reviewed and committed by a person, one direction, with a restore command — "from time to time" fits a manual step and untrusted text shouldn't auto-commit — if wrong, schedule it later.
+- FTS5 shadow rows stay unscanned by the guard — layers come only from our own LayerWriter and the rows are FTS index data, so exploiting it needs a deliberately crafted layer built on the owner's machine — if wrong, a client file could hide in a shadow table, only by deliberate action. Surface to owner at finish.
+- never trust the Docker gateway: Network:UntrustedAddresses excludes 10.0.1.1 — closes the key-picking path without pinning a cloudflared IP that can change; direct IPv6 clients share one bucket — if wrong, those few clients throttle each other.
+- replace tunnel logic: peer must be in Network:PeerNetworks (10.0.0.0/8); if rightmost XFF is in Cloudflare's published ranges use valid CF-Connecting-IP, otherwise the rightmost XFF is the client; drop UntrustedAddresses — a direct client can't forge a CF edge source address; direct IPv6 via gateway shares one bucket — if wrong, range list needs refreshing when Cloudflare adds ranges.
+- restored client goes to D:\WoW\CoaRestored, outside both the repo and D:\WoW\Coa — private and on the same disk as the client; listfiles go to D:\WoW\Coa\Listfiles as the owner asked — if wrong, one path argument.
+- corrected: restored client goes to F:\WorkDir\CoaRestored, since D: has 86 GB free and extraction may exceed that, F: has 361 GB — if wrong, one path argument.
+- fix the 83 in Task 6 rather than leaving them — owner asked for complete restore and the fix is small and CRC-proven — if wrong, extra code for installer extras.
+- archives gone from disk are only reported; deleting needs explicit --prune-gone and matching data_dir, and no archives found is an error — 766,035 files took an hour to restore and a typo must not erase them — if wrong, one extra flag.
+- per-file safety keeps leaking, so replace it: a changed archive restores into a staging folder and swaps in only if every entry read and passed, otherwise old folder and rows stay untouched and the archive is broken — removes the whole class of partial-loss bugs — costs double disk for that archive during a re-run.
+- a replacement with no non-internal entries, when old rows had some, is rejected as broken unless --allow-empty is passed — eight real archives are shells so a failed rebuild would look like this — if wrong, one flag.
+- since only project archives are marked and the rest are unknown, the winner's alternative copy is the next non-project copy, labeled unknown origin — owner confirmed D:\WoW\Coa is the client and didn't mark archives — if wrong, relabel via config.
+- realm archives (area-52) never count as the default winner, because they load only on that realm; shown separately as a realm override — if wrong, a query tweak.
+- reverse plan step 5: items not in client Item keep the unproven realm set and their page says "id not in the client's Item table" — dropping coa would present a guess as fact, and bloodforged is an Ascension feature — if wrong, some unproven labels stay broad.
+- paths base_winner stops at a delete marker like dbc does — same rule in one place — if wrong, 4 paths show no base.
+- include the offset-0 fix and client revision in this fix round though Minor/owner-promised — real names were hidden on default row output — small cost.
+- cache-item and cache-quest are dropped for now, creature only — one local sample's item layout doesn't fit 3.3.5 and guessing is forbidden, and no approved cache source exists yet — if wrong, add parsers when a source is approved.
+- undo by author stays in Task 11 as planned; evidence is optional for memory since memory by nature has none, and the entry says memory — if wrong, one validation line.
+- a page only supersedes a page of same or lower trust number precedence (memory never replaces observed); both stay visible, higher first — design says never lower trust silently — if wrong, a query change.
+- add path to subject types; test: entries don't appear in normal search, get still works; coercion of writes on generated subjects to note stands and the write response says so — design keeps rows unchanged — small.
+- the owner sets the bearer token in Coolify themselves — entering tokens into web forms is something I must not do — costs one manual step.
+- knowledge/** -text stands instead of eol=lf — eol=lf rewrote CRLF inside entry content, and content must stay byte-exact — no cost.
+- Task 13 load test runs at the real limit from two sources (this machine and BledtIT) — one IP is capped at 120/min by design and raising the limit for a test wouldn't test production — if wrong, a config run later.
+- Task 13 implementer builds and runs the suite and reports failures to the controller; fixes go through the normal review — avoids unreviewed code reaching production.
+- restart test proves store file exists on the host volume plus docker restart, renamed accordingly; a real redeploy is observed once the token exists — a redeploy from a test would be heavy and the host file proves the same — if wrong, one manual redeploy check.
+- patch-T origin becomes unknown with its evidence stated, until owner says otherwise — release notes show it shipped, not built, and patch-B alone has a build record; answers still don't claim Ascension — if wrong, a config flip and rebuild. This reverses what I told the owner earlier ("warning stays").
+- all client layers use one date, the newest client archive's modified date, labeled "client files dated" — one client should have one date — if wrong, relabel.
+- one targeted extra fix despite the single-fix-wave rule — it's a new public lockout in undeployed code, and shipping it knowingly is worse than a small extra round — costs one more dispatch.
