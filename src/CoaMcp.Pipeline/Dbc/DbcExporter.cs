@@ -245,6 +245,7 @@ public static partial class DbcExporter
             if (problem.Length > 0) Problems.Add($"{s.Name}: {problem}");
 
             var columns = Columns(layout, scan);
+            var namesSource = s.IsArea52 && layout.NamesSource is { } names ? $"the CoA layout, checked by the layout gate: {names}" : layout.NamesSource;
             using (var insert = b.BeginTable(s.Name, columns.Select(c => c.Column).ToList()))
             {
                 var values = new object?[columns.Count];
@@ -257,7 +258,7 @@ public static partial class DbcExporter
 
             var id = columns[0].Column;
             b.AddTable(new DbcTableInfo(s.Name, reader.RecordCount, reader.FieldCount, layout.Named, s.Held.Copy.Archive, s.Held.Archive.Origin, s.BaseOf, DbcStatus.Ok,
-                problem.Length > 0 ? problem : null, layout.NamesSource, id.Type == DbcTypes.String || id.IsFloat ? null : id.Name, scan.FirstColumnUnique, s.Date),
+                problem.Length > 0 ? problem : null, namesSource, id.Type == DbcTypes.String || id.IsFloat ? null : id.Name, scan.FirstColumnUnique, s.Date),
                 columns.Select(c => c.Column).ToList(), s.Realm, s.Area52Version);
 
             if (s.IsArea52)

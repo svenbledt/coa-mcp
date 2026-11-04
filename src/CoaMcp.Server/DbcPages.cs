@@ -35,9 +35,9 @@ public static class DbcPages
     private const int MaxRowsPerId = 5;
     private static readonly RealmSet ClientRealm = new(new[] { "coa-client" }, false);
 
-    private static RealmSet RealmOf(DbcTableRef t) => t.IsArea52 ? DbcLayerBuilder.Area52Realms : ClientRealm;
+    public static RealmSet RealmOf(DbcTableRef t) => t.IsArea52 ? DbcLayerBuilder.Area52Realms : ClientRealm;
 
-    private static string SourceOf(DbcTableRef t, Layer layer) => DbcLayerBuilder.SourceOf(t.Name, t.Archive, layer.Meta.Client);
+    public static string SourceOf(DbcTableRef t, Layer layer) => DbcLayerBuilder.SourceOf(t.Name, t.Archive, t.Origin, layer.Meta.Client);
 
     public static DbcTableRef? Find(Layer layer, string table) =>
         layer.Query("SELECT * FROM dbc_tables WHERE name = $0", table) is [var r] ? DbcTableRef.From(r) : null;

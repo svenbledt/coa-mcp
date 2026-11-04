@@ -71,6 +71,21 @@ public class AscensionOriginTests(AscensionOriginFixture f) : IClassFixture<Asce
     [Fact] public async Task ClientPathList_SaysIt() => NeverLiveVerified((await Call("client_paths", ("prefix", "DBFilesClient/"))).Text);
 
     [Fact]
+    public async Task DbcSearchHit_CarriesTheNoteInItsSource_WhichIsNeverCut()
+    {
+        var (text, _) = await Call("search", ("query", "Spell"), ("topic", "dbc"));
+        var hit = text.Split('\n').Single(l => l.Contains("| dbc:Spell]", StringComparison.Ordinal));
+        Assert.Contains($"src: CoA client DBC, {AscensionOriginFixture.Client.Claim}, from patch-T.MPQ ({Words})", hit);
+    }
+
+    [Fact]
+    public async Task SearchForTheNotesWords_DoesNotMatchEverySpell()
+    {
+        var (text, _) = await Call("search", ("query", "records"), ("topic", "spells"));
+        Assert.Contains("0 hits", text);   // the source is shown but not indexed
+    }
+
+    [Fact]
     public async Task SearchHit_DoesNotCutTheWording()
     {
         var (text, _) = await Call("search", ("query", "Fire Blast"), ("topic", "spells"));

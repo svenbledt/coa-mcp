@@ -302,7 +302,7 @@ public class AccuracyDbcTests
     [SkippableFact]
     public Task Area52_RowsMatchPatchD_AndDefaultRowsDont() => Suite.Run(Area, "Area 52 rows match patch-D's file, and default rows don't use them", async c =>
     {
-        const string Separate = "Area 52 is a separate realm from CoA (realm ids 11 and 13); the client only loads this archive there.";
+        const string Separate = "Area 52 (realm id 11) is a separate realm from CoA (13); the client only loads this archive there.";
         var client = await Suite.Anonymous();
         var manifest = ClientManifest.Instance;
         var spell = manifest.Dbc("Spell")!;
@@ -314,6 +314,7 @@ public class AccuracyDbcTests
 
         var areaListing = await client.Call("dbc_tables", new { filter = "Spell__area52", limit = 1 }, "the Area 52 version of Spell");
         c.Has(areaListing.Text, "realm area-52", "it's listed with its realm");
+        c.Lacks(areaListing.Text.Split('\n')[0], "the CoA client", "a listing of only Area 52 tables doesn't name the default client's realm");
         c.Has(areaListing.Text, Separate, "the listing says the realm is separate");
         var areaFields = ParseFields(areaListing.Text, "Spell__area52");
         var defaultFields = ParseFields((await client.Call("dbc_tables", new { filter = "Spell", limit = 1 })).Text, "Spell");

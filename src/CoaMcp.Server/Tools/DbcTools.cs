@@ -66,10 +66,14 @@ public sealed class DbcTools
             ? layer.Query($"SELECT * FROM dbc_tables {Order} LIMIT $0 OFFSET $1", (long)lim + 1, (long)off)
             : layer.Query($"SELECT * FROM dbc_tables WHERE instr(lower(name), lower($2)) > 0 {Order} LIMIT $0 OFFSET $1", (long)lim + 1, (long)off, text);
 
-        var sb = new StringBuilder($"DBC tables (realm the CoA client (unproven), trust {Render.Trust(Trust.Client)}, source {ClientRelease.Source(DbcLayerBuilder.Source, layer.Meta.Client)}; layer {DbcPages.LayerName} v{layer.Meta.Version}, {Render.Dated(layer.Meta, layer.Meta.SourceDate)}).\n");
+        var listed = rows.Take(lim).Select(DbcTableRef.From).ToList();
+        // A listing of only Area 52's tables is about that realm, so its header must not name the default client.
+        var (realm, source) = listed.Count > 0 && listed.All(t => t.IsArea52)
+            ? (Render.RealmText(DbcLayerBuilder.Area52Realms), DbcPages.SourceOf(listed[0], layer))
+            : ("the CoA client (unproven)", ClientRelease.Source(DbcLayerBuilder.Source, layer.Meta.Client));
+        var sb = new StringBuilder($"DBC tables (realm {realm}, trust {Render.Trust(Trust.Client)}, source {source}; layer {DbcPages.LayerName} v{layer.Meta.Version}, {Render.Dated(layer.Meta, layer.Meta.SourceDate)}).\n");
         if (note is not null) sb.Append(note).Append('\n');
         sb.Append($"{Math.Min(rows.Count, lim)} tables (offset {off}, limit {lim}). A project-built winner is not evidence about Ascension. A base table is not claimed as Ascension either.\n");
-        var listed = rows.Take(lim).Select(DbcTableRef.From).ToList();
         foreach (var t in listed) sb.Append(TableLine(t)).Append('\n');
         if (listed.Any(t => t.IsArea52)) sb.Append("Names ending in ").Append(DbcLayerBuilder.Area52Suffix).Append(" are Area 52's versions, never the default. ").Append(DbcLayerBuilder.Area52Line).Append('\n');
         foreach (var archive in listed.Where(t => t.Status == DbcStatus.Ok).Select(t => t.Archive).Distinct())

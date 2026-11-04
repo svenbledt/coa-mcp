@@ -45,14 +45,20 @@ public sealed class DbcLayerBuilder
     /// <summary>A table holding Area 52's version of a DBC. It is a labeled second version: never the default and never a winner.</summary>
     public const string Area52Suffix = "__area52";
     public const string Area52Realm = "area-52";
-    public const string Area52Line = "Area 52 is a separate realm from CoA (realm ids 11 and 13); the client only loads this archive there.";
+    public const string Area52Line = "Area 52 (realm id 11) is a separate realm from CoA (13); the client only loads this archive there.";
     public static readonly RealmSet Area52Realms = new(new[] { Area52Realm }, false);
 
     public static bool IsArea52(string table) => table.EndsWith(Area52Suffix, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>The source of a table: the client's DBCs, or for an Area 52 table the archive it came from.</summary>
-    public static string SourceOf(string table, string? archive, ClientRelease? client) =>
-        ClientRelease.Source(IsArea52(table) ? $"Area 52 DBC from {archive}" : Source, client);
+    /// <summary>
+    /// The source of a table: the client's DBCs, or for an Area 52 table the archive it came from. A table won by an archive of origin ascension carries what that means,
+    /// because a source is shown whole and a search snippet is cut.
+    /// </summary>
+    public static string SourceOf(string table, string? archive, string? origin, ClientRelease? client)
+    {
+        var source = ClientRelease.Source(IsArea52(table) ? $"Area 52 DBC from {archive}" : Source, client);
+        return origin == ArchiveOrigin.Ascension ? $"{source}, from {archive} ({ArchiveOrigin.AscensionNote})" : source;
+    }
 
     /// <summary>The line a default table's answer adds when Area 52 has its own version.</summary>
     public static string Area52VersionLine(string area52Table) => $"Area 52 has its own version of this table: {area52Table}.";
@@ -96,7 +102,7 @@ public sealed class DbcLayerBuilder
         foreach (var c in columns)
             _w.Execute("INSERT INTO dbc_fields VALUES ($0,$1,$2,$3,$4,$5,$6)", t.Name, (long)c.Index, c.Name, c.Type, c.Guessed ? 1L : 0L, c.Indexed ? 1L : 0L, c.Note);
 
-        _w.Add(new Entity("dbc:" + t.Name, EntityType, t.Name, realm, Trust.Client, SourceOf(t.Name, t.WinnerArchive, _client),
+        _w.Add(new Entity("dbc:" + t.Name, EntityType, t.Name, realm, Trust.Client, SourceOf(t.Name, t.WinnerArchive, t.Origin, _client),
             DateOnly.ParseExact(t.SourceDate, "yyyy-MM-dd", CultureInfo.InvariantCulture), Body(t, columns, _client, area52Version), null, Array.Empty<Link>()));
     }
 

@@ -641,7 +641,7 @@ public class DbcExportTests : IDisposable
         Assert.Equal(Trust.Client, page.Trust);
         Assert.Contains("patch-D.MPQ", page.Source);
         Assert.DoesNotContain("CoA client", page.Source);
-        Assert.Contains("Area 52 is a separate realm from CoA (realm ids 11 and 13); the client only loads this archive there.", page.BodyMd);
+        Assert.Contains("Area 52 (realm id 11) is a separate realm from CoA (13); the client only loads this archive there.", page.BodyMd);
         Assert.DoesNotContain("Winning copy", page.BodyMd);
         Assert.Contains("Spell__area52", r.Get("dbc:Spell")!.BodyMd);
 
@@ -689,6 +689,8 @@ public class DbcExportTests : IDisposable
         using var r = _w.Open();
         Assert.Equal(9L, r.Query("SELECT Speed FROM t_Spell__area52").Single()["Speed"]);
         Assert.Equal(2L, Table(r, "Spell__area52")["named"]);
+        Assert.Contains("the CoA layout, checked by the layout gate", (string)Table(r, "Spell__area52")["names_source"]!);
+        Assert.DoesNotContain("layout gate", (string)Table(r, "Spell")["names_source"]!);
     }
 
     [Fact]
@@ -752,6 +754,7 @@ public class DbcExportTests : IDisposable
         Assert.Equal(0, result.BaseTables);
         var body = r.Get("dbc:Spell")!.BodyMd;
         Assert.Contains("patch-T.MPQ (Ascension's archive per project records; this copy may lag live)", body);
+        Assert.Contains("patch-T.MPQ (Ascension's archive per project records; this copy may lag live)", r.Get("dbc:Spell")!.Source);
         Assert.DoesNotContain("not claimed as Ascension", body);
     }
 
@@ -919,7 +922,7 @@ public class DbcExportTests : IDisposable
     [Fact]
     public void Export_ClientRelease_IsInMetaSourceAndWinnersList()
     {
-        _w.Add("patch-T.MPQ", "Spell", Simple());
+        _w.Add("patch-M.MPQ", "Spell", Simple());
 
         _w.Export(new ClientRelease(8, "rel-8", "a note"));
 

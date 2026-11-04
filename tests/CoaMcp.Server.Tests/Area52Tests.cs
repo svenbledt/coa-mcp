@@ -41,7 +41,7 @@ public sealed class Area52Fixture : IAsyncLifetime
 
 public class Area52Tests(Area52Fixture f) : IClassFixture<Area52Fixture>
 {
-    private const string Separate = "Area 52 is a separate realm from CoA (realm ids 11 and 13); the client only loads this archive there.";
+    private const string Separate = "Area 52 (realm id 11) is a separate realm from CoA (13); the client only loads this archive there.";
 
     private Task<(string Text, bool IsError)> Call(string tool, params (string, object?)[] args) =>
         ServerHarness.CallAsync(f.Mcp, tool, args.ToDictionary(a => a.Item1, a => a.Item2));
@@ -117,6 +117,20 @@ public class Area52Tests(Area52Fixture f) : IClassFixture<Area52Fixture>
 
         var (none, _) = await Call("dbc_tables", ("filter", "Map"));
         Assert.DoesNotContain("Area 52", none);
+    }
+
+    [Fact]
+    public async Task DbcTables_OnlyArea52Listed_HeaderNamesItsRealmAndSource()
+    {
+        var (only, _) = await Call("dbc_tables", ("filter", "Spell__area52"));
+        var head = only.Split('\n')[0];
+        Assert.Contains("realm area-52 (unproven)", head);
+        Assert.Contains("source Area 52 DBC from area-52/patch-D.MPQ", head);
+        Assert.DoesNotContain("the CoA client", head);
+        Assert.DoesNotContain("CoA client DBC", head);
+
+        var (mixed, _) = await Call("dbc_tables", ("filter", "Spell"));
+        Assert.Contains("realm the CoA client (unproven)", mixed.Split('\n')[0]);
     }
 
     [Fact]
