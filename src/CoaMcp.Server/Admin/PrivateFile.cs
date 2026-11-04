@@ -26,7 +26,7 @@ internal static class PrivateFile
     {
         if (OperatingSystem.IsWindows() || !File.Exists(file)) return;
         var current = File.GetUnixFileMode(file);
-        var tight = current & (Mode | UnixFileMode.UserExecute);
+        var tight = current & Mode;
         if (tight != current) File.SetUnixFileMode(file, tight);
     }
 }

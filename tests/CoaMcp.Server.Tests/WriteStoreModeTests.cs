@@ -38,6 +38,37 @@ public sealed class WriteStoreModeTests : IDisposable
 
     [SkippableFact]
     [System.Runtime.Versioning.UnsupportedOSPlatform("windows")]
+    public void Store_ExecutableFile_LosesExecute()
+    {
+        Skip.If(OperatingSystem.IsWindows(), "Unix file modes don't exist on Windows; production runs on Linux.");
+        using (var first = new WriteStore(StorePath)) Add(first);
+        SqliteConnection.ClearAllPools();
+        File.SetUnixFileMode(StorePath, (UnixFileMode)0b111_101_101);   // 755
+
+        using var s = new WriteStore(StorePath);
+        Assert.Equal(1, s.Status().Live);
+
+        Assert.Equal(Private, File.GetUnixFileMode(StorePath));
+    }
+
+    [SkippableFact]
+    [System.Runtime.Versioning.UnsupportedOSPlatform("windows")]
+    public void Store_NarrowerFile_IsNeverWidened()
+    {
+        Skip.If(OperatingSystem.IsWindows(), "Unix file modes don't exist on Windows; production runs on Linux.");
+        using (var first = new WriteStore(StorePath)) Add(first);
+        SqliteConnection.ClearAllPools();
+        var narrow = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        File.SetUnixFileMode(StorePath, narrow);
+
+        using var s = new WriteStore(StorePath);
+        Assert.Equal(1, s.Status().Live);
+
+        Assert.Equal(narrow, File.GetUnixFileMode(StorePath));
+    }
+
+    [SkippableFact]
+    [System.Runtime.Versioning.UnsupportedOSPlatform("windows")]
     public void Store_ExistingWideFile_IsTightened()
     {
         Skip.If(OperatingSystem.IsWindows(), "Unix file modes don't exist on Windows; production runs on Linux.");

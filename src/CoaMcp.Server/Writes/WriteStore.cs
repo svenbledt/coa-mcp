@@ -108,6 +108,8 @@ public sealed class WriteStore : IDisposable
     /// Keeps the store, and its -wal and -shm files, at mode 0640 or tighter on Unix. SQLite gives the -wal and -shm files the main file's mode.
     /// A failure is logged and never stops the open: a store that is too open is better than reads that are down.
     /// </summary>
+    private volatile bool _modeFailureLogged;
+
     private void Secure(bool create, bool sidecarsToo)
     {
         if (OperatingSystem.IsWindows()) return;
@@ -120,10 +122,13 @@ public sealed class WriteStore : IDisposable
                 PrivateFile.Tighten(_path + "-wal");
                 PrivateFile.Tighten(_path + "-shm");
             }
+            _modeFailureLogged = false;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _log?.LogError(ex, "The writable store's file mode could not be set to 0640, so it may be readable by other users.");
+            // This runs on every open, so a lasting failure is logged once, not once per request.
+            if (!_modeFailureLogged) _log?.LogError(ex, "The writable store's file mode could not be set to 0640, so it may be readable by other users.");
+            _modeFailureLogged = true;
         }
     }
 
