@@ -131,8 +131,8 @@ public class RealClientTests
         await Suite.Run(Area, test, async c =>
         {
             var spell = ClientManifest.Instance.Dbc("Spell")!;
-            await Ask(c, "A client path", "Using only the coa MCP server's tools, not your own knowledge: which archive does the client read DBFilesClient/Spell.dbc from, and is that archive project-built?",
-                new[] { spell.Winner!.Archive, "project" });
+            await Ask(c, "A client path", "Using only the coa MCP server's tools, not your own knowledge: which archive does the client read DBFilesClient/Spell.dbc from, and what origin does the server give for that archive?",
+                new[] { spell.Winner!.Archive, "unknown" });
         });
     }
 }

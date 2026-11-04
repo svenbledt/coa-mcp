@@ -265,7 +265,14 @@ public class AccuracyDbcTests
         var client = await Suite.Anonymous();
         var manifest = ClientManifest.Instance;
         var project = manifest.DbcTables.Where(t => t.ProjectWinner).ToList();
-        c.That(project.Count > 0, "the manifest has project-built tables");
+        if (project.Count == 0)
+        {
+            // patch-B, the one project-built archive, holds no DBC file. So no table is project-won, and base copies must not exist either.
+            var bases = await client.Call("dbc_tables", new { filter = "__base", limit = 1 });
+            c.That(!bases.Text.Contains("base copy of", StringComparison.Ordinal), "no table is project-won, so the layer has no base copies", bases.Text);
+            c.Book.Observe("No DBC table is won by a project-built archive, so the dbc layer holds no base copies.");
+            return;
+        }
         var rng = Suite.Rng("dbc-base");
         var counts = new Counts();
         foreach (var t in project)

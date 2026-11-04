@@ -298,7 +298,8 @@ public class SpotCheckTests
         if (line is not null) c.Has(line, "(project-built archive)", $"{file.Path} says so in a list too");
 
         var spell = await client.Call("get", new { id = "spell:133" });
-        c.Has(spell.Text, "project-built archive", "a spell from a project-built Spell.dbc says so");
+        c.Has(spell.Text, "(origin unknown)", "a spell whose Spell.dbc comes from an archive of unknown origin says so");
+        c.That(!spell.Text.Contains("project-built", StringComparison.Ordinal), "that spell doesn't claim a project build", spell.Text);
 
         var site = await client.Call("get", new { id = "project:faq" }, "spot check: a project site page says it isn't evidence");
         c.Has(site.Text, "It isn't evidence about Ascension", "a coa-development.org page says it isn't evidence");

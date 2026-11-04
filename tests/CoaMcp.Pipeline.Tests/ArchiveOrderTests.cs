@@ -96,9 +96,10 @@ public class ArchiveOrderTests : IDisposable
     public void Order_OnlyProjectArchivesAreProject()
     {
         var config = RealConfig();
-        Assert.Equal(new[] { "patch-B.MPQ", "patch-T.MPQ" },
+        Assert.Equal(new[] { "patch-B.MPQ" },
             config.Archives.Where(a => a.Origin == "project").Select(a => a.Path).OrderBy(p => p, StringComparer.Ordinal));
         Assert.All(config.Archives.Where(a => a.Origin != "project"), a => Assert.Equal("unknown", a.Origin));
+        Assert.Contains("patch-T.MPQ: shipped in the project's client package, unchanged since revision 7; who built it is unconfirmed", config.Rules["origin"]);
     }
 
     [Fact]

@@ -77,7 +77,7 @@ public class AccuracySpellTests
         c.Has(page, $"\nSpell {id}: {title}" + (rank.Length > 0 ? $" ({rank})" : "") + "\n", who + " name and rank");
         c.Has(page, "realm: the CoA client (unproven)", who + " realm");
         c.Has(page, "trust: client", who + " trust");
-        c.Has(page, "Spell.dbc from patch-T.MPQ (project-built archive)", who + " says its copy is project-built");
+        c.Has(page, "Spell.dbc from patch-T.MPQ (origin unknown)", who + " says its copy's origin is unknown");
 
         foreach (var key in new[] { "description", "nameSubtext", "auraDescription" })
             if (s.TryGetProperty(key, out var v) && v.GetString() is { Length: > 0 } text) c.Has(page, text, $"{who} {key}");
