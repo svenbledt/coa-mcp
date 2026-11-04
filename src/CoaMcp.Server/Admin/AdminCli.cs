@@ -18,6 +18,7 @@ public static class AdminCli
           undo-author <name> [--by <who>]    mark all of an author's live entries undone
           undo-entry <id> [--by <who>]       mark one entry undone
           backup <dir>                       write store-YYYYMMDD.sqlite there and keep the last 14 days
+          snapshot <file>                    write a consistent copy to <file>, which must be inside the writable folder
         """;
 
     private static readonly System.Text.RegularExpressions.Regex BackupName = new(@"^store-(\d{8})\.sqlite\z", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
@@ -40,6 +41,7 @@ public static class AdminCli
                 "undo-author" => WithBy(rest, (name, by) => UndoAuthor(path, name, by, output)),
                 "undo-entry" => WithBy(rest, (id, by) => UndoEntry(path, id, by, output)),
                 "backup" => Exact(rest, 2, () => Backup(path, rest[1], output)),
+                "snapshot" => Exact(rest, 2, () => Snapshot(path, rest[1], output)),
                 _ => throw new UsageException($"Unknown command {Quote(rest[0])}."),
             };
         }
@@ -190,6 +192,38 @@ public static class AdminCli
         var temp = Path.Combine(dir, "." + name + ".tmp");
 
         CreateDirectory(dir);
+        CopyStore(path, temp, target);
+
+        var pruned = Prune(dir, today);
+        output.WriteLine($"Wrote {target} ({new FileInfo(target).Length} bytes). Pruned {pruned} backup{(pruned == 1 ? "" : "s")} older than {KeepDays} days.");
+        return 0;
+    }
+
+    /// <summary>
+    /// A consistent copy for the owner's `pull-writes`, made the same way as a backup. The target must be a new file inside the writable folder
+    /// (never the store itself), so this command can't be used to write anywhere else. Nothing is created if the store is missing.
+    /// </summary>
+    private static int Snapshot(string path, string file, TextWriter output)
+    {
+        var writable = Path.GetFullPath(Path.GetDirectoryName(path)!);
+        var target = Path.GetFullPath(file);
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        var prefix = writable.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        if (!target.StartsWith(prefix, comparison) || target.Length == prefix.Length)
+            throw new Refused($"The snapshot must be a file inside {writable}, and {Quote(file)} is not.");
+        if (string.Equals(Path.GetDirectoryName(target), writable, comparison) && Path.GetFileName(target).StartsWith(Path.GetFileName(path), comparison))
+            throw new Refused("The snapshot can't be the store or one of its journal files.");
+        if (File.Exists(target) || Directory.Exists(target)) throw new Refused($"{Quote(file)} already exists, so nothing was written.");
+        using (var probe = OpenStore(path)) { }   // refuse before creating anything
+
+        CopyStore(path, Path.Combine(Path.GetDirectoryName(target)!, "." + Path.GetFileName(target) + ".tmp"), target);
+        output.WriteLine($"Wrote {target} ({new FileInfo(target).Length} bytes).");
+        return 0;
+    }
+
+    /// <summary>VACUUM INTO a private temp file, check it, and rename it into place, so a half-written file never has the real name.</summary>
+    private static void CopyStore(string path, string temp, string target)
+    {
         File.Delete(temp);
         CreatePrivateFile(temp);   // VACUUM INTO accepts an existing empty file, so the copy never has wider access than the file made here
         try
@@ -198,7 +232,7 @@ public static class AdminCli
             using (var check = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = temp, Mode = SqliteOpenMode.ReadOnly, Pooling = false }.ToString()))
             {
                 check.Open();
-                if (Scalar(check, null, "PRAGMA integrity_check") as string != "ok") throw new Refused("The new backup failed its integrity check, so it was discarded.");
+                if (Scalar(check, null, "PRAGMA integrity_check") as string != "ok") throw new Refused("The new copy failed its integrity check, so it was discarded.");
             }
             File.Move(temp, target, overwrite: true);
         }
@@ -207,10 +241,6 @@ public static class AdminCli
             File.Delete(temp);
             throw;
         }
-
-        var pruned = Prune(dir, today);
-        output.WriteLine($"Wrote {target} ({new FileInfo(target).Length} bytes). Pruned {pruned} backup{(pruned == 1 ? "" : "s")} older than {KeepDays} days.");
-        return 0;
     }
 
     private static void CreateDirectory(string dir)

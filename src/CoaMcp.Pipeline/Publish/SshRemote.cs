@@ -29,6 +29,10 @@ public sealed partial class SshRemote : IRemote
     public IReadOnlyList<string> ScpArguments(string fileName, string remotePath) =>
         new[] { "-q", "-o", "BatchMode=yes", "--", fileName, $"{_host}:{remotePath}" };
 
+    /// <summary>The scp arguments for a download: the remote file first, then a bare local file name (the process runs in its folder).</summary>
+    public IReadOnlyList<string> ScpDownloadArguments(string remotePath, string fileName) =>
+        new[] { "-q", "-o", "BatchMode=yes", "--", $"{_host}:{remotePath}", fileName };
+
     /// <summary>The ssh arguments. The remote command is only letters, a space and a dash, so fish, sh and every other shell read it alike.</summary>
     public IReadOnlyList<string> SshArguments() =>
         new[] { "-o", "BatchMode=yes", "--", _host, "sh -s" };
@@ -54,6 +58,14 @@ public sealed partial class SshRemote : IRemote
         // Run in the file's folder with a bare file name: scp reads "C:\..." as host "C".
         var full = Path.GetFullPath(localPath);
         var r = await RunProcessAsync("scp", ScpArguments(Path.GetFileName(full), remotePath), Path.GetDirectoryName(full)!, null, ct);
+        if (r.ExitCode != 0) throw new IOException($"scp failed with exit code {r.ExitCode}: {r.Stderr.Trim()}");
+    }
+
+    public async Task DownloadAsync(string remotePath, string localPath, CancellationToken ct)
+    {
+        var full = Path.GetFullPath(localPath);
+        if (File.Exists(full)) throw new IOException($"{full} already exists.");
+        var r = await RunProcessAsync("scp", ScpDownloadArguments(remotePath, Path.GetFileName(full)), Path.GetDirectoryName(full)!, null, ct);
         if (r.ExitCode != 0) throw new IOException($"scp failed with exit code {r.ExitCode}: {r.Stderr.Trim()}");
     }
 

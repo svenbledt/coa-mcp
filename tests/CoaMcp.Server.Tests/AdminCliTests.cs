@@ -256,4 +256,81 @@ public sealed class AdminCliTests : IDisposable
         Assert.True(File.Exists(Path.Combine(backups, "store-20200101.sqlite")));
         Assert.DoesNotContain(Directory.GetFiles(backups), f => f.EndsWith(".tmp"));
     }
+
+    // ---- snapshot: the copy `pull-writes` downloads. It may only write inside <root>/writable. ----
+
+    private string Writable(string name) => Path.Combine(_root, "writable", name);
+
+    [Fact]
+    public void Snapshot_WritesConsistentCopy_InsideWritable()
+    {
+        using (var s = Store()) { Add(s, "Ann"); Add(s, "Bob"); }
+        var target = Writable("pull-abc.sqlite");
+
+        var r = Run("admin", "snapshot", target);
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal(2, Scalar("SELECT COUNT(*) FROM entries", target));
+        Assert.Equal(Scalar("SELECT COUNT(*) FROM entries"), Scalar("SELECT COUNT(*) FROM entries", target));
+        Assert.DoesNotContain(Directory.GetFiles(Path.GetDirectoryName(target)!), f => f.EndsWith(".tmp"));
+    }
+
+    [Fact]
+    public void Snapshot_OutsideWritable_Refused()
+    {
+        using (var s = Store()) Add(s, "Ann");
+        var outside = Path.Combine(_root, "outside.sqlite");
+        var cases = new[]
+        {
+            outside,
+            Writable(Path.Combine("..", "outside.sqlite")),
+            Writable(Path.Combine("sub", "..", "..", "outside.sqlite")),
+            Path.Combine(_root, "writable-evil", "x.sqlite"),   // same prefix, different folder
+            Path.GetTempFileName() + ".sqlite",
+            StorePath,   // never the store itself
+            StorePath + "-wal",   // nor its journal
+            Writable("."),
+            _root,
+        };
+        foreach (var t in cases)
+        {
+            var r = Run("admin", "snapshot", t);
+            Assert.True(r.Code == 1, $"{t}: expected a refusal, got {r.Code}");
+        }
+        Assert.False(File.Exists(outside));
+        Assert.False(Directory.Exists(Path.Combine(_root, "writable-evil")));
+        Assert.Equal(1, Scalar("SELECT COUNT(*) FROM entries"));
+    }
+
+    [Fact]
+    public void Snapshot_NoStore_RefusesAndCreatesNothing()
+    {
+        var target = Writable("pull-abc.sqlite");
+
+        var r = Run("admin", "snapshot", target);
+
+        Assert.Equal(1, r.Code);
+        Assert.False(File.Exists(target));
+        Assert.False(File.Exists(StorePath));
+    }
+
+    [Fact]
+    public void Snapshot_ExistingTarget_Refused_AndLeftAlone()
+    {
+        using (var s = Store()) Add(s, "Ann");
+        var target = Writable("pull-abc.sqlite");
+        File.WriteAllText(target, "precious");
+
+        var r = Run("admin", "snapshot", target);
+
+        Assert.Equal(1, r.Code);
+        Assert.Equal("precious", File.ReadAllText(target));
+    }
+
+    [Fact]
+    public void Snapshot_WrongArguments_IsUsageError()
+    {
+        Assert.Equal(2, Run("admin", "snapshot").Code);
+        Assert.Equal(2, Run("admin", "snapshot", "a", "b").Code);
+    }
 }

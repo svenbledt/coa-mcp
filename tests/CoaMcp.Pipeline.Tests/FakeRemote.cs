@@ -29,6 +29,14 @@ public sealed class FakeRemote : IRemote
         return Task.CompletedTask;
     }
 
+    public Task DownloadAsync(string remotePath, string localPath, CancellationToken ct)
+    {
+        if (ThrowOnAnyCall) throw new InvalidOperationException("the remote must not be contacted");
+        if (!Files.TryGetValue(remotePath, out var data)) throw new IOException("scp: no such file " + remotePath);
+        File.WriteAllBytes(localPath, data);
+        return Task.CompletedTask;
+    }
+
     public Task<RemoteResult> RunAsync(string command, string? stdin, CancellationToken ct)
     {
         if (ThrowOnAnyCall) throw new InvalidOperationException("the remote must not be contacted");

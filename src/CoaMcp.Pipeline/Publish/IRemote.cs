@@ -7,6 +7,9 @@ public interface IRemote
 {
     Task UploadAsync(string localPath, string remotePath, CancellationToken ct);
 
+    /// <summary>Copies one file from the server to <paramref name="localPath"/>, which must not exist yet.</summary>
+    Task DownloadAsync(string remotePath, string localPath, CancellationToken ct);
+
     /// <summary>Runs one shell command line on the server, with <paramref name="stdin"/> as its input.</summary>
     Task<RemoteResult> RunAsync(string command, string? stdin, CancellationToken ct);
 }

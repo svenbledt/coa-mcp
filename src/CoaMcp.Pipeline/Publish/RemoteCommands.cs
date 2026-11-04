@@ -22,6 +22,9 @@ public static class RemoteCommands
 
     public static string Sha256IfPresent(string path) => $"if [ -f {Shell.Quote(path)} ] ; then sha256sum {Shell.Quote(path)} ; fi";
 
+    /// <summary>Prints "present" if the file exists, and nothing otherwise.</summary>
+    public static string PrintIfPresent(string path) => $"if [ -f {Shell.Quote(path)} ] ; then echo present ; fi";
+
     public static string CatIfPresent(string path) => $"if [ -f {Shell.Quote(path)} ] ; then cat {Shell.Quote(path)} ; fi";
 
     public static string Remove(string path) => $"rm -f {Shell.Quote(path)}";

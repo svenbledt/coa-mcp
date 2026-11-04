@@ -38,6 +38,7 @@ public static class PublishCli
     private sealed class UnreachableRemote : IRemote
     {
         public Task UploadAsync(string localPath, string remotePath, CancellationToken ct) => throw new InvalidOperationException("dry run contacted the server");
+        public Task DownloadAsync(string remotePath, string localPath, CancellationToken ct) => throw new InvalidOperationException("dry run contacted the server");
         public Task<RemoteResult> RunAsync(string command, string? stdin, CancellationToken ct) => throw new InvalidOperationException("dry run contacted the server");
     }
 }

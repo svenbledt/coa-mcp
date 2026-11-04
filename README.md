@@ -73,3 +73,15 @@ docker exec <container> dotnet /app/CoaMcp.Server.dll admin undo-entry <id>
 Backups: `sh /app/backup-store.sh` (or `admin backup <dir>`) writes `store-YYYYMMDD.sqlite` using `VACUUM INTO`, which is safe while the server runs, and deletes files named exactly like that once they are 14 days old. The default folder is `/data/writable/backups` (host: `/data/coamcp/writable/backups`), because `/data/writable` is the only place the container user can write. Make it a Coolify scheduled task, nightly, running `sh /app/backup-store.sh` in the `server` container. The files are mode 0640, so keep them off public shares.
 
 Restore: stop the container, copy the chosen backup to `/data/coamcp/writable/store.sqlite` (owner UID 10001, mode 0640), delete any `store.sqlite-wal` and `store.sqlite-shm` beside it, and start the container again.
+
+## Merging written entries into the repository
+
+From time to time, copy what agents wrote on production into `knowledge/` and commit it after a review:
+
+```
+dotnet run --project src/CoaMcp.Pipeline -- pull-writes --host BledtIT --out knowledge
+git diff knowledge
+git add knowledge && git commit
+```
+
+The command checks that the store exists, finds the running container by the app id (`--container <name>` overrides), runs `admin snapshot` inside it (`VACUUM INTO` a new file in `/data/writable`), downloads that file with `scp` to a temp folder, checks its checksum, exports it, and deletes the server copy and the local copy whatever happens. It only reads production, contacts only `--host`, and never commits. With no store on the server yet it says there is nothing to merge and exits 0. The files, the scan and the restore are described in `knowledge/README.md`; `restore-writes --from knowledge --store <file>` rebuilds an empty store (to bring production back: stop the container, restore to `writable/store.sqlite`, `chown 10001:10001` it, start the container).

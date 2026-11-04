@@ -1,6 +1,7 @@
 using CoaMcp.Pipeline;
 using CoaMcp.Pipeline.Bisbeard;
 using CoaMcp.Pipeline.Dbc;
+using CoaMcp.Pipeline.Knowledge;
 using CoaMcp.Pipeline.Mpq;
 using CoaMcp.Pipeline.Notes;
 using CoaMcp.Pipeline.Publish;
@@ -13,6 +14,8 @@ const string Usage = """
            coamcp-pipeline notes --out <layer.sqlite> [--notes <notes folder>] [--config <notes.json>] [--version <v>]
            coamcp-pipeline wdb --out <layer.sqlite> [--config <wdb-sources.json>] [--scan <folder>] [--version <v>]
            coamcp-pipeline publish --layer <layer.sqlite> --host <ssh host> [--dry-run]
+           coamcp-pipeline pull-writes --host <ssh host> --out <knowledge folder> [--container <name>] [--include-test]
+           coamcp-pipeline restore-writes --from <knowledge folder> --store <new store.sqlite>
            coamcp-pipeline restore --data <client Data folder> --out <dir> [--config <archives.json>] [--parallel <n>] [--prune-gone]
            coamcp-pipeline listfile --manifest <manifest.sqlite> --out <dir>
            coamcp-pipeline archive-check --data <client Data folder> [--config <archives.json>]
@@ -20,6 +23,7 @@ const string Usage = """
     """;
 
 if (args.Length > 0 && args[0] == "publish") return await PublishCli.RunAsync(args[1..], Console.Out, Console.Error);
+if (args.Length > 0 && args[0] is "pull-writes" or "restore-writes") return await KnowledgeCli.RunAsync(args[0], args[1..], Console.Out, Console.Error);
 if (args.Length > 0 && args[0] is "notes" or "wdb") return NotesCli.Run(args[0], args[1..], Console.Out, Console.Error);
 if (args.Length > 0 && args[0] == "dbc") return DbcCli.Run(args[1..], Console.Out, Console.Error);
 if (args.Length > 0 && args[0] is "restore" or "listfile" or "archive-check" or "paths") return MpqCli.Run(args[0], args[1..], Console.Out, Console.Error);

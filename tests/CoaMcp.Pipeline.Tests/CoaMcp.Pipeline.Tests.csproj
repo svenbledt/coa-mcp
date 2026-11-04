@@ -22,6 +22,8 @@
     <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-rxg9-xrhp-64gj" />
     <ProjectReference Include="..\..\src\CoaMcp.Core\CoaMcp.Core.csproj" />
     <ProjectReference Include="..\..\src\CoaMcp.Pipeline\CoaMcp.Pipeline.csproj" />
+    <!-- The knowledge tests make real stores with the server's own WriteStore and compare the restored schema with it. -->
+    <ProjectReference Include="..\..\src\CoaMcp.Server\CoaMcp.Server.csproj" />
   </ItemGroup>
 
   <ItemGroup>
