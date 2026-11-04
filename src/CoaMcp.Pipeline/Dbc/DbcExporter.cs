@@ -8,7 +8,7 @@ namespace CoaMcp.Pipeline.Dbc;
 
 public sealed record DbcExportOptions(string ManifestPath, ArchiveConfig Config, string FieldsDir, string OutPath, string WinnersDir, string? Version = null, Action<string>? Progress = null, ClientRelease? Client = null);
 
-public sealed record DbcExportResult(int Tables, long Rows, int BaseTables, int NamedTables, IReadOnlyList<string> Deleted, IReadOnlyList<string> Unreadable, IReadOnlyList<string> Problems);
+public sealed record DbcExportResult(int Tables, long Rows, int BaseTables, int NamedTables, IReadOnlyList<string> Deleted, IReadOnlyList<string> Unreadable, IReadOnlyList<string> Problems, int Area52Tables = 0, long Area52Rows = 0);
 
 /// <summary>
 /// Builds the dbc layer from a finished restore: the winning copy of every table under the default client's rules, parsed into rows and resolved strings.
@@ -26,7 +26,15 @@ public static partial class DbcExporter
     [GeneratedRegex("^[A-Za-z0-9_]{1,80}$")]
     private static partial Regex UsableName();
 
-    private sealed record Source(string Name, string? BaseOf, HeldCopy Held, string File, string Date);
+    private sealed record Source(string Name, string? BaseOf, HeldCopy Held, string File, string Date, string? Area52Version = null)
+    {
+        public bool IsArea52 => DbcLayerBuilder.IsArea52(Name);
+
+        /// <summary>The name whose field config applies: a base copy or an Area 52 version uses its table's, if the layout fits.</summary>
+        public string ConfigName => BaseOf ?? (IsArea52 ? Name[..^DbcLayerBuilder.Area52Suffix.Length] : Name);
+
+        public RealmSet Realm => IsArea52 ? DbcLayerBuilder.Area52Realms : ClientRealm;
+    }
 
     public static DbcExportResult Run(DbcExportOptions o)
     {
@@ -56,6 +64,7 @@ public static partial class DbcExporter
             foreach (var copies in tables)
             {
                 var name = TableName(copies.Holders[0].Copy.Path);
+                var area52 = run.ExportArea52(builder, name, copies, root, date);
                 if (copies.Winner is not { } win)
                 {
                     run.NotExported(builder, name, copies.Holders[0], DbcStatus.NotInDefaultClient, "Only realm-specific archives hold this table, so the default client does not read it.", date);
@@ -83,7 +92,7 @@ public static partial class DbcExporter
                         baseSource = new Source(name + DbcLayerBuilder.BaseSuffix, name, next, RestoredFile(root, next), date);
                 }
 
-                run.Export(builder, new Source(name, null, win, file, date), baseNote);
+                run.Export(builder, new Source(name, null, win, file, date, area52), baseNote);
                 if (baseSource is not null) run.Export(builder, baseSource, null);
             }
 
@@ -93,6 +102,8 @@ public static partial class DbcExporter
                 ["rows"] = run.Rows.ToString(CultureInfo.InvariantCulture),
                 ["named_tables"] = run.NamedTables.ToString(CultureInfo.InvariantCulture),
                 ["base_tables"] = run.BaseTables.ToString(CultureInfo.InvariantCulture),
+                ["area52_tables"] = run.Area52Tables.ToString(CultureInfo.InvariantCulture),
+                ["area52_rows"] = run.Area52Rows.ToString(CultureInfo.InvariantCulture),
                 ["deleted"] = run.Deleted.Count.ToString(CultureInfo.InvariantCulture),
                 ["unreadable"] = run.Unreadable.Count.ToString(CultureInfo.InvariantCulture),
                 ["source_date_basis"] = "every table carries the client's date: the newest modified time among the archives the default client reads",
@@ -110,7 +121,7 @@ public static partial class DbcExporter
         SqliteConnection.ClearAllPools();
 
         Materialize(o.WinnersDir, winners, date, o.Client);
-        return new DbcExportResult(tables.Count, run.Rows, run.BaseTables, run.NamedTables, run.Deleted, run.Unreadable, run.Problems);
+        return new DbcExportResult(tables.Count, run.Rows, run.BaseTables, run.NamedTables, run.Deleted, run.Unreadable, run.Problems, run.Area52Tables, run.Area52Rows);
     }
 
     private static List<ClientCopies> ReadTables(SqliteConnection db, Dictionary<string, ArchiveEntry> config)
@@ -166,8 +177,8 @@ public static partial class DbcExporter
     /// <summary>What one export keeps while it walks the tables.</summary>
     private sealed class ExportRun(IReadOnlyDictionary<string, DbcTableConfig> config, Action<string>? progress)
     {
-        public long Rows;
-        public int BaseTables, NamedTables;
+        public long Rows, Area52Rows;
+        public int BaseTables, NamedTables, Area52Tables;
         public readonly List<string> Deleted = new(), Unreadable = new(), Problems = new();
 
         public void NotExported(DbcLayerBuilder b, string name, HeldCopy h, string status, string problem, string date)
@@ -176,7 +187,24 @@ public static partial class DbcExporter
             b.AddTable(new DbcTableInfo(name, 0, 0, 0, h.Copy.Archive, h.Archive.Origin, null, status, problem, null, null, false, date), Array.Empty<DbcColumn>(), ClientRealm);
         }
 
-        public void Export(DbcLayerBuilder b, Source s, string? extraNote)
+        /// <summary>Exports the Area 52 archive's copy of a table as its own labeled table. Returns that table's name when it has rows to read.</summary>
+        public string? ExportArea52(DbcLayerBuilder b, string name, ClientCopies copies, string root, string date)
+        {
+            foreach (var h in copies.Holders.Where(h => h.Archive.Realm == DbcLayerBuilder.Area52Realm))
+            {
+                if (h.IsDeleteMarker)
+                {
+                    Problems.Add($"{name}: a delete marker in {h.Copy.Archive}, so there is no Area 52 version.");
+                    return null;
+                }
+                var table = name + DbcLayerBuilder.Area52Suffix;
+                return Export(b, new Source(table, null, h, RestoredFile(root, h), date), null) ? table : null;
+            }
+            return null;
+        }
+
+        /// <summary>Returns false when the copy couldn't be read, which is recorded as its status.</summary>
+        public bool Export(DbcLayerBuilder b, Source s, string? extraNote)
         {
             try
             {
@@ -187,19 +215,21 @@ public static partial class DbcExporter
                 if (reader.FieldCount == 0) throw new DbcFormatException("the header says the table has no fields.");
                 if (reader.FieldCount > MaxFields || reader.RecordSize > MaxFields * 4) throw new DbcFormatException($"the table has more than {MaxFields} fields, which this layer does not hold.");
                 Table(b, s, reader, extraNote);
+                return true;
             }
             catch (Exception ex) when (ex is DbcFormatException or FileNotFoundException or DirectoryNotFoundException)
             {
                 var why = "Unreadable: " + ex.Message + (extraNote is null ? "" : " " + extraNote);
                 Unreadable.Add(s.Name);
                 Problems.Add($"{s.Name}: {why}");
-                b.AddTable(new DbcTableInfo(s.Name, 0, 0, 0, s.Held.Copy.Archive, s.Held.Archive.Origin, s.BaseOf, DbcStatus.Unreadable, why, null, null, false, s.Date), Array.Empty<DbcColumn>(), ClientRealm);
+                b.AddTable(new DbcTableInfo(s.Name, 0, 0, 0, s.Held.Copy.Archive, s.Held.Archive.Origin, s.BaseOf, DbcStatus.Unreadable, why, null, null, false, s.Date), Array.Empty<DbcColumn>(), s.Realm, s.Area52Version);
+                return false;
             }
         }
 
         private void Table(DbcLayerBuilder b, Source s, DbcReader reader, string? extraNote)
         {
-            config.TryGetValue(s.BaseOf ?? s.Name, out var tableConfig);
+            config.TryGetValue(s.ConfigName, out var tableConfig);
             var layout = DbcLayouts.For(s.Name, reader, tableConfig);
             var scan = Scan(reader, layout);
 
@@ -228,11 +258,19 @@ public static partial class DbcExporter
             var id = columns[0].Column;
             b.AddTable(new DbcTableInfo(s.Name, reader.RecordCount, reader.FieldCount, layout.Named, s.Held.Copy.Archive, s.Held.Archive.Origin, s.BaseOf, DbcStatus.Ok,
                 problem.Length > 0 ? problem : null, layout.NamesSource, id.Type == DbcTypes.String || id.IsFloat ? null : id.Name, scan.FirstColumnUnique, s.Date),
-                columns.Select(c => c.Column).ToList(), ClientRealm);
+                columns.Select(c => c.Column).ToList(), s.Realm, s.Area52Version);
 
-            Rows += reader.RecordCount;
-            if (s.BaseOf is not null) BaseTables++;
-            if (layout.Named > 0 && s.BaseOf is null) NamedTables++;
+            if (s.IsArea52)
+            {
+                Area52Rows += reader.RecordCount;
+                Area52Tables++;
+            }
+            else
+            {
+                Rows += reader.RecordCount;
+                if (s.BaseOf is not null) BaseTables++;
+                if (layout.Named > 0 && s.BaseOf is null) NamedTables++;
+            }
             progress?.Invoke($"{s.Name}: {reader.RecordCount:N0} rows, {columns.Count} columns, {layout.Named} named");
         }
 

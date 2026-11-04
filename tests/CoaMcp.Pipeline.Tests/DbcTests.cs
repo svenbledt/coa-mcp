@@ -622,6 +622,122 @@ public class DbcExportTests : IDisposable
     }
 
     [Fact]
+    public void Area52_CopyIsASeparateLabeledTable_AndNeverTheWinner()
+    {
+        _w.Add("patch-M.MPQ", "Spell", Simple(1, 200)).Add("area-52/patch-D.MPQ", "Spell", Simple(1, 999));
+
+        var result = _w.Export();
+
+        using var r = _w.Open();
+        Assert.Equal("patch-M.MPQ", Table(r, "Spell")["winner_archive"]);
+        Assert.Equal(200L, r.Query("SELECT f1 FROM t_Spell").Single()["f1"]);
+        Assert.Equal(999L, r.Query("SELECT f1 FROM t_Spell__area52").Single()["f1"]);
+        var t = Table(r, "Spell__area52");
+        Assert.Equal("area-52/patch-D.MPQ", t["winner_archive"]);
+        Assert.Null(t["base_of"]);
+
+        var page = r.Get("dbc:Spell__area52")!;
+        Assert.Equal(new[] { "area-52" }, page.Realm.Realms);
+        Assert.Equal(Trust.Client, page.Trust);
+        Assert.Contains("patch-D.MPQ", page.Source);
+        Assert.DoesNotContain("CoA client", page.Source);
+        Assert.Contains("Area 52 is a separate realm from CoA (realm ids 11 and 13); the client only loads this archive there.", page.BodyMd);
+        Assert.DoesNotContain("Winning copy", page.BodyMd);
+        Assert.Contains("Spell__area52", r.Get("dbc:Spell")!.BodyMd);
+
+        using var winner = DbcReader.Open(Path.Combine(_w.Winners, "Spell.dbc"));
+        Assert.Equal(200u, BitConverter.ToUInt32(winner.Records().First(), 4));
+        Assert.DoesNotContain(Directory.GetFiles(_w.Winners), f => f.Contains("area52", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(1, result.Area52Tables);
+        Assert.Equal(1L, result.Rows);   // the default client's rows only
+        Assert.Equal("1", r.Query("SELECT value FROM dbc_meta WHERE key = 'area52_tables'").Single()["value"]);
+    }
+
+    [Fact]
+    public void Area52_NoCopy_MeansNoTableAndNoMention()
+    {
+        _w.Add("patch-M.MPQ", "Spell", Simple());
+
+        _w.Export();
+
+        using var r = _w.Open();
+        Assert.Empty(r.Query("SELECT name FROM dbc_tables WHERE name LIKE '%area52%'"));
+        Assert.DoesNotContain("area52", r.Get("dbc:Spell")!.BodyMd);
+    }
+
+    [Fact]
+    public void Area52_OnlyCopy_IsExported_AndTheDefaultNameStaysNotInTheClient()
+    {
+        _w.Add("patch-M.MPQ", "Other", Simple()).Add("area-52/patch-D.MPQ", "OnlyThere", Simple(1, 7));
+
+        _w.Export();
+
+        using var r = _w.Open();
+        Assert.Equal(DbcStatus.NotInDefaultClient, Table(r, "OnlyThere")["status"]);
+        Assert.Equal(7L, r.Query("SELECT f1 FROM t_OnlyThere__area52").Single()["f1"]);
+        Assert.False(File.Exists(Path.Combine(_w.Winners, "OnlyThere.dbc")));
+    }
+
+    [Fact]
+    public void Area52_ProvenFieldNames_Apply_WhenTheLayoutFits()
+    {
+        _w.Config("Spell", ("ID", "int"), ("Speed", "int"))
+          .Add("patch-M.MPQ", "Spell", Simple()).Add("area-52/patch-D.MPQ", "Spell", Simple(1, 9));
+
+        _w.Export();
+
+        using var r = _w.Open();
+        Assert.Equal(9L, r.Query("SELECT Speed FROM t_Spell__area52").Single()["Speed"]);
+        Assert.Equal(2L, Table(r, "Spell__area52")["named"]);
+    }
+
+    [Fact]
+    public void Area52_ProvenFieldNames_DontApply_WhenTheLayoutDiffers()
+    {
+        _w.Config("Spell", ("ID", "int"), ("Speed", "int"))
+          .Add("patch-M.MPQ", "Spell", Simple()).Add("area-52/patch-D.MPQ", "Spell", new DbcBytes(3).Row(1, 2, 3).Build());
+
+        _w.Export();
+
+        using var r = _w.Open();
+        Assert.Equal(2L, Table(r, "Spell")["named"]);
+        Assert.Equal(0L, Table(r, "Spell__area52")["named"]);
+        Assert.Contains("does not match", (string)Table(r, "Spell__area52")["problem"]!);
+    }
+
+    [Fact]
+    public void Area52_DeleteMarker_MeansNoTable_AndIsReported()
+    {
+        _w.Add("patch-M.MPQ", "Spell", Simple()).Marker("area-52/patch-D.MPQ", "Spell");
+
+        var result = _w.Export();
+
+        using var r = _w.Open();
+        Assert.Empty(r.Query("SELECT name FROM dbc_tables WHERE name = 'Spell__area52'"));
+        Assert.Contains(result.Problems, p => p.Contains("Spell") && p.Contains("area-52/patch-D.MPQ") && p.Contains("delete marker"));
+    }
+
+    [Fact]
+    public void Area52_Layer_PassesTheGuard_AndAnUnlistedTableDoesNot()
+    {
+        _w.Add("patch-M.MPQ", "Spell", Simple()).Add("area-52/patch-D.MPQ", "Spell", Simple(1, 9));
+        _w.Export();
+        Assert.True(CoaMcp.Pipeline.Publish.PublishGuard.Check(_w.Layer).Ok);
+
+        using (var c = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={_w.Layer};Pooling=False"))
+        {
+            c.Open();
+            using var cmd = c.CreateCommand();
+            cmd.CommandText = "CREATE TABLE t_Ghost__area52(a INTEGER)";
+            cmd.ExecuteNonQuery();
+        }
+
+        var guard = CoaMcp.Pipeline.Publish.PublishGuard.Check(_w.Layer);
+        Assert.False(guard.Ok);
+        Assert.Contains(guard.Problems, p => p.Contains("t_Ghost__area52"));
+    }
+
+    [Fact]
     public void Export_AscensionWinner_HasNoBaseTable_AndSaysItIsPerProjectRecords()
     {
         _w.Add("common.MPQ", "Spell", Simple(1, 100))

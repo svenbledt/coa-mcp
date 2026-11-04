@@ -9,6 +9,8 @@ public sealed record DbcTableRef(string Name, long Rows, int Fields, int Named, 
 {
     public string DataTable => "\"" + DbcLayerBuilder.TablePrefix + Name.Replace("\"", "\"\"") + "\"";
 
+    public bool IsArea52 => DbcLayerBuilder.IsArea52(Name);
+
     public static DbcTableRef From(IReadOnlyDictionary<string, object?> r) => new(
         (string)r["name"]!, (long)r["rows"]!, (int)(long)r["fields"]!, (int)(long)r["named"]!, r["winner_archive"] as string, r["origin"] as string, r["base_of"] as string,
         (string)r["status"]!, r["problem"] as string, r["names_source"] as string, r["id_column"] as string,
@@ -31,7 +33,11 @@ public static class DbcPages
     private const int MaxTextChars = 2000;
     private const int MaxListTextChars = 200;
     private const int MaxRowsPerId = 5;
-    private static readonly RealmSet Realm = new(new[] { "coa-client" }, false);
+    private static readonly RealmSet ClientRealm = new(new[] { "coa-client" }, false);
+
+    private static RealmSet RealmOf(DbcTableRef t) => t.IsArea52 ? DbcLayerBuilder.Area52Realms : ClientRealm;
+
+    private static string SourceOf(DbcTableRef t, Layer layer) => DbcLayerBuilder.SourceOf(t.Name, t.Archive, layer.Meta.Client);
 
     public static DbcTableRef? Find(Layer layer, string table) =>
         layer.Query("SELECT * FROM dbc_tables WHERE name = $0", table) is [var r] ? DbcTableRef.From(r) : null;
@@ -48,15 +54,24 @@ public static class DbcPages
     /// <summary>Realm, trust, source and date, then which copy this is and what it is worth as evidence.</summary>
     public static string Provenance(DbcTableRef t, Layer layer)
     {
-        var sb = new StringBuilder($"DBC {t.Name} (realm {Render.RealmText(Realm)}, trust {Render.Trust(Trust.Client)}, source {ClientRelease.Source(DbcLayerBuilder.Source, layer.Meta.Client)}, {Render.Dated(layer.Meta, t.SourceDate)}; layer {LayerName} v{layer.Meta.Version}).\n");
+        var sb = new StringBuilder($"DBC {t.Name} (realm {Render.RealmText(RealmOf(t))}, trust {Render.Trust(Trust.Client)}, source {SourceOf(t, layer)}, {Render.Dated(layer.Meta, t.SourceDate)}; layer {LayerName} v{layer.Meta.Version}).\n");
         sb.Append(CopyLine(t)).Append('\n');
         if (layer.Meta.Client?.MismatchLine(t.Archive) is { } mismatch) sb.Append(mismatch).Append('\n');
         if (BaseOf(layer, t) is { } b) sb.Append($"Base copy: DBC table {b.Name}.\n");
+        if (Area52Version(layer, t) is { } version) sb.Append(version).Append('\n');
         if (t.Problem is not null) sb.Append("Note: ").Append(Render.OneLine(t.Problem, 400)).Append('\n');
         return sb.ToString();
     }
 
-    private static string CopyLine(DbcTableRef t) => (t.BaseOf is null ? "Winning copy: " : $"Base copy of {t.BaseOf}, which the client does not read: ") + DbcLayerBuilder.OriginText(t.Origin, t.Archive) + ".";
+    private static string CopyLine(DbcTableRef t)
+    {
+        if (t.IsArea52) return $"From: {DbcLayerBuilder.OriginText(t.Origin, t.Archive)}. {DbcLayerBuilder.Area52Line}";
+        return (t.BaseOf is null ? "Winning copy: " : $"Base copy of {t.BaseOf}, which the client does not read: ") + DbcLayerBuilder.OriginText(t.Origin, t.Archive) + ".";
+    }
+
+    /// <summary>One line when Area 52 has a readable version of this default table, or null. The version's data never enters the default table's answer.</summary>
+    private static string? Area52Version(Layer layer, DbcTableRef t) =>
+        !t.IsArea52 && Find(layer, t.Name + DbcLayerBuilder.Area52Suffix) is { Status: DbcStatus.Ok } v ? DbcLayerBuilder.Area52VersionLine(v.Name) : null;
 
     private static DbcTableRef? BaseOf(Layer layer, DbcTableRef t) =>
         t.BaseOf is null && layer.Query("SELECT * FROM dbc_tables WHERE base_of = $0", t.Name) is [var r] ? DbcTableRef.From(r) : null;
@@ -125,7 +140,7 @@ public static class DbcPages
         var idField = Fields(lease.Layer, t.Name).First(f => f.Name.Equals(t.IdColumn, StringComparison.OrdinalIgnoreCase));
         var rows = lease.Layer.Query($"SELECT * FROM {t.DataTable} WHERE {idField.Quoted} = $0 ORDER BY rowid LIMIT 1", rowId);
         if (rows.Count == 0) return null;
-        var provenance = $"trust {Render.Trust(Trust.Client)}, realm {Render.RealmText(Realm)}, source {ClientRelease.Source(DbcLayerBuilder.Source, lease.Layer.Meta.Client)}, {Render.Dated(lease.Layer.Meta, t.SourceDate)}, layer {LayerName} v{lease.Layer.Meta.Version}";
+        var provenance = $"trust {Render.Trust(Trust.Client)}, realm {Render.RealmText(RealmOf(t))}, source {SourceOf(t, lease.Layer)}, {Render.Dated(lease.Layer.Meta, t.SourceDate)}, layer {LayerName} v{lease.Layer.Meta.Version}";
         var mark = CopyLine(t) + (lease.Layer.Meta.Client?.MismatchLine(t.Archive) is { } mismatch ? " " + mismatch : "");
         return ($"dbc:{t.Name}:{rowId.ToString(CultureInfo.InvariantCulture)}", GeneratedValue.FromRow(rows[0], provenance, mark));
     }
@@ -160,10 +175,11 @@ public static class DbcPages
         var rows = layer.Query($"SELECT * FROM {t.DataTable} WHERE {idField.Quoted} = $0 ORDER BY rowid LIMIT {MaxRowsPerId + 1}", rowId);
         if (rows.Count == 0) return $"No row with {idField.Name} = {rowId} in DBC table {t.Name} ({t.Rows.ToString("N0", CultureInfo.InvariantCulture)} rows). Use dbc_rows to look around.";
 
-        var page = new Entity($"dbc:{t.Name}:{rowId}", "dbc_row", $"{t.Name} row {rowId}", Realm, Trust.Client, ClientRelease.Source(DbcLayerBuilder.Source, layer.Meta.Client), t.SourceDate, "", null, Array.Empty<Link>());
+        var page = new Entity($"dbc:{t.Name}:{rowId}", "dbc_row", $"{t.Name} row {rowId}", RealmOf(t), Trust.Client, SourceOf(t, layer), t.SourceDate, "", null, Array.Empty<Link>());
         var sb = new StringBuilder(Render.Header(page, layer.Meta)).Append("\n\n");
         sb.Append(CopyLine(t)).Append('\n');
         if (layer.Meta.Client?.MismatchLine(t.Archive) is { } mismatch) sb.Append(mismatch).Append('\n');
+        if (Area52Version(layer, t) is { } version) sb.Append(version).Append('\n');
         if (t.NamesSource is not null) sb.Append("Field names from: ").Append(Render.OneLine(t.NamesSource, 200)).Append('\n');
         if (t.Problem is not null) sb.Append("Note: ").Append(Render.OneLine(t.Problem, 400)).Append('\n');
         if (idField.Guessed) sb.Append($"{idField.Name} is taken to be the id because it is the first column; that is itself a guess.\n");

@@ -37,7 +37,7 @@ public static class DbcCli
             var config = ArchiveConfig.Load(v.GetValueOrDefault("--config") ?? Path.Combine(AppContext.BaseDirectory, "config", "archives.json"));
             var fields = v.GetValueOrDefault("--fields") ?? Path.Combine(AppContext.BaseDirectory, "config", "dbc-fields");
             var r = DbcExporter.Run(new DbcExportOptions(manifest, config, fields, layer, winners, v.GetValueOrDefault("--version"), output.WriteLine, ClientReleaseFile.ReadForManifest(release, manifest)));
-            output.WriteLine($"dbc layer written to {layer}: {r.Tables} tables, {r.Rows:N0} rows, {r.NamedTables} with proven names, {r.BaseTables} base copies, {r.Deleted.Count} removed by a delete marker, {r.Unreadable.Count} unreadable; winners in {winners}");
+            output.WriteLine($"dbc layer written to {layer}: {r.Tables} tables, {r.Rows:N0} rows, {r.NamedTables} with proven names, {r.BaseTables} base copies, {r.Area52Tables} Area 52 tables ({r.Area52Rows:N0} rows), {r.Deleted.Count} removed by a delete marker, {r.Unreadable.Count} unreadable; winners in {winners}");
             foreach (var p in r.Problems) output.WriteLine("  " + p);
             return 0;
         }

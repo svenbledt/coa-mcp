@@ -42,14 +42,27 @@ public sealed class DbcLayerBuilder
     public const string Source = "CoA client DBC";
     public const string BaseSuffix = "__base";
 
+    /// <summary>A table holding Area 52's version of a DBC. It is a labeled second version: never the default and never a winner.</summary>
+    public const string Area52Suffix = "__area52";
+    public const string Area52Realm = "area-52";
+    public const string Area52Line = "Area 52 is a separate realm from CoA (realm ids 11 and 13); the client only loads this archive there.";
+    public static readonly RealmSet Area52Realms = new(new[] { Area52Realm }, false);
+
+    public static bool IsArea52(string table) => table.EndsWith(Area52Suffix, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The source of a table: the client's DBCs, or for an Area 52 table the archive it came from.</summary>
+    public static string SourceOf(string table, string? archive, ClientRelease? client) =>
+        ClientRelease.Source(IsArea52(table) ? $"Area 52 DBC from {archive}" : Source, client);
+
+    /// <summary>The line a default table's answer adds when Area 52 has its own version.</summary>
+    public static string Area52VersionLine(string area52Table) => $"Area 52 has its own version of this table: {area52Table}.";
+
     private readonly LayerWriter _w;
-    private readonly string _source;
     private readonly ClientRelease? _client;
 
     public DbcLayerBuilder(LayerWriter writer, ClientRelease? client = null)
     {
         _w = writer;
-        _source = ClientRelease.Source(Source, client);
         _client = client;
         if (client is not null) _w.SetClient(client);
         _w.Execute("""
@@ -72,8 +85,8 @@ public sealed class DbcLayerBuilder
         return _w.BeginInsert(TablePrefix + name, columns.Select(c => c.Name).ToList());
     }
 
-    /// <summary>Records a table, exported or not. Call after its rows are in, so indexes are built last.</summary>
-    public void AddTable(DbcTableInfo t, IReadOnlyList<DbcColumn> columns, RealmSet realm)
+    /// <summary>Records a table, exported or not. Call after its rows are in, so indexes are built last. <paramref name="area52Version"/> names Area 52's version of it, if there is one.</summary>
+    public void AddTable(DbcTableInfo t, IReadOnlyList<DbcColumn> columns, RealmSet realm, string? area52Version = null)
     {
         foreach (var c in columns.Where(c => c.Indexed && !c.PrimaryKey))
             _w.Execute($"CREATE INDEX {Quote($"ix_{t.Name}_{c.Name}")} ON {Quote(TablePrefix + t.Name)}({Quote(c.Name)})");
@@ -83,8 +96,8 @@ public sealed class DbcLayerBuilder
         foreach (var c in columns)
             _w.Execute("INSERT INTO dbc_fields VALUES ($0,$1,$2,$3,$4,$5,$6)", t.Name, (long)c.Index, c.Name, c.Type, c.Guessed ? 1L : 0L, c.Indexed ? 1L : 0L, c.Note);
 
-        _w.Add(new Entity("dbc:" + t.Name, EntityType, t.Name, realm, Trust.Client, _source,
-            DateOnly.ParseExact(t.SourceDate, "yyyy-MM-dd", CultureInfo.InvariantCulture), Body(t, columns, _client), null, Array.Empty<Link>()));
+        _w.Add(new Entity("dbc:" + t.Name, EntityType, t.Name, realm, Trust.Client, SourceOf(t.Name, t.WinnerArchive, _client),
+            DateOnly.ParseExact(t.SourceDate, "yyyy-MM-dd", CultureInfo.InvariantCulture), Body(t, columns, _client, area52Version), null, Array.Empty<Link>()));
     }
 
     /// <summary>Writes the run facts and finishes the layer.</summary>
@@ -101,12 +114,15 @@ public sealed class DbcLayerBuilder
         _ => $"{archive}, origin {origin ?? "unknown"} (not claimed as Ascension)",
     };
 
-    private static string Body(DbcTableInfo t, IReadOnlyList<DbcColumn> columns, ClientRelease? client)
+    private static string Body(DbcTableInfo t, IReadOnlyList<DbcColumn> columns, ClientRelease? client, string? area52Version)
     {
         var sb = new StringBuilder();
+        var area52 = IsArea52(t.Name);
         sb.Append(t.BaseOf is null ? $"DBC table {t.Name}" : $"Base copy of DBC table {t.BaseOf}, not the copy the client reads");
         sb.Append($": {t.Status}, {t.Rows.ToString("N0", CultureInfo.InvariantCulture)} rows, {t.Fields} fields, {t.Named} named.\n");
-        if (t.WinnerArchive is not null) sb.Append($"{(t.BaseOf is null ? "Winning copy" : "From")}: {OriginText(t.Origin, t.WinnerArchive)}.\n");
+        if (t.WinnerArchive is not null) sb.Append($"{(t.BaseOf is null && !area52 ? "Winning copy" : "From")}: {OriginText(t.Origin, t.WinnerArchive)}.\n");
+        if (area52) sb.Append(Area52Line).Append('\n');
+        if (area52Version is not null) sb.Append(Area52VersionLine(area52Version)).Append('\n');
         if (t.Status == DbcStatus.Ok && client?.MismatchLine(t.WinnerArchive) is { } mismatch) sb.Append(mismatch).Append('\n');
         if (t.NamesSource is not null) sb.Append($"Field names from: {t.NamesSource}.\n");
         if (t.Problem is not null) sb.Append($"Note: {t.Problem}\n");

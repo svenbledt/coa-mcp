@@ -60,15 +60,18 @@ public sealed class DbcTools
         var layer = lease.Layer;
 
         var text = string.IsNullOrWhiteSpace(filter) ? null : filter.Trim();
+        // Area 52's versions are listed after every default table.
+        const string Order = "ORDER BY name LIKE '%\\_\\_area52' ESCAPE '\\', name";
         var rows = text is null
-            ? layer.Query("SELECT * FROM dbc_tables ORDER BY name LIMIT $0 OFFSET $1", (long)lim + 1, (long)off)
-            : layer.Query("SELECT * FROM dbc_tables WHERE instr(lower(name), lower($2)) > 0 ORDER BY name LIMIT $0 OFFSET $1", (long)lim + 1, (long)off, text);
+            ? layer.Query($"SELECT * FROM dbc_tables {Order} LIMIT $0 OFFSET $1", (long)lim + 1, (long)off)
+            : layer.Query($"SELECT * FROM dbc_tables WHERE instr(lower(name), lower($2)) > 0 {Order} LIMIT $0 OFFSET $1", (long)lim + 1, (long)off, text);
 
         var sb = new StringBuilder($"DBC tables (realm the CoA client (unproven), trust {Render.Trust(Trust.Client)}, source {ClientRelease.Source(DbcLayerBuilder.Source, layer.Meta.Client)}; layer {DbcPages.LayerName} v{layer.Meta.Version}, {Render.Dated(layer.Meta, layer.Meta.SourceDate)}).\n");
         if (note is not null) sb.Append(note).Append('\n');
         sb.Append($"{Math.Min(rows.Count, lim)} tables (offset {off}, limit {lim}). A project-built winner is not evidence about Ascension. A base table is not claimed as Ascension either.\n");
         var listed = rows.Take(lim).Select(DbcTableRef.From).ToList();
         foreach (var t in listed) sb.Append(TableLine(t)).Append('\n');
+        if (listed.Any(t => t.IsArea52)) sb.Append("Names ending in ").Append(DbcLayerBuilder.Area52Suffix).Append(" are Area 52's versions, never the default. ").Append(DbcLayerBuilder.Area52Line).Append('\n');
         foreach (var archive in listed.Where(t => t.Status == DbcStatus.Ok).Select(t => t.Archive).Distinct())
             if (layer.Meta.Client?.MismatchLine(archive) is { } mismatch) sb.Append(mismatch).Append('\n');
         if (rows.Count > lim) sb.Append($"More results may exist: use offset={off + lim}.\n");
@@ -87,6 +90,7 @@ public sealed class DbcTools
     {
         var sb = new StringBuilder($"{t.Name} | {t.Rows.ToString("N0", CultureInfo.InvariantCulture)} rows | {t.Fields} fields, {t.Named} named | {Render.OneLine(t.Archive ?? "no archive", 60)} ({ArchiveOrigin.Label(t.Origin)})");
         if (t.BaseOf is not null) sb.Append($" | base copy of {t.BaseOf}");
+        if (t.IsArea52) sb.Append($" | realm {DbcLayerBuilder.Area52Realm}");
         if (t.Status != DbcStatus.Ok) sb.Append(" | ").Append(t.Status);
         if (t.Problem is not null) sb.Append(" | ").Append(Render.OneLine(t.Problem, 160));
         return sb.ToString();
@@ -235,6 +239,11 @@ public sealed class DbcTools
     {
         var meta = layer.Query("SELECT key, value FROM dbc_meta").ToDictionary(r => (string)r["key"]!, r => (string)r["value"]!);
         string S(string key) => meta.TryGetValue(key, out var v) ? v : "?";
-        return $"{S("tables")} tables, {S("rows")} rows ({S("named_tables")} tables with proven field names, the rest guessed; {S("base_tables")} base copies; {S("deleted")} removed by a delete marker; {S("unreadable")} unreadable)";
+        var area52 = HasArea52(layer) ? $"; plus {S("area52_tables")} Area 52 tables, {S("area52_rows")} rows, never the default" : "";
+        return $"{S("tables")} tables, {S("rows")} rows ({S("named_tables")} tables with proven field names, the rest guessed; {S("base_tables")} base copies; {S("deleted")} removed by a delete marker; {S("unreadable")} unreadable){area52}";
     }
+
+    /// <summary>Whether this version of the layer has any Area 52 tables. A layer built before they existed has none.</summary>
+    public static bool HasArea52(Layer layer) =>
+        layer.Query("SELECT value FROM dbc_meta WHERE key = 'area52_tables'") is [var r] && (string)r["value"]! != "0";
 }

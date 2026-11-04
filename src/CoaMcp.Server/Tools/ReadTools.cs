@@ -199,6 +199,8 @@ public sealed class ReadTools
             sb.Append("Client release: ").Append(Render.OneLine(note, 400)).Append('\n');
         sb.Append("Known gaps: ").Append(KnownGaps).Append('\n');
         sb.Append("Known gap (client paths): ").Append(PathTools.Gap).Append('\n');
+        if (_layers.Status().Any(l => l.Name == DbcPages.LayerName && l.Layer is { } dbc && DbcTools.HasArea52(dbc)))
+            sb.Append("Known gap (Area 52): no spell pages in the spells layer; read its DBC rows as <table>__area52.\n");
         if (_layers.Status().Any(l => l.Problem == LayerSet.CacheNotBuilt))
             sb.Append("Known gap (cache): no approved cache source yet, so the npcs topic has no player-cache data.\n");
         sb.Append(_token.Enabled ? "Writes: enabled, for holders of the bearer token.\n" : "Writes: disabled on this server.\n");
