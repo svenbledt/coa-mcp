@@ -85,3 +85,13 @@ git add knowledge && git commit
 ```
 
 The command checks that the store exists, finds the running container by the app id (`--container <name>` overrides), runs `admin snapshot` inside it (`VACUUM INTO` a new file in `/data/writable`), downloads that file with `scp` to a temp folder, checks its checksum, exports it, and deletes the server copy and the local copy whatever happens. It only reads production, contacts only `--host`, and never commits. With no store on the server yet it says there is nothing to merge and exits 0. The files, the scan and the restore are described in `knowledge/README.md`; `restore-writes --from knowledge --store <file>` rebuilds an empty store (to bring production back: stop the container, restore to `writable/store.sqlite`, `chown 10001:10001` it, start the container).
+
+## Production acceptance suite
+
+`tests/CoaMcp.Acceptance` tests the live server from outside and writes `docs/acceptance-report.md`. It isn't in either solution, so default test runs never touch production.
+
+```
+COA_MCP_URL=https://coa-mcp.bledt.dev/mcp dotnet test tests/CoaMcp.Acceptance
+```
+
+It takes about 20 minutes, because it stays under the rate limit, and needs the local sources (restored client, `DataCOA`, Spellwork CoA) and the `BledtIT` ssh host. Without a token, the write tests report NOT RUN, never passed; give one in `COA_MCP_BEARER_TOKEN` or `.superpowers/acceptance-token.txt`. Tests that disturb production run only when asked for: `COA_ACCEPT_LIVE_UPDATE=1` publishes a rebuilt notes layer and rolls it back, and `COA_ACCEPT_RESTART=1` restarts the container. `COA_ACCEPT_SEED` repeats a random sample, `COA_ACCEPT_REPORT` writes the report elsewhere, and `COA_ACCEPT_REAL_CLIENT=0` skips the Claude Code test, which spends model usage.
