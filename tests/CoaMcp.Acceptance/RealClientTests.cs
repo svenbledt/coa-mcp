@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace CoaMcp.Acceptance;
 
@@ -17,7 +18,35 @@ public class RealClientTests
 
     private static bool _waited;
 
-    private static async Task Ask(Checks c, string title, string question, IEnumerable<string> mustContain)
+    /// <summary>What the model said, and what the server returned to it, whole. The second is the server's own output, so a check on it can't fail on the model's wording.</summary>
+    private sealed record AskResult(string Answer, string ToolResults);
+
+    private static string ToolResultText(JsonElement block)
+    {
+        if (!block.TryGetProperty("content", out var content)) return "";
+        return content.ValueKind == JsonValueKind.String
+            ? content.GetString() ?? ""
+            : string.Join("\n", content.EnumerateArray().Select(x => x.TryGetProperty("text", out var text) ? text.GetString() : ""));
+    }
+
+    /// <summary>
+    /// What an answer about an archive of Ascension's must not say: that the project built it, that its origin is plainly Ascension, or that it's been checked against live.
+    /// "May lag live" and "not verified against live" are the opposite of a claim, so they pass.
+    /// </summary>
+    internal static IReadOnlyList<string> ForbiddenInOriginAnswer(string answer)
+    {
+        var found = new List<string>();
+        foreach (var phrase in new[] { "project-built", "origin ascension" })
+            if (answer.Contains(phrase, StringComparison.OrdinalIgnoreCase)) found.Add(phrase);
+        foreach (Match m in Regex.Matches(answer, @"live[- ]verified|verified\s+(?:against|on|with|in)\s+(?:the\s+)?live|(?:confirmed|checked)\s+(?:against|on|with)\s+(?:the\s+)?live|match(?:es)?\s+(?:the\s+)?live", RegexOptions.IgnoreCase))
+        {
+            var before = answer[Math.Max(0, m.Index - 30)..m.Index];
+            if (!Regex.IsMatch(before, @"\b(?:not|never|cannot|without|unable)\b|n't\b|\bun$", RegexOptions.IgnoreCase)) found.Add(m.Value);
+        }
+        return found;
+    }
+
+    private static async Task<AskResult> Ask(Checks c, string title, string question, IEnumerable<string> mustContain)
     {
         // Claude Code shows a server as failed if its first request meets a 429, so start on a clean rate limit window.
         if (!_waited) await Task.Delay(TimeSpan.FromSeconds(62));
@@ -42,6 +71,7 @@ public class RealClientTests
             }, workingDir: folder, timeout: TimeSpan.FromMinutes(5), env: CleanEnv);
 
             var answer = new StringBuilder();
+            var toolResults = new StringBuilder();
             var calls = new List<string>();
             var transcript = new StringBuilder($"Question: {question}\n\n");
             foreach (var line in r.Out.Split('\n', StringSplitOptions.RemoveEmptyEntries))
@@ -68,7 +98,11 @@ public class RealClientTests
                     else if (type == "user" && root.TryGetProperty("message", out var message) && message.GetProperty("content").ValueKind == JsonValueKind.Array)
                         foreach (var block in message.GetProperty("content").EnumerateArray())
                             if (block.GetProperty("type").GetString() == "tool_result")
-                                transcript.Append($"[tool result] {ReportBook.Cut(block.TryGetProperty("content", out var content) ? content.ValueKind == JsonValueKind.String ? content.GetString() ?? "" : string.Join("\n", content.EnumerateArray().Select(x => x.TryGetProperty("text", out var tx) ? tx.GetString() : "")) : "", 800)}\n");
+                            {
+                                var text = ToolResultText(block);
+                                toolResults.Append(text).Append('\n');
+                                transcript.Append($"[tool result] {ReportBook.Cut(text, 800)}\n");
+                            }
                     if (type == "result" && root.TryGetProperty("result", out var result))
                     {
                         answer.Append(result.GetString());
@@ -85,6 +119,7 @@ public class RealClientTests
             c.That(calls.All(n => n.StartsWith("mcp__coa__", StringComparison.Ordinal)), title + ": it used only this server's tools", string.Join(", ", calls));
             foreach (var value in mustContain)
                 c.That(answer.ToString().Contains(value, StringComparison.OrdinalIgnoreCase), $"{title}: the answer holds the value from the local source: {value}", answer.ToString());
+            return new AskResult(answer.ToString(), toolResults.ToString());
         }
         finally { Directory.Delete(folder, recursive: true); }
     }
@@ -131,8 +166,11 @@ public class RealClientTests
         await Suite.Run(Area, test, async c =>
         {
             var spell = ClientManifest.Instance.Dbc("Spell")!;
-            await Ask(c, "A client path", "Using only the coa MCP server's tools, not your own knowledge: which archive does the client read DBFilesClient/Spell.dbc from, and what origin does the server give for that archive?",
-                new[] { spell.Winner!.Archive, "project records" });
+            var asked = await Ask(c, "A client path", "Using only the coa MCP server's tools, not your own knowledge: which archive does the client read DBFilesClient/Spell.dbc from, and what origin does the server give for that archive?",
+                new[] { spell.Winner!.Archive });
+            c.Has(asked.ToolResults, Settings.AscensionWords, "the server's own answer to the model says what the archive's origin means");
+            var forbidden = ForbiddenInOriginAnswer(asked.Answer);
+            c.That(forbidden.Count == 0, "the answer doesn't say project-built or origin ascension, and doesn't claim to be checked against live", $"found: {string.Join(", ", forbidden)}\nanswer: {asked.Answer}");
         });
     }
 }

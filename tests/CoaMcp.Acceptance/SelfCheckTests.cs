@@ -108,6 +108,24 @@ public class SelfCheckTests
     }
 
     [Theory]
+    [InlineData("It comes from patch-T.MPQ: Ascension's archive per project records, and this copy may lag live.", null)]
+    [InlineData("The server says this isn't verified against live, and it hasn't been checked against live.", null)]
+    [InlineData("Not live-verified.", null)]
+    [InlineData("patch-T.MPQ is project-built.", "project-built")]
+    [InlineData("patch-T.MPQ is Project-Built.", "project-built")]
+    [InlineData("It has origin ascension.", "origin ascension")]
+    [InlineData("This is live-verified data.", "live-verified")]
+    [InlineData("It was verified against live.", "verified against live")]
+    [InlineData("This copy matches live.", "matches live")]
+    public void ForbiddenInOriginAnswer_CatchesClaims_ButNotHonestDoubt(string answer, string? expected)
+    {
+        var found = RealClientTests.ForbiddenInOriginAnswer(answer);
+        if (expected is null) Assert.Empty(found);
+        else Assert.Contains(found, f => f.Equals(expected, StringComparison.OrdinalIgnoreCase));
+        Record("the origin answer check catches claims, not doubt");
+    }
+
+    [Theory]
     [InlineData("640", true)]
     [InlineData("600", true)]
     [InlineData("0640", true)]
