@@ -18,7 +18,7 @@ public sealed record LayerState(string Name, Layer? Layer, string? Problem, stri
 public sealed class LayerSet : IDisposable
 {
     /// <summary>Layers the server expects. Later tasks add to this list.</summary>
-    public static readonly string[] ExpectedLayers = { "bisbeard", "spells", "paths", "dbc" };
+    public static readonly string[] ExpectedLayers = { "bisbeard", "spells", "paths", "dbc", "notes", "cache" };
 
     private readonly string _root;
     private readonly ILogger? _log;

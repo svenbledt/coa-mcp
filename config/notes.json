@@ -1,0 +1,53 @@
+{
+  "notes": [
+    {
+      "id": "mpq-listfile",
+      "file": "mpq-listfile.md",
+      "title": "Ascension client MPQ file list: how it was built and what it cannot say",
+      "date": "2026-10-25",
+      "origin": "CoA64 docs/mpq-listfile.md, explanatory part only"
+    },
+    {
+      "id": "client-dbc-patch",
+      "file": "client-dbc-patch-notes.md",
+      "title": "Client DBC patch notes: wire records and index insert",
+      "date": "2026-11-03",
+      "origin": "CoA64 docs/2026-11-03-client-dbc-patch-notes.md"
+    },
+    {
+      "id": "coa-module-notes",
+      "file": "coa-module-notes.md",
+      "title": "CoA module notes: templates, spell charges, asset queries",
+      "date": "2026-10-29",
+      "origin": "CoA64 docs/2026-10-29-coa-module-notes.md"
+    },
+    {
+      "id": "coa64-world-findings",
+      "file": "coa64-world-findings.md",
+      "title": "What the Ascension client does on world entry",
+      "date": "2026-10-26",
+      "origin": "CoA64 docs/superpowers/plans/2026-10-25-coa64-world-findings.md, client-behavior findings only"
+    },
+    {
+      "id": "coa64-rulings",
+      "file": "coa64-rulings.md",
+      "title": "Quirks of the original Ascension client",
+      "date": "2026-10-25",
+      "origin": "CoA64 docs/superpowers/plans/2026-10-25-coa64-rulings.md, client-behavior entries only"
+    }
+  ],
+  "projectPages": [
+    {
+      "id": "home-about",
+      "url": "https://coa-development.org/",
+      "title": "Conquest of AzerothCore: what the project site says about the realm",
+      "sections": ["about"]
+    },
+    {
+      "id": "faq",
+      "url": "https://coa-development.org/faq",
+      "title": "Conquest of AzerothCore FAQ: connecting and reporting bugs",
+      "sections": ["getting-started", "testing"]
+    }
+  ]
+}

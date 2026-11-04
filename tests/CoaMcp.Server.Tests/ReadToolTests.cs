@@ -215,11 +215,10 @@ public class ReadToolTests : IClassFixture<ReadFixture>
         if (topic != "classes") Assert.DoesNotContain("class:coa:barbarian", text);
     }
 
-    [Theory]
-    [InlineData("dungeons")]
-    [InlineData("npcs")]
-    public async Task Search_TopicWithoutDataYet_IsEmptyNotAnError(string topic)
+    [Fact]
+    public async Task Search_TopicWithoutDataYet_IsEmptyNotAnError()
     {
+        var topic = "dungeons";   // npcs now maps to the cache layer's creatures
         var (text, isError) = await _f.Call("search", A(("query", "libram"), ("topic", topic)));
         Assert.False(isError);
         Assert.Contains("0 hits", text);

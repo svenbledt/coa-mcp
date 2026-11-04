@@ -24,6 +24,8 @@ public static partial class LayerAllowList
             "enums", "flag_kinds", "spell_scaling_inputs", "golden_scaling", "ScalingStatValues", "ScalingStatDistribution", Client,
         }).ToArray(),
         ["paths"] = Base.Concat(new[] { "paths", "dirs", "path_stats", PathsFts, Client }).ToArray(),
+        ["notes"] = Base,
+        ["cache"] = Base,
         ["dbc"] = Base.Concat(new[] { "dbc_tables", "dbc_fields", "dbc_meta", Client }).ToArray(),
     };
 

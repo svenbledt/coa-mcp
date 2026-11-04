@@ -2,6 +2,7 @@ using CoaMcp.Pipeline;
 using CoaMcp.Pipeline.Bisbeard;
 using CoaMcp.Pipeline.Dbc;
 using CoaMcp.Pipeline.Mpq;
+using CoaMcp.Pipeline.Notes;
 using CoaMcp.Pipeline.Publish;
 using CoaMcp.Pipeline.Spells;
 
@@ -9,6 +10,8 @@ const string Usage = """
     Usage: coamcp-pipeline bisbeard --data <DataCOA\data> --client-dbc <winners folder> --out <layer.sqlite> [--guides <bisbeard-guides.json>] [--version <v>]
            coamcp-pipeline spells --dbc <winners folder> --out <layer.sqlite> [--version <v>]
            coamcp-pipeline dbc --manifest <manifest.sqlite> --client-release <CLIENT-RELEASE.json> --winners <folder outside any repository> --out <layer.sqlite> [--config <archives.json>] [--fields <dbc-fields folder>] [--version <v>]
+           coamcp-pipeline notes --out <layer.sqlite> [--notes <notes folder>] [--config <notes.json>] [--version <v>]
+           coamcp-pipeline wdb --out <layer.sqlite> [--config <wdb-sources.json>] [--scan <folder>] [--version <v>]
            coamcp-pipeline publish --layer <layer.sqlite> --host <ssh host> [--dry-run]
            coamcp-pipeline restore --data <client Data folder> --out <dir> [--config <archives.json>] [--parallel <n>] [--prune-gone]
            coamcp-pipeline listfile --manifest <manifest.sqlite> --out <dir>
@@ -17,6 +20,7 @@ const string Usage = """
     """;
 
 if (args.Length > 0 && args[0] == "publish") return await PublishCli.RunAsync(args[1..], Console.Out, Console.Error);
+if (args.Length > 0 && args[0] is "notes" or "wdb") return NotesCli.Run(args[0], args[1..], Console.Out, Console.Error);
 if (args.Length > 0 && args[0] == "dbc") return DbcCli.Run(args[1..], Console.Out, Console.Error);
 if (args.Length > 0 && args[0] is "restore" or "listfile" or "archive-check" or "paths") return MpqCli.Run(args[0], args[1..], Console.Out, Console.Error);
 
