@@ -44,3 +44,6 @@ Choices made without asking, while building, in order. Each says why and what it
 - patch-T origin becomes unknown with its evidence stated, until owner says otherwise — release notes show it shipped, not built, and patch-B alone has a build record; answers still don't claim Ascension — if wrong, a config flip and rebuild. This reverses what I told the owner earlier ("warning stays").
 - all client layers use one date, the newest client archive's modified date, labeled "client files dated" — one client should have one date — if wrong, relabel.
 - one targeted extra fix despite the single-fix-wave rule — it's a new public lockout in undeployed code, and shipping it knowingly is worse than a small extra round — costs one more dispatch.
+- patch-T origin ascension, worded as per project records, this copy may lag live — evidence is direct project statements — if wrong, config flip.
+- Area 52 tables added as labeled second version, never default — not the CoA realm and design covers more than CoA — extra rows in dbc layer.
+- client version label comes from launcher state (2026-10-30-01), which matches disk; release file mismatch line dropped when launcher state matches — removes a confusing warning — if wrong, relabel.
