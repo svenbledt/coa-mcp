@@ -57,3 +57,19 @@ dotnet test CoaMcp.sln
 Settings (environment variables): `Layers__Root` (data root), `Layers__ReloadSeconds` (default 30), `RateLimit__PerMinute` (default 120), `Network__PeerNetworks__0` (CIDR of the networks Traefik connects from; forwarded headers are believed only from peers inside them, default none means trust nothing), `Network__CloudflareRanges__0` (optional override of the built-in Cloudflare edge ranges, current as of 2026-11-03). The rate limit keys on the real client: behind Traefik the rightmost `X-Forwarded-For` address is what Traefik saw; if it is a Cloudflare edge address the client is `CF-Connecting-IP`, otherwise it is that address.
 
 Deployment is `docker-compose.yml` on Coolify, with the domain set in Coolify. The host folder `/data/coamcp` is mounted at `/data`. The publisher sets modes explicitly: layer folders 0755 and files 0644 (root-owned, so the server can read but not write them), and `writable/` owned by UID 10001 with mode 0750 for the future writable store. The server never opens layer files for writing.
+
+## Admin and backups
+
+Owner commands run inside the container with `docker exec`. There is no network endpoint for them and they need no token. The container name comes from Coolify (`docker ps`).
+
+```
+docker exec <container> dotnet /app/CoaMcp.Server.dll admin list-authors
+docker exec <container> dotnet /app/CoaMcp.Server.dll admin undo-author "<name>" --by owner
+docker exec <container> dotnet /app/CoaMcp.Server.dll admin undo-entry <id>
+```
+
+`list-authors` prints one line per author (name quoted) with live, undone and total counts and the newest date. `undo-author` marks that author's live entries undone in one transaction and prints how many; it matches the name exactly, deletes nothing, and a second run changes nothing. An unknown author, or a missing store, prints a message and exits 1 without creating anything.
+
+Backups: `sh /app/backup-store.sh` (or `admin backup <dir>`) writes `store-YYYYMMDD.sqlite` using `VACUUM INTO`, which is safe while the server runs, and deletes files named exactly like that once they are 14 days old. The default folder is `/data/writable/backups` (host: `/data/coamcp/writable/backups`), because `/data/writable` is the only place the container user can write. Make it a Coolify scheduled task, nightly, running `sh /app/backup-store.sh` in the `server` container. The files are mode 0640, so keep them off public shares.
+
+Restore: stop the container, copy the chosen backup to `/data/coamcp/writable/store.sqlite` (owner UID 10001, mode 0640), delete any `store.sqlite-wal` and `store.sqlite-shm` beside it, and start the container again.

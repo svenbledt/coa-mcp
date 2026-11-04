@@ -1,6 +1,7 @@
-# Send nothing to the build except the two projects the server needs.
+# Send nothing to the build except the two projects the server needs and the backup script.
 *
 !src/CoaMcp.Core/**
 !src/CoaMcp.Server/**
+!scripts/backup-store.sh
 **/bin
 **/obj

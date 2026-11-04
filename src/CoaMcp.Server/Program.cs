@@ -6,6 +6,10 @@ using Microsoft.AspNetCore.Http.Features;
 using ModelContextProtocol.AspNetCore;
 using ModelContextProtocol.Server;
 
+// Owner commands (`coamcp admin ...`, run with docker exec) act on the store and exit. They never start the web host and need no token.
+if (args.Length > 0 && args[0] == "admin")
+    return CoaMcp.Server.Admin.AdminCli.Run(args, Environment.GetEnvironmentVariable("Layers__Root") ?? "/data", Console.Out, Console.Error);
+
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
 
@@ -98,5 +102,6 @@ app.MapGet("/healthz", () => Results.Ok());
 app.MapMcp("/mcp");
 
 app.Run();
+return 0;
 
 public partial class Program { }

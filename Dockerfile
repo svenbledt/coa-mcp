@@ -15,6 +15,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0
 RUN groupadd --gid 10001 coamcp && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin coamcp
 WORKDIR /app
 COPY --from=build /app .
+COPY scripts/backup-store.sh /app/backup-store.sh
 USER 10001:10001
 # The base image also sets ASPNETCORE_HTTP_PORTS=8080; clearing it avoids a startup warning about two port settings.
 ENV ASPNETCORE_HTTP_PORTS= \
