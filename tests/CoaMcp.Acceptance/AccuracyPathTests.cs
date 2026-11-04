@@ -103,7 +103,7 @@ public class AccuracyPathTests
         var manifest = ClientManifest.Instance;
         c.That(manifest.HashesChecked > 700_000, "the manifest's named entries were all hashed", manifest.HashesChecked.ToString(CultureInfo.InvariantCulture));
         c.That(manifest.HashMismatches.Count == 0, "no name fails its two hashes", $"{manifest.HashMismatches.Count} mismatches, first: {string.Join("\n", manifest.HashMismatches.Take(20))}");
-        c.Book.Observe($"{manifest.HashesChecked:N0} archive entries had their names re-hashed locally with this suite's MPQ hash.");
+        c.Book.Observe($"{manifest.HashesChecked.ToString("N0", CultureInfo.InvariantCulture)} archive entries had their names re-hashed locally with this suite's MPQ hash.");
         return Task.CompletedTask;
     });
 
@@ -304,6 +304,109 @@ public class SpotCheckTests
         var site = await client.Call("get", new { id = "project:faq" }, "spot check: a project site page says it isn't evidence");
         c.Has(site.Text, "It isn't evidence about Ascension", "a coa-development.org page says it isn't evidence");
         c.Has(site.Text, "the emulator project, not Ascension", "its source says so too");
+    });
+
+    /// <summary>patch-T.MPQ is of unknown origin, so nothing it won may be presented as built by the project. The general sentence in dbc_tables about project-built winners isn't about it, so that's read line by line.</summary>
+    [SkippableFact]
+    public Task PatchT_Winners_SayOriginUnknown() => Suite.Run(Area, "a patch-T winner says origin unknown, and no answer calls it project-built", async c =>
+    {
+        var client = await Suite.Anonymous();
+        var manifest = ClientManifest.Instance;
+        const string Archive = "patch-T.MPQ";
+        var rng = Suite.Rng("patch-t");
+        var won = manifest.Paths.Values.Where(p => p.Winner is { Marker: false, Archive: Archive }).ToList();
+        c.That(won.Count > 0, "the manifest has files won by patch-T.MPQ");
+        c.That(won.All(p => p.Winner!.Origin == "unknown"), "the manifest's own origin for patch-T.MPQ is unknown", won[0].Winner!.Origin);
+
+        var captured = false;
+        foreach (var p in won.OrderBy(_ => rng.Next()).Take(8).Append(manifest.Dbc("Spell")!).DistinctBy(p => p.Path))
+        {
+            var r = await client.Call("client_paths", new { prefix = p.Path }, captured ? null : "a patch-T winner says origin unknown");
+            captured = true;
+            c.Has(r.Text, $"winner: {Archive}, {p.Winner!.Size.ToString("N0", CultureInfo.InvariantCulture)} bytes, origin unknown", $"{p.Path}: winner and origin");
+            c.Lacks(r.Text, "project-built", $"{p.Path}: isn't called project-built");
+            c.Lacks(r.Text, "not evidence about Ascension", $"{p.Path}: isn't dismissed as project material");
+            var page = await client.Call("get", new { id = "path:" + p.Path });
+            c.Lacks(page.Text, "project-built", $"get(path:{p.Path}): isn't called project-built");
+        }
+
+        var list = await client.Call("client_paths", new { query = "Spell.dbc", ext = "dbc", limit = 5 });
+        foreach (var line in list.Text.Split('\n').Where(l => l.Contains(Archive, StringComparison.Ordinal)))
+            c.Lacks(line, "project-built", $"a list line isn't called project-built: {line}");
+
+        // Spell.dbc comes from patch-T.MPQ, so everything built on it must say the same.
+        foreach (var (tool, args) in new (string, object)[]
+                 {
+                     ("get", new { id = "spell:133" }), ("search", new { query = "fireball", topic = "spells", limit = 3 }),
+                     ("spell_compare", new { idA = "133", idB = "143" }), ("spell_scaling", new { id = "133", level = 80 }), ("decode_flags", new { kind = "SpellSchoolMask", value = "4" }),
+                     ("dbc_rows", new { table = "Spell", limit = 1, columns = new[] { "ID" } }), ("get", new { id = "dbc:Spell:133" }),
+                 })
+        {
+            var r = await client.Call(tool, args);
+            var who = $"{tool} {System.Text.Json.JsonSerializer.Serialize(args)}";
+            c.Lacks(r.Text, "project-built", who + " doesn't say project-built");
+            c.Lacks(r.Text, "(project)", who + " doesn't say project");
+        }
+
+        var tables = await client.Call("dbc_tables", new { filter = "Spell", limit = 100 });
+        var spellLine = tables.Text.Split('\n').FirstOrDefault(l => l.StartsWith("Spell |", StringComparison.Ordinal)) ?? "";
+        c.Has(spellLine, $"{Archive} (unknown)", "dbc_tables gives Spell's archive with origin unknown");
+    });
+
+    [SkippableFact]
+    public Task PatchB_Paths_SayProjectBuilt() => Suite.Run(Area, "a patch-B path still says project-built", async c =>
+    {
+        var client = await Suite.Anonymous();
+        var manifest = ClientManifest.Instance;
+        const string Archive = "patch-B.MPQ";
+        var rng = Suite.Rng("patch-b");
+        var won = manifest.Paths.Values.Where(p => p.Winner is { Marker: false, Archive: Archive }).ToList();
+        if (!c.That(won.Count > 0, "the manifest has files won by patch-B.MPQ")) return;
+        c.That(won.All(p => p.ProjectWinner), "the manifest's own origin for patch-B.MPQ is project", won[0].Winner!.Origin);
+
+        var captured = false;
+        foreach (var p in won.OrderBy(_ => rng.Next()).Take(8))
+        {
+            var r = await client.Call("client_paths", new { prefix = p.Path }, captured ? null : "a patch-B path says project-built");
+            captured = true;
+            c.Has(r.Text, $"winner: {Archive}, {p.Winner!.Size.ToString("N0", CultureInfo.InvariantCulture)} bytes, project-built archive (project files are not evidence about Ascension)", $"{p.Path}: says project-built");
+            var page = await client.Call("get", new { id = "path:" + p.Path });
+            c.Has(page.Text, "project-built archive", $"get(path:{p.Path}): says project-built");
+            var folder = await client.Call("client_paths", new { prefix = p.Path[..(p.Path.LastIndexOf('/') + 1)], query = Path.GetFileName(p.Path).Replace(' ', '_').Length >= 3 && !Path.GetFileName(p.Path).Contains(' ') ? Path.GetFileName(p.Path) : null, limit = 5 });
+            var line = folder.Text.Split('\n').FirstOrDefault(l => l.StartsWith(p.Path + " |", StringComparison.OrdinalIgnoreCase));
+            if (line is not null) c.Has(line, "(project-built archive)", $"{p.Path}: says so in a list too");
+        }
+    });
+
+    [SkippableFact]
+    public Task ClientLayers_ShareOneDate() => Suite.Run(Area, "one client date on all client layers and every answer from them", async c =>
+    {
+        var client = await Suite.Anonymous();
+        var expected = ClientManifest.Instance.ClientDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var status = await client.Call("status");
+        foreach (var layer in new[] { "spells", "paths", "dbc" })
+            c.Has(status.Text.Split('\n').FirstOrDefault(l => l.StartsWith($"- {layer}: ", StringComparison.Ordinal)) ?? "", $"client files dated {expected}", $"status gives {layer} the manifest's newest loaded archive date");
+
+        foreach (var (tool, args) in new (string, object)[]
+                 {
+                     ("get", new { id = "spell:133" }), ("spell_compare", new { idA = "133", idB = "143" }), ("spell_scaling", new { id = "133", level = 80 }), ("decode_flags", new { kind = "SpellSchoolMask", value = "4" }),
+                     ("client_paths", new { prefix = "DBFilesClient/Spell.dbc" }), ("client_paths", new { prefix = "DBFilesClient/", limit = 1 }),
+                     ("dbc_tables", new { limit = 1 }), ("dbc_rows", new { table = "Map", limit = 1 }), ("get", new { id = "dbc:Map:0" }), ("get", new { id = "path:DBFilesClient/Spell.dbc" }),
+                 })
+        {
+            var r = await client.Call(tool, args);
+            var who = $"{tool} {System.Text.Json.JsonSerializer.Serialize(args)}";
+            c.Has(r.Text, $"client files dated {expected}", who + " states the one client date");
+            var dates = Regex.Matches(r.Text, @"(?:client files dated|source date):? (\d{4}-\d\d-\d\d)").Select(m => m.Groups[1].Value).Distinct().ToList();
+            c.That(dates.All(d => d == expected), who + " states no other date", string.Join(", ", dates));
+        }
+
+        foreach (var (query, topic) in new[] { ("fireball", "spells"), ("spell", "dbc") })
+        {
+            var r = await client.Call("search", new { query, topic, limit = 5 });
+            foreach (var hit in r.Text.Split('\n').Where(l => Regex.IsMatch(l, @"^\d+\. \[")))
+                c.That(hit.Contains($", {expected})", StringComparison.Ordinal), $"a {topic} search hit states the one client date", hit);
+        }
     });
 
     [SkippableFact]

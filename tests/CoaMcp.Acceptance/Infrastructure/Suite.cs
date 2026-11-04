@@ -35,7 +35,9 @@ public sealed class LiveClient : IAsyncDisposable
         {
             Endpoint = Settings.Mcp,
             TransportMode = HttpTransportMode.StreamableHttp,
-        }, http, loggerFactory: null, ownsHttpClient: true));
+        }, http, loggerFactory: null, ownsHttpClient: true),
+        // The pacing handler waits out a 429 for up to a minute, which the SDK's default 60 s for connecting wouldn't allow.
+        new McpClientOptions { InitializationTimeout = TimeSpan.FromMinutes(4) });
         return new LiveClient(client, book, timed);
     }
 
@@ -212,8 +214,17 @@ public static partial class Suite
         Book.Header($"Server image: {(image.Exit == 0 && image.Out.Trim().Length > 0 ? image.Out.Trim() : "could not be read over ssh")}");
         Book.Header($"Random seed: {Settings.Seed} (set COA_ACCEPT_SEED to repeat this sample)");
         Book.Header($"Token available to the suite: {(Settings.Token is null ? "no" : "yes")}");
-        var client = await Anonymous();
-        var status = await client.Call("status");
+        // This runs before a test's own failure handling, so a failure here goes in the report rather than only in xUnit's output.
+        Reply status;
+        try
+        {
+            status = await (await Anonymous()).Call("status");
+        }
+        catch (Exception ex) when (ex is TimeoutException or HttpRequestException or TaskCanceledException or McpException)
+        {
+            Book.Header($"Status could not be read at the start of the run: {ex.GetType().Name}: {ex.Message}");
+            return;
+        }
         Book.LayersAtStart(LayerLines(status.Text));
 
         ServerWritesEnabled = WritesEnabled(status.Text);

@@ -34,6 +34,9 @@ public sealed class ClientManifest
     public List<string> HashMismatches { get; } = new();
     public long HashesChecked { get; private set; }
 
+    /// <summary>The newest modified time among the archives the default client reads, worked out here: the one date every client layer should state.</summary>
+    public DateOnly ClientDate { get; private set; }
+
     private ClientManifest(string file)
     {
         var uri = new Uri(System.IO.Path.GetFullPath(file)).AbsoluteUri + "?immutable=1";
@@ -43,9 +46,17 @@ public sealed class ClientManifest
         var archives = new Dictionary<string, (int Priority, string Origin, string? Realm)>(StringComparer.Ordinal);
         using (var cmd = db.CreateCommand())
         {
-            cmd.CommandText = "SELECT archive, priority, origin, realm FROM archives";
+            cmd.CommandText = "SELECT archive, priority, origin, realm, file_mtime FROM archives";
             using var rd = cmd.ExecuteReader();
-            while (rd.Read()) archives[rd.GetString(0)] = (rd.GetInt32(1), rd.GetString(2), rd.IsDBNull(3) ? null : rd.GetString(3));
+            while (rd.Read())
+            {
+                archives[rd.GetString(0)] = (rd.GetInt32(1), rd.GetString(2), rd.IsDBNull(3) ? null : rd.GetString(3));
+                if (rd.GetInt32(1) >= 0 && rd.IsDBNull(3) && !rd.IsDBNull(4))
+                {
+                    var date = DateOnly.FromDateTime(new DateTime(rd.GetInt64(4), DateTimeKind.Utc));
+                    if (date > ClientDate) ClientDate = date;
+                }
+            }
         }
 
         var groups = new Dictionary<string, List<(Copy Copy, string Path)>>(StringComparer.Ordinal);

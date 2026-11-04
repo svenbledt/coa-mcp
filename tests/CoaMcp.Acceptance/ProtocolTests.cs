@@ -34,7 +34,7 @@ public class ProtocolTests
             c.That((t.Description?.Length ?? 0) <= 500, $"{t.Name}'s description stays short", $"{t.Description?.Length} characters: {t.Description}");
         }
         var size = JsonSerializer.Serialize(tools.Select(t => t.ProtocolTool)).Length;
-        c.Book.Observe($"The anonymous tool list is {size:N0} characters of JSON, what an agent pays to load it.");
+        c.Book.Observe($"The anonymous tool list is {size.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} characters of JSON, what an agent pays to load it.");
         c.That(size < 20_000, "the whole tool list stays small", $"{size} characters");
     });
 

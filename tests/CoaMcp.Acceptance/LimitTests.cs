@@ -153,6 +153,55 @@ public class LimitTests
         c.Book.Load("From BledtIT through Cloudflare", $"30 `status` calls with `curl`, 8 at a time: p50 {ReportBook.Percentile(times, 50)} ms, p95 {ReportBook.Percentile(times, 95)} ms, {lines.Count(l => l[0] != "200")} errors.");
     });
 
+    /// <summary>
+    /// This machine past its limit of 8 requests at once, with BledtIT reading at the same time. Modest for a shared server: three bursts, 72 requests in all, which stays inside 120 a minute,
+    /// so any 429 here comes from the concurrency cap. Reaching the shared cap of 64 running would take many addresses, so that stays with the server's own tests.
+    /// </summary>
+    [SkippableFact]
+    public Task AtSaturation_ASecondClientIsUnaffected() => Suite.Run(Area, "at the 8-at-once limit, this client gets a clean 429 and a second client is unaffected", async c =>
+    {
+        await NextWindow();
+        const int PerBurst = 24, Bursts = 3;
+        using var http = Raw.Unpaced();
+
+        // The slowest honest read there is: an unindexed scan of the largest table.
+        var slow = Raw.Rpc("tools/call", "{\"name\":\"dbc_rows\",\"arguments\":{\"table\":\"ItemStat\",\"where\":[{\"field\":\"f3\",\"op\":\"=\",\"value\":987654321}],\"limit\":1}}");
+        var other = Shell.Ssh(RemoteCurl(30, 5));
+
+        var replies = new List<RawReply>();
+        var health = new List<int>();
+        for (var b = 0; b < Bursts; b++)
+        {
+            var burst = Task.WhenAll(Enumerable.Range(0, PerBurst).Select(_ => Raw.Post(http, slow)));
+            var alive = Raw.Post(http, null, null, method: HttpMethod.Get, url: Settings.Health.ToString());
+            replies.AddRange(await burst);
+            health.Add((await alive).Status);
+            await Task.Delay(TimeSpan.FromSeconds(2));
+        }
+        var second = await other;
+
+        var counts = string.Join(", ", replies.GroupBy(r => r.Status).OrderBy(g => g.Key).Select(g => $"{g.Key} x{g.Count()}"));
+        c.Book.Observe($"At saturation: {Bursts} bursts of {PerBurst} slow reads from this machine got {counts}.");
+        var limited = replies.Where(r => r.Status == 429).ToList();
+        c.That(limited.Count > 0, "the bursts reached the limit of 8 at once", counts);
+        c.That(replies.Count(r => r.Status == 200) >= 8, "and at least the 8 it allows got through", counts);
+        c.That(replies.All(r => r.Status is 200 or 429), "nothing but answers and clean 429s: no 5xx, no 408", counts);
+        foreach (var r in limited.Take(3))
+        {
+            c.Has(r.Body, "Too many requests from this client", "a 429 says what happened");
+            c.Has(r.Body, "\"jsonrpc\":\"2.0\"", "as a JSON-RPC error");
+            c.That(Suite.Leak(r.Body) is null, "and leaks nothing", r.Body);
+        }
+        c.That(health.All(s => s == 200), "/healthz answers during the bursts", string.Join(",", health));
+
+        c.Equal(0, second.Exit, "the second client ran");
+        var lines = second.Out.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l.Split(' ')).ToList();
+        c.Equal(30, lines.Count, "the second client made its 30 requests");
+        c.That(lines.All(l => l[0] == "200"), "and every one worked while this client was limited", second.Out + second.Err);
+        var times = lines.Where(l => l.Length == 2).Select(l => (long)(double.Parse(l[1], CultureInfo.InvariantCulture) * 1000)).ToList();
+        c.Book.Load("A second client while this one is at its limit", $"From BledtIT through Cloudflare: 30 `status` calls with `curl`, 5 at a time, statuses {string.Join(", ", lines.GroupBy(l => l[0]).Select(g => $"{g.Key} x{g.Count()}"))}: p50 {ReportBook.Percentile(times, 50)} ms, p95 {ReportBook.Percentile(times, 95)} ms. This machine, meanwhile: {counts}.");
+    });
+
     /// <summary>Read-only curl calls from the server itself, out through Cloudflare, printing each status and total time.</summary>
     internal static string RemoteCurl(int total, int parallel)
     {
