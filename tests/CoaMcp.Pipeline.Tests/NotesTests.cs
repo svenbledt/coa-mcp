@@ -200,6 +200,16 @@ public class NotesTests : IDisposable
         Assert.DoesNotContain("a.b@", ex.Message);
     }
 
+    [Fact]
+    public void ProjectPage_TitleWithSecret_FailsBuild()
+    {
+        var pages = new FakePages(new() { ["https://coa-development.org/"] = HomeHtml });
+        var page = new { id = "home-about", url = "https://coa-development.org/", title = "Write to a.b@example.org", sections = new[] { "about" } };
+        var ex = Assert.Throws<InvalidDataException>(() => Run(new(), Array.Empty<object>(), new object[] { page }, pages));
+        Assert.Contains("title", ex.Message);
+        Assert.DoesNotContain("a.b@", ex.Message);
+    }
+
     [Theory]
     [InlineData("https://coa-development.org/account")]
     [InlineData("https://coa-development.org/account#apply")]

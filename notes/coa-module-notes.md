@@ -1,7 +1,7 @@
 # CoA module notes (2026-10-29)
 
 Findings about how the Ascension client's template, spell charge and asset query code behaves, as seen in the CoA64 port.
-Function addresses are from the 32-bit Ascension client. No code is included.
+Addresses are from the 32-bit Ascension client or its extension library. No code is included.
 
 ## Templates
 

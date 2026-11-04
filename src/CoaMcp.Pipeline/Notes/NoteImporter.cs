@@ -41,6 +41,7 @@ public static class NoteImporter
 
         foreach (var p in config.ProjectPages)
         {
+            SecretScan.ThrowIfAny($"title of project page '{p.Id}'", p.Title);
             var markdown = ProjectPages.Parse(pages.Fetch(p.Url), p.Sections, p.Id);
             var body = ProjectPages.NotEvidence + "\n\n" + markdown + $"\n\nPage: {p.Url}, read {today:yyyy-MM-dd}.\n";
             SecretScan.ThrowIfAny($"project page '{p.Id}'", body);

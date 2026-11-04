@@ -41,7 +41,8 @@ public sealed record WdbImportResult(bool Written, int Entities, IReadOnlyList<W
 /// <summary>
 /// Builds the cache layer from the player caches listed in config/wdb-sources.json. Creature records are read with the
 /// 3.3.5 layout. Item, quest, game object and NPC caches are recognised by header and counted, and no field is read from them:
-/// a real item cache does not follow the standard item layout, and the layouts are not guessed.
+/// the one local item cache sample did not follow the standard item layout, and the layouts are not guessed.
+/// cache-item and cache-quest entities wait for an approved source of caches and a proven layout (see docs/client-restore-report.md).
 /// With nothing to publish, no layer is written.
 /// </summary>
 public static partial class WdbImporter
