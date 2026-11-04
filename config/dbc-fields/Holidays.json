@@ -1,0 +1,226 @@
+{
+ "table": "Holidays",
+ "source": "CoA server DBCStructure.h HolidaysEntry aligned with DBCfmt.h Holidaysfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "Id",
+   "type": "uint"
+  },
+  {
+   "name": "Duration_0",
+   "type": "uint"
+  },
+  {
+   "name": "Duration_1",
+   "type": "uint"
+  },
+  {
+   "name": "Duration_2",
+   "type": "uint"
+  },
+  {
+   "name": "Duration_3",
+   "type": "uint"
+  },
+  {
+   "name": "Duration_4",
+   "type": "uint"
+  },
+  {
+   "name": "Duration_5",
+   "type": "uint"
+  },
+  {
+   "name": "Duration_6",
+   "type": "uint"
+  },
+  {
+   "name": "Duration_7",
+   "type": "uint"
+  },
+  {
+   "name": "Duration_8",
+   "type": "uint"
+  },
+  {
+   "name": "Duration_9",
+   "type": "uint"
+  },
+  {
+   "name": "Date_0",
+   "type": "uint"
+  },
+  {
+   "name": "Date_1",
+   "type": "uint"
+  },
+  {
+   "name": "Date_2",
+   "type": "uint"
+  },
+  {
+   "name": "Date_3",
+   "type": "uint"
+  },
+  {
+   "name": "Date_4",
+   "type": "uint"
+  },
+  {
+   "name": "Date_5",
+   "type": "uint"
+  },
+  {
+   "name": "Date_6",
+   "type": "uint"
+  },
+  {
+   "name": "Date_7",
+   "type": "uint"
+  },
+  {
+   "name": "Date_8",
+   "type": "uint"
+  },
+  {
+   "name": "Date_9",
+   "type": "uint"
+  },
+  {
+   "name": "Date_10",
+   "type": "uint"
+  },
+  {
+   "name": "Date_11",
+   "type": "uint"
+  },
+  {
+   "name": "Date_12",
+   "type": "uint"
+  },
+  {
+   "name": "Date_13",
+   "type": "uint"
+  },
+  {
+   "name": "Date_14",
+   "type": "uint"
+  },
+  {
+   "name": "Date_15",
+   "type": "uint"
+  },
+  {
+   "name": "Date_16",
+   "type": "uint"
+  },
+  {
+   "name": "Date_17",
+   "type": "uint"
+  },
+  {
+   "name": "Date_18",
+   "type": "uint"
+  },
+  {
+   "name": "Date_19",
+   "type": "uint"
+  },
+  {
+   "name": "Date_20",
+   "type": "uint"
+  },
+  {
+   "name": "Date_21",
+   "type": "uint"
+  },
+  {
+   "name": "Date_22",
+   "type": "uint"
+  },
+  {
+   "name": "Date_23",
+   "type": "uint"
+  },
+  {
+   "name": "Date_24",
+   "type": "uint"
+  },
+  {
+   "name": "Date_25",
+   "type": "uint"
+  },
+  {
+   "name": "Region",
+   "type": "uint"
+  },
+  {
+   "name": "Looping",
+   "type": "uint"
+  },
+  {
+   "name": "CalendarFlags_0",
+   "type": "uint"
+  },
+  {
+   "name": "CalendarFlags_1",
+   "type": "uint"
+  },
+  {
+   "name": "CalendarFlags_2",
+   "type": "uint"
+  },
+  {
+   "name": "CalendarFlags_3",
+   "type": "uint"
+  },
+  {
+   "name": "CalendarFlags_4",
+   "type": "uint"
+  },
+  {
+   "name": "CalendarFlags_5",
+   "type": "uint"
+  },
+  {
+   "name": "CalendarFlags_6",
+   "type": "uint"
+  },
+  {
+   "name": "CalendarFlags_7",
+   "type": "uint"
+  },
+  {
+   "name": "CalendarFlags_8",
+   "type": "uint"
+  },
+  {
+   "name": "CalendarFlags_9",
+   "type": "uint"
+  },
+  {
+   "name": "f49",
+   "type": "unknown"
+  },
+  {
+   "name": "f50",
+   "type": "unknown"
+  },
+  {
+   "name": "TextureFilename",
+   "type": "string"
+  },
+  {
+   "name": "Priority",
+   "type": "uint"
+  },
+  {
+   "name": "CalendarFilterType",
+   "type": "int"
+  },
+  {
+   "name": "f54",
+   "type": "unknown"
+  }
+ ]
+}

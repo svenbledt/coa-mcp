@@ -1,0 +1,222 @@
+{
+ "table": "AreaPOI",
+ "source": "CoA server DBCStructure.h AreaPOIEntry aligned with DBCfmt.h AreaPOIEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "id",
+   "type": "uint"
+  },
+  {
+   "name": "icon_0",
+   "type": "uint"
+  },
+  {
+   "name": "icon_1",
+   "type": "uint"
+  },
+  {
+   "name": "icon_2",
+   "type": "uint"
+  },
+  {
+   "name": "icon_3",
+   "type": "uint"
+  },
+  {
+   "name": "icon_4",
+   "type": "uint"
+  },
+  {
+   "name": "icon_5",
+   "type": "uint"
+  },
+  {
+   "name": "icon_6",
+   "type": "uint"
+  },
+  {
+   "name": "icon_7",
+   "type": "uint"
+  },
+  {
+   "name": "icon_8",
+   "type": "uint"
+  },
+  {
+   "name": "icon_9",
+   "type": "uint"
+  },
+  {
+   "name": "icon_10",
+   "type": "uint"
+  },
+  {
+   "name": "x",
+   "type": "float"
+  },
+  {
+   "name": "y",
+   "type": "float"
+  },
+  {
+   "name": "z",
+   "type": "float"
+  },
+  {
+   "name": "mapId",
+   "type": "uint"
+  },
+  {
+   "name": "f16",
+   "type": "unknown"
+  },
+  {
+   "name": "zoneId",
+   "type": "uint"
+  },
+  {
+   "name": "f18",
+   "type": "unknown"
+  },
+  {
+   "name": "f19",
+   "type": "unknown"
+  },
+  {
+   "name": "f20",
+   "type": "unknown"
+  },
+  {
+   "name": "f21",
+   "type": "unknown"
+  },
+  {
+   "name": "f22",
+   "type": "unknown"
+  },
+  {
+   "name": "f23",
+   "type": "unknown"
+  },
+  {
+   "name": "f24",
+   "type": "unknown"
+  },
+  {
+   "name": "f25",
+   "type": "unknown"
+  },
+  {
+   "name": "f26",
+   "type": "unknown"
+  },
+  {
+   "name": "f27",
+   "type": "unknown"
+  },
+  {
+   "name": "f28",
+   "type": "unknown"
+  },
+  {
+   "name": "f29",
+   "type": "unknown"
+  },
+  {
+   "name": "f30",
+   "type": "unknown"
+  },
+  {
+   "name": "f31",
+   "type": "unknown"
+  },
+  {
+   "name": "f32",
+   "type": "unknown"
+  },
+  {
+   "name": "f33",
+   "type": "unknown"
+  },
+  {
+   "name": "f34",
+   "type": "unknown"
+  },
+  {
+   "name": "f35",
+   "type": "unknown"
+  },
+  {
+   "name": "f36",
+   "type": "unknown"
+  },
+  {
+   "name": "f37",
+   "type": "unknown"
+  },
+  {
+   "name": "f38",
+   "type": "unknown"
+  },
+  {
+   "name": "f39",
+   "type": "unknown"
+  },
+  {
+   "name": "f40",
+   "type": "unknown"
+  },
+  {
+   "name": "f41",
+   "type": "unknown"
+  },
+  {
+   "name": "f42",
+   "type": "unknown"
+  },
+  {
+   "name": "f43",
+   "type": "unknown"
+  },
+  {
+   "name": "f44",
+   "type": "unknown"
+  },
+  {
+   "name": "f45",
+   "type": "unknown"
+  },
+  {
+   "name": "f46",
+   "type": "unknown"
+  },
+  {
+   "name": "f47",
+   "type": "unknown"
+  },
+  {
+   "name": "f48",
+   "type": "unknown"
+  },
+  {
+   "name": "f49",
+   "type": "unknown"
+  },
+  {
+   "name": "f50",
+   "type": "unknown"
+  },
+  {
+   "name": "f51",
+   "type": "unknown"
+  },
+  {
+   "name": "worldState",
+   "type": "uint"
+  },
+  {
+   "name": "f53",
+   "type": "unknown"
+  }
+ ]
+}

@@ -1,0 +1,70 @@
+{
+ "table": "CreatureDisplayInfo",
+ "source": "CoA server DBCStructure.h CreatureDisplayInfoEntry aligned with DBCfmt.h CreatureDisplayInfofmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "Displayid",
+   "type": "uint"
+  },
+  {
+   "name": "ModelId",
+   "type": "uint"
+  },
+  {
+   "name": "f2",
+   "type": "unknown"
+  },
+  {
+   "name": "ExtendedDisplayInfoID",
+   "type": "uint"
+  },
+  {
+   "name": "scale",
+   "type": "float"
+  },
+  {
+   "name": "f5",
+   "type": "unknown"
+  },
+  {
+   "name": "f6",
+   "type": "unknown"
+  },
+  {
+   "name": "f7",
+   "type": "unknown"
+  },
+  {
+   "name": "f8",
+   "type": "unknown"
+  },
+  {
+   "name": "f9",
+   "type": "unknown"
+  },
+  {
+   "name": "f10",
+   "type": "unknown"
+  },
+  {
+   "name": "f11",
+   "type": "unknown"
+  },
+  {
+   "name": "f12",
+   "type": "unknown"
+  },
+  {
+   "name": "f13",
+   "type": "unknown"
+  },
+  {
+   "name": "f14",
+   "type": "unknown"
+  },
+  {
+   "name": "f15",
+   "type": "unknown"
+  }
+ ]
+}

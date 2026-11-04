@@ -1,0 +1,234 @@
+{
+ "table": "Faction",
+ "source": "CoA server DBCStructure.h FactionEntry aligned with DBCfmt.h FactionEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "uint"
+  },
+  {
+   "name": "reputationListID",
+   "type": "int"
+  },
+  {
+   "name": "BaseRepRaceMask_0",
+   "type": "uint"
+  },
+  {
+   "name": "BaseRepRaceMask_1",
+   "type": "uint"
+  },
+  {
+   "name": "BaseRepRaceMask_2",
+   "type": "uint"
+  },
+  {
+   "name": "BaseRepRaceMask_3",
+   "type": "uint"
+  },
+  {
+   "name": "BaseRepClassMask_0",
+   "type": "uint"
+  },
+  {
+   "name": "BaseRepClassMask_1",
+   "type": "uint"
+  },
+  {
+   "name": "BaseRepClassMask_2",
+   "type": "uint"
+  },
+  {
+   "name": "BaseRepClassMask_3",
+   "type": "uint"
+  },
+  {
+   "name": "BaseRepValue_0",
+   "type": "int"
+  },
+  {
+   "name": "BaseRepValue_1",
+   "type": "int"
+  },
+  {
+   "name": "BaseRepValue_2",
+   "type": "int"
+  },
+  {
+   "name": "BaseRepValue_3",
+   "type": "int"
+  },
+  {
+   "name": "ReputationFlags_0",
+   "type": "uint"
+  },
+  {
+   "name": "ReputationFlags_1",
+   "type": "uint"
+  },
+  {
+   "name": "ReputationFlags_2",
+   "type": "uint"
+  },
+  {
+   "name": "ReputationFlags_3",
+   "type": "uint"
+  },
+  {
+   "name": "team",
+   "type": "uint"
+  },
+  {
+   "name": "spilloverRateIn",
+   "type": "float"
+  },
+  {
+   "name": "spilloverRateOut",
+   "type": "float"
+  },
+  {
+   "name": "spilloverMaxRankIn",
+   "type": "uint"
+  },
+  {
+   "name": "f22",
+   "type": "unknown"
+  },
+  {
+   "name": "name_0",
+   "type": "string"
+  },
+  {
+   "name": "name_1",
+   "type": "string"
+  },
+  {
+   "name": "name_2",
+   "type": "string"
+  },
+  {
+   "name": "name_3",
+   "type": "string"
+  },
+  {
+   "name": "name_4",
+   "type": "string"
+  },
+  {
+   "name": "name_5",
+   "type": "string"
+  },
+  {
+   "name": "name_6",
+   "type": "string"
+  },
+  {
+   "name": "name_7",
+   "type": "string"
+  },
+  {
+   "name": "name_8",
+   "type": "string"
+  },
+  {
+   "name": "name_9",
+   "type": "string"
+  },
+  {
+   "name": "name_10",
+   "type": "string"
+  },
+  {
+   "name": "name_11",
+   "type": "string"
+  },
+  {
+   "name": "name_12",
+   "type": "string"
+  },
+  {
+   "name": "name_13",
+   "type": "string"
+  },
+  {
+   "name": "name_14",
+   "type": "string"
+  },
+  {
+   "name": "name_15",
+   "type": "string"
+  },
+  {
+   "name": "f39",
+   "type": "unknown"
+  },
+  {
+   "name": "f40",
+   "type": "unknown"
+  },
+  {
+   "name": "f41",
+   "type": "unknown"
+  },
+  {
+   "name": "f42",
+   "type": "unknown"
+  },
+  {
+   "name": "f43",
+   "type": "unknown"
+  },
+  {
+   "name": "f44",
+   "type": "unknown"
+  },
+  {
+   "name": "f45",
+   "type": "unknown"
+  },
+  {
+   "name": "f46",
+   "type": "unknown"
+  },
+  {
+   "name": "f47",
+   "type": "unknown"
+  },
+  {
+   "name": "f48",
+   "type": "unknown"
+  },
+  {
+   "name": "f49",
+   "type": "unknown"
+  },
+  {
+   "name": "f50",
+   "type": "unknown"
+  },
+  {
+   "name": "f51",
+   "type": "unknown"
+  },
+  {
+   "name": "f52",
+   "type": "unknown"
+  },
+  {
+   "name": "f53",
+   "type": "unknown"
+  },
+  {
+   "name": "f54",
+   "type": "unknown"
+  },
+  {
+   "name": "f55",
+   "type": "unknown"
+  },
+  {
+   "name": "f56",
+   "type": "unknown"
+  }
+ ]
+}

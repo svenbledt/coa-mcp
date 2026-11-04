@@ -1,0 +1,6 @@
+*.sh text eol=lf
+
+# knowledge/ holds entries written by outside agents, and git must never change a byte of them. "-text" stops git
+# converting line endings in either direction. ("text eol=lf" would turn a CRLF inside an entry's content into LF on commit.)
+# The exporter itself writes LF in the front matter and keeps the content exactly as stored.
+knowledge/** -text

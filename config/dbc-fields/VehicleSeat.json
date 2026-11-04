@@ -1,0 +1,238 @@
+{
+ "table": "VehicleSeat",
+ "source": "CoA server DBCStructure.h VehicleSeatEntry aligned with DBCfmt.h VehicleSeatEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "m_ID",
+   "type": "uint"
+  },
+  {
+   "name": "m_flags",
+   "type": "uint"
+  },
+  {
+   "name": "m_attachmentID",
+   "type": "int"
+  },
+  {
+   "name": "m_attachmentOffsetX",
+   "type": "float"
+  },
+  {
+   "name": "m_attachmentOffsetY",
+   "type": "float"
+  },
+  {
+   "name": "m_attachmentOffsetZ",
+   "type": "float"
+  },
+  {
+   "name": "m_enterPreDelay",
+   "type": "float"
+  },
+  {
+   "name": "m_enterSpeed",
+   "type": "float"
+  },
+  {
+   "name": "m_enterGravity",
+   "type": "float"
+  },
+  {
+   "name": "m_enterMinDuration",
+   "type": "float"
+  },
+  {
+   "name": "m_enterMaxDuration",
+   "type": "float"
+  },
+  {
+   "name": "m_enterMinArcHeight",
+   "type": "float"
+  },
+  {
+   "name": "m_enterMaxArcHeight",
+   "type": "float"
+  },
+  {
+   "name": "m_enterAnimStart",
+   "type": "int"
+  },
+  {
+   "name": "m_enterAnimLoop",
+   "type": "int"
+  },
+  {
+   "name": "m_rideAnimStart",
+   "type": "int"
+  },
+  {
+   "name": "m_rideAnimLoop",
+   "type": "int"
+  },
+  {
+   "name": "m_rideUpperAnimStart",
+   "type": "int"
+  },
+  {
+   "name": "m_rideUpperAnimLoop",
+   "type": "int"
+  },
+  {
+   "name": "m_exitPreDelay",
+   "type": "float"
+  },
+  {
+   "name": "m_exitSpeed",
+   "type": "float"
+  },
+  {
+   "name": "m_exitGravity",
+   "type": "float"
+  },
+  {
+   "name": "m_exitMinDuration",
+   "type": "float"
+  },
+  {
+   "name": "m_exitMaxDuration",
+   "type": "float"
+  },
+  {
+   "name": "m_exitMinArcHeight",
+   "type": "float"
+  },
+  {
+   "name": "m_exitMaxArcHeight",
+   "type": "float"
+  },
+  {
+   "name": "m_exitAnimStart",
+   "type": "int"
+  },
+  {
+   "name": "m_exitAnimLoop",
+   "type": "int"
+  },
+  {
+   "name": "m_exitAnimEnd",
+   "type": "int"
+  },
+  {
+   "name": "m_passengerYaw",
+   "type": "float"
+  },
+  {
+   "name": "m_passengerPitch",
+   "type": "float"
+  },
+  {
+   "name": "m_passengerRoll",
+   "type": "float"
+  },
+  {
+   "name": "m_passengerAttachmentID",
+   "type": "int"
+  },
+  {
+   "name": "m_vehicleEnterAnim",
+   "type": "int"
+  },
+  {
+   "name": "m_vehicleExitAnim",
+   "type": "int"
+  },
+  {
+   "name": "m_vehicleRideAnimLoop",
+   "type": "int"
+  },
+  {
+   "name": "m_vehicleEnterAnimBone",
+   "type": "int"
+  },
+  {
+   "name": "m_vehicleExitAnimBone",
+   "type": "int"
+  },
+  {
+   "name": "m_vehicleRideAnimLoopBone",
+   "type": "int"
+  },
+  {
+   "name": "m_vehicleEnterAnimDelay",
+   "type": "float"
+  },
+  {
+   "name": "m_vehicleExitAnimDelay",
+   "type": "float"
+  },
+  {
+   "name": "m_vehicleAbilityDisplay",
+   "type": "uint"
+  },
+  {
+   "name": "m_enterUISoundID",
+   "type": "uint"
+  },
+  {
+   "name": "m_exitUISoundID",
+   "type": "uint"
+  },
+  {
+   "name": "m_uiSkin",
+   "type": "int"
+  },
+  {
+   "name": "m_flagsB",
+   "type": "uint"
+  },
+  {
+   "name": "f46",
+   "type": "unknown"
+  },
+  {
+   "name": "f47",
+   "type": "unknown"
+  },
+  {
+   "name": "f48",
+   "type": "unknown"
+  },
+  {
+   "name": "f49",
+   "type": "unknown"
+  },
+  {
+   "name": "f50",
+   "type": "unknown"
+  },
+  {
+   "name": "f51",
+   "type": "unknown"
+  },
+  {
+   "name": "f52",
+   "type": "unknown"
+  },
+  {
+   "name": "f53",
+   "type": "unknown"
+  },
+  {
+   "name": "f54",
+   "type": "unknown"
+  },
+  {
+   "name": "f55",
+   "type": "unknown"
+  },
+  {
+   "name": "f56",
+   "type": "unknown"
+  },
+  {
+   "name": "f57",
+   "type": "unknown"
+  }
+ ]
+}

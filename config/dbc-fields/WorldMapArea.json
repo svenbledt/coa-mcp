@@ -1,0 +1,50 @@
+{
+ "table": "WorldMapArea",
+ "source": "CoA server DBCStructure.h WorldMapAreaEntry aligned with DBCfmt.h WorldMapAreaEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "f0",
+   "type": "unknown"
+  },
+  {
+   "name": "map_id",
+   "type": "uint"
+  },
+  {
+   "name": "area_id",
+   "type": "uint"
+  },
+  {
+   "name": "f3",
+   "type": "unknown"
+  },
+  {
+   "name": "y1",
+   "type": "float"
+  },
+  {
+   "name": "y2",
+   "type": "float"
+  },
+  {
+   "name": "x1",
+   "type": "float"
+  },
+  {
+   "name": "x2",
+   "type": "float"
+  },
+  {
+   "name": "virtual_map_id",
+   "type": "int"
+  },
+  {
+   "name": "f9",
+   "type": "unknown"
+  },
+  {
+   "name": "f10",
+   "type": "unknown"
+  }
+ ]
+}

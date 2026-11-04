@@ -1,0 +1,46 @@
+{
+ "table": "ScreenEffect",
+ "source": "SpellWork CoA ScreenEffectEntry.cs: CoA 3.3.5a layout: WoWDBDefs ScreenEffect.dbd 3.3.5.12340 (10 fields, 40 bytes; not loaded by the CoA server)",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "Name",
+   "type": "string"
+  },
+  {
+   "name": "Effect",
+   "type": "int"
+  },
+  {
+   "name": "Param_0",
+   "type": "int"
+  },
+  {
+   "name": "Param_1",
+   "type": "int"
+  },
+  {
+   "name": "Param_2",
+   "type": "int"
+  },
+  {
+   "name": "Param_3",
+   "type": "int"
+  },
+  {
+   "name": "LightParamsID",
+   "type": "int"
+  },
+  {
+   "name": "SoundAmbienceID",
+   "type": "int"
+  },
+  {
+   "name": "ZoneMusicID",
+   "type": "int"
+  }
+ ]
+}

@@ -1,0 +1,54 @@
+{
+ "table": "OverrideSpellData",
+ "source": "SpellWork CoA OverrideSpellDataEntry.cs: CoA 3.3.5a layout: CoA DBCfmt.h OverrideSpellDatafmt (12 fields, 48 bytes); names from WoWDBDefs OverrideSpellData.dbd 3.3.5.12340",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "Spells_0",
+   "type": "int"
+  },
+  {
+   "name": "Spells_1",
+   "type": "int"
+  },
+  {
+   "name": "Spells_2",
+   "type": "int"
+  },
+  {
+   "name": "Spells_3",
+   "type": "int"
+  },
+  {
+   "name": "Spells_4",
+   "type": "int"
+  },
+  {
+   "name": "Spells_5",
+   "type": "int"
+  },
+  {
+   "name": "Spells_6",
+   "type": "int"
+  },
+  {
+   "name": "Spells_7",
+   "type": "int"
+  },
+  {
+   "name": "Spells_8",
+   "type": "int"
+  },
+  {
+   "name": "Spells_9",
+   "type": "int"
+  },
+  {
+   "name": "Flags",
+   "type": "int"
+  }
+ ]
+}

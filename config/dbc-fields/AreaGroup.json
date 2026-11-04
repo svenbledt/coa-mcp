@@ -1,0 +1,38 @@
+{
+ "table": "AreaGroup",
+ "source": "SpellWork CoA AreaGroupEntry.cs: CoA 3.3.5a layout: CoA DBCfmt.h AreaGroupEntryfmt \"niiiiiii\" (8 fields, 32 bytes); names from WoWDBDefs AreaGroup.dbd 3.3.5.12340",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "AreaID_0",
+   "type": "int"
+  },
+  {
+   "name": "AreaID_1",
+   "type": "int"
+  },
+  {
+   "name": "AreaID_2",
+   "type": "int"
+  },
+  {
+   "name": "AreaID_3",
+   "type": "int"
+  },
+  {
+   "name": "AreaID_4",
+   "type": "int"
+  },
+  {
+   "name": "AreaID_5",
+   "type": "int"
+  },
+  {
+   "name": "NextAreaID",
+   "type": "int"
+  }
+ ]
+}

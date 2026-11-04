@@ -1,0 +1,118 @@
+{
+ "table": "CreatureModelData",
+ "source": "CoA server DBCStructure.h CreatureModelDataEntry aligned with DBCfmt.h CreatureModelDatafmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "Id",
+   "type": "uint"
+  },
+  {
+   "name": "Flags",
+   "type": "uint"
+  },
+  {
+   "name": "f2",
+   "type": "unknown"
+  },
+  {
+   "name": "f3",
+   "type": "unknown"
+  },
+  {
+   "name": "Scale",
+   "type": "float"
+  },
+  {
+   "name": "f5",
+   "type": "unknown"
+  },
+  {
+   "name": "f6",
+   "type": "unknown"
+  },
+  {
+   "name": "f7",
+   "type": "unknown"
+  },
+  {
+   "name": "f8",
+   "type": "unknown"
+  },
+  {
+   "name": "f9",
+   "type": "unknown"
+  },
+  {
+   "name": "f10",
+   "type": "unknown"
+  },
+  {
+   "name": "f11",
+   "type": "unknown"
+  },
+  {
+   "name": "f12",
+   "type": "unknown"
+  },
+  {
+   "name": "f13",
+   "type": "unknown"
+  },
+  {
+   "name": "CollisionWidth",
+   "type": "float"
+  },
+  {
+   "name": "CollisionHeight",
+   "type": "float"
+  },
+  {
+   "name": "MountHeight",
+   "type": "float"
+  },
+  {
+   "name": "f17",
+   "type": "unknown"
+  },
+  {
+   "name": "f18",
+   "type": "unknown"
+  },
+  {
+   "name": "f19",
+   "type": "unknown"
+  },
+  {
+   "name": "f20",
+   "type": "unknown"
+  },
+  {
+   "name": "f21",
+   "type": "unknown"
+  },
+  {
+   "name": "f22",
+   "type": "unknown"
+  },
+  {
+   "name": "f23",
+   "type": "unknown"
+  },
+  {
+   "name": "f24",
+   "type": "unknown"
+  },
+  {
+   "name": "f25",
+   "type": "unknown"
+  },
+  {
+   "name": "f26",
+   "type": "unknown"
+  },
+  {
+   "name": "f27",
+   "type": "unknown"
+  }
+ ]
+}

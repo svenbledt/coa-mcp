@@ -1,0 +1,118 @@
+{
+ "table": "CreatureFamily",
+ "source": "CoA server DBCStructure.h CreatureFamilyEntry aligned with DBCfmt.h CreatureFamilyfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "uint"
+  },
+  {
+   "name": "minScale",
+   "type": "float"
+  },
+  {
+   "name": "minScaleLevel",
+   "type": "uint"
+  },
+  {
+   "name": "maxScale",
+   "type": "float"
+  },
+  {
+   "name": "maxScaleLevel",
+   "type": "uint"
+  },
+  {
+   "name": "skillLine_0",
+   "type": "uint"
+  },
+  {
+   "name": "skillLine_1",
+   "type": "uint"
+  },
+  {
+   "name": "petFoodMask",
+   "type": "uint"
+  },
+  {
+   "name": "petTalentType",
+   "type": "int"
+  },
+  {
+   "name": "f9",
+   "type": "unknown"
+  },
+  {
+   "name": "Name_0",
+   "type": "string"
+  },
+  {
+   "name": "Name_1",
+   "type": "string"
+  },
+  {
+   "name": "Name_2",
+   "type": "string"
+  },
+  {
+   "name": "Name_3",
+   "type": "string"
+  },
+  {
+   "name": "Name_4",
+   "type": "string"
+  },
+  {
+   "name": "Name_5",
+   "type": "string"
+  },
+  {
+   "name": "Name_6",
+   "type": "string"
+  },
+  {
+   "name": "Name_7",
+   "type": "string"
+  },
+  {
+   "name": "Name_8",
+   "type": "string"
+  },
+  {
+   "name": "Name_9",
+   "type": "string"
+  },
+  {
+   "name": "Name_10",
+   "type": "string"
+  },
+  {
+   "name": "Name_11",
+   "type": "string"
+  },
+  {
+   "name": "Name_12",
+   "type": "string"
+  },
+  {
+   "name": "Name_13",
+   "type": "string"
+  },
+  {
+   "name": "Name_14",
+   "type": "string"
+  },
+  {
+   "name": "Name_15",
+   "type": "string"
+  },
+  {
+   "name": "f26",
+   "type": "unknown"
+  },
+  {
+   "name": "f27",
+   "type": "unknown"
+  }
+ ]
+}

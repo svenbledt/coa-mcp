@@ -1,0 +1,50 @@
+{
+ "table": "QuestXP",
+ "source": "CoA server DBCStructure.h QuestXPEntry aligned with DBCfmt.h QuestXPfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "id",
+   "type": "uint"
+  },
+  {
+   "name": "Exp_0",
+   "type": "uint"
+  },
+  {
+   "name": "Exp_1",
+   "type": "uint"
+  },
+  {
+   "name": "Exp_2",
+   "type": "uint"
+  },
+  {
+   "name": "Exp_3",
+   "type": "uint"
+  },
+  {
+   "name": "Exp_4",
+   "type": "uint"
+  },
+  {
+   "name": "Exp_5",
+   "type": "uint"
+  },
+  {
+   "name": "Exp_6",
+   "type": "uint"
+  },
+  {
+   "name": "Exp_7",
+   "type": "uint"
+  },
+  {
+   "name": "Exp_8",
+   "type": "uint"
+  },
+  {
+   "name": "Exp_9",
+   "type": "uint"
+  }
+ ]
+}

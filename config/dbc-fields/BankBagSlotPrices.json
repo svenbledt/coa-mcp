@@ -1,0 +1,14 @@
+{
+ "table": "BankBagSlotPrices",
+ "source": "CoA server DBCStructure.h BankBagSlotPricesEntry aligned with DBCfmt.h BankBagSlotPricesEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "uint"
+  },
+  {
+   "name": "price",
+   "type": "uint"
+  }
+ ]
+}

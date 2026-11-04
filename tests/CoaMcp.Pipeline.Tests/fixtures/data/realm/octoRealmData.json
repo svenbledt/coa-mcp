@@ -1,0 +1,1 @@
+{"realmId":"octo","classData":{"warrior":{"name":"Warrior","icon":"c","specs":{"arms":{"id":1,"name":"Arms","icon":"x"},"fury":{"id":2,"name":"Fury","icon":"y"}}}},"classSpecs":[{"className":"Warrior","specName":"Arms","defaultWeights":{"strength":1}}]}

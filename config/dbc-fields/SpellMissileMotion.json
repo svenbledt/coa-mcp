@@ -1,0 +1,26 @@
+{
+ "table": "SpellMissileMotion",
+ "source": "SpellWork CoA SpellMissileMotionEntry.cs: CoA 3.3.5a layout: WoWDBDefs SpellMissileMotion.dbd 3.3.5.12340 (5 fields, 20 bytes; not loaded by the CoA server)",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "Name",
+   "type": "string"
+  },
+  {
+   "name": "ScriptBody",
+   "type": "string"
+  },
+  {
+   "name": "Flags",
+   "type": "uint"
+  },
+  {
+   "name": "MissileCount",
+   "type": "int"
+  }
+ ]
+}

@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>coamcp-pipeline</AssemblyName>
+    <RootNamespace>CoaMcp.Pipeline</RootNamespace>
+    <!-- Local Spellwork CoA checkout. Override with -p:SpellWorkRoot=... -->
+    <SpellWorkRoot Condition="'$(SpellWorkRoot)' == ''">F:\WorkDir\SpellWork\.claude\worktrees\sw-coa</SpellWorkRoot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CoaMcp.Core\CoaMcp.Core.csproj" />
+    <!-- restore-writes checks every entry with the server's own WriteRules, so the two can't drift. -->
+    <ProjectReference Include="..\CoaMcp.Server\CoaMcp.Server.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- SpellWork.Mcp (net9.0 Exe) runs at build time only; the public server never loads it. -->
+    <!-- Spellwork pulls in System.Drawing.Common 4.7.0 (known advisory). It runs on this machine at build time only and is never deployed. -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-rxg9-xrhp-64gj" />
+    <ProjectReference Include="$(SpellWorkRoot)\SpellWork.Mcp\SpellWork.Mcp.csproj" />
+    <Reference Include="DBFileReaderLib">
+      <HintPath>$(SpellWorkRoot)\packages\DBFileReaderLib.1.0.0.0\lib\DBFileReaderLib.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\config\bisbeard-guides.json" Link="config\bisbeard-guides.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\config\archives.json" Link="config\archives.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\config\dbc-fields\*.json" Link="config\dbc-fields\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Built by tools/build-stormlib.ps1. Only restore and listfile load it. -->
+    <None Include="..\..\tools\stormlib\bin\StormLib.dll" Link="StormLib.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\tools\stormlib\bin\StormLib.dll')" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.IO.Hashing" Version="10.0.0" />
+  </ItemGroup>
+
+</Project>

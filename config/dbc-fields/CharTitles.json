@@ -1,0 +1,154 @@
+{
+ "table": "CharTitles",
+ "source": "CoA server DBCStructure.h CharTitlesEntry aligned with DBCfmt.h CharTitlesEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "uint"
+  },
+  {
+   "name": "f1",
+   "type": "unknown"
+  },
+  {
+   "name": "nameMale_0",
+   "type": "string"
+  },
+  {
+   "name": "nameMale_1",
+   "type": "string"
+  },
+  {
+   "name": "nameMale_2",
+   "type": "string"
+  },
+  {
+   "name": "nameMale_3",
+   "type": "string"
+  },
+  {
+   "name": "nameMale_4",
+   "type": "string"
+  },
+  {
+   "name": "nameMale_5",
+   "type": "string"
+  },
+  {
+   "name": "nameMale_6",
+   "type": "string"
+  },
+  {
+   "name": "nameMale_7",
+   "type": "string"
+  },
+  {
+   "name": "nameMale_8",
+   "type": "string"
+  },
+  {
+   "name": "nameMale_9",
+   "type": "string"
+  },
+  {
+   "name": "nameMale_10",
+   "type": "string"
+  },
+  {
+   "name": "nameMale_11",
+   "type": "string"
+  },
+  {
+   "name": "nameMale_12",
+   "type": "string"
+  },
+  {
+   "name": "nameMale_13",
+   "type": "string"
+  },
+  {
+   "name": "nameMale_14",
+   "type": "string"
+  },
+  {
+   "name": "nameMale_15",
+   "type": "string"
+  },
+  {
+   "name": "f18",
+   "type": "unknown"
+  },
+  {
+   "name": "nameFemale_0",
+   "type": "string"
+  },
+  {
+   "name": "nameFemale_1",
+   "type": "string"
+  },
+  {
+   "name": "nameFemale_2",
+   "type": "string"
+  },
+  {
+   "name": "nameFemale_3",
+   "type": "string"
+  },
+  {
+   "name": "nameFemale_4",
+   "type": "string"
+  },
+  {
+   "name": "nameFemale_5",
+   "type": "string"
+  },
+  {
+   "name": "nameFemale_6",
+   "type": "string"
+  },
+  {
+   "name": "nameFemale_7",
+   "type": "string"
+  },
+  {
+   "name": "nameFemale_8",
+   "type": "string"
+  },
+  {
+   "name": "nameFemale_9",
+   "type": "string"
+  },
+  {
+   "name": "nameFemale_10",
+   "type": "string"
+  },
+  {
+   "name": "nameFemale_11",
+   "type": "string"
+  },
+  {
+   "name": "nameFemale_12",
+   "type": "string"
+  },
+  {
+   "name": "nameFemale_13",
+   "type": "string"
+  },
+  {
+   "name": "nameFemale_14",
+   "type": "string"
+  },
+  {
+   "name": "nameFemale_15",
+   "type": "string"
+  },
+  {
+   "name": "f35",
+   "type": "unknown"
+  },
+  {
+   "name": "bit_index",
+   "type": "uint"
+  }
+ ]
+}

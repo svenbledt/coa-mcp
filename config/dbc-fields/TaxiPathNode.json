@@ -1,0 +1,50 @@
+{
+ "table": "TaxiPathNode",
+ "source": "CoA server DBCStructure.h TaxiPathNodeEntry aligned with DBCfmt.h TaxiPathNodeEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "path",
+   "type": "uint"
+  },
+  {
+   "name": "index",
+   "type": "uint"
+  },
+  {
+   "name": "mapid",
+   "type": "uint"
+  },
+  {
+   "name": "x",
+   "type": "float"
+  },
+  {
+   "name": "y",
+   "type": "float"
+  },
+  {
+   "name": "z",
+   "type": "float"
+  },
+  {
+   "name": "actionFlag",
+   "type": "uint"
+  },
+  {
+   "name": "delay",
+   "type": "uint"
+  },
+  {
+   "name": "arrivalEventID",
+   "type": "uint"
+  },
+  {
+   "name": "departureEventID",
+   "type": "uint"
+  }
+ ]
+}

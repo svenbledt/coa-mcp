@@ -1,0 +1,82 @@
+{
+ "table": "DestructibleModelData",
+ "source": "CoA server DBCStructure.h DestructibleModelDataEntry aligned with DBCfmt.h DestructibleModelDatafmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "Id",
+   "type": "uint"
+  },
+  {
+   "name": "f1",
+   "type": "unknown"
+  },
+  {
+   "name": "f2",
+   "type": "unknown"
+  },
+  {
+   "name": "DamagedDisplayId",
+   "type": "uint"
+  },
+  {
+   "name": "f4",
+   "type": "unknown"
+  },
+  {
+   "name": "f5",
+   "type": "unknown"
+  },
+  {
+   "name": "f6",
+   "type": "unknown"
+  },
+  {
+   "name": "DestroyedDisplayId",
+   "type": "uint"
+  },
+  {
+   "name": "f8",
+   "type": "unknown"
+  },
+  {
+   "name": "f9",
+   "type": "unknown"
+  },
+  {
+   "name": "f10",
+   "type": "unknown"
+  },
+  {
+   "name": "RebuildingDisplayId",
+   "type": "uint"
+  },
+  {
+   "name": "f12",
+   "type": "unknown"
+  },
+  {
+   "name": "f13",
+   "type": "unknown"
+  },
+  {
+   "name": "f14",
+   "type": "unknown"
+  },
+  {
+   "name": "SmokeDisplayId",
+   "type": "uint"
+  },
+  {
+   "name": "f16",
+   "type": "unknown"
+  },
+  {
+   "name": "f17",
+   "type": "unknown"
+  },
+  {
+   "name": "f18",
+   "type": "unknown"
+  }
+ ]
+}

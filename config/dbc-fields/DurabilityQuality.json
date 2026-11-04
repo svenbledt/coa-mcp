@@ -1,0 +1,14 @@
+{
+ "table": "DurabilityQuality",
+ "source": "CoA server DBCStructure.h DurabilityQualityEntry aligned with DBCfmt.h DurabilityQualityfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "Id",
+   "type": "uint"
+  },
+  {
+   "name": "quality_mod",
+   "type": "float"
+  }
+ ]
+}

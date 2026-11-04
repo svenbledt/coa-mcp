@@ -1,0 +1,134 @@
+{
+ "table": "SpellVisual",
+ "source": "SpellWork CoA SpellVisualEntry.cs: CoA 3.3.5a layout: CoA DBCfmt.h SpellVisualfmt (32 fields, 128 bytes); names from WoWDBDefs SpellVisual.dbd 3.3.5.12340",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "PrecastKit",
+   "type": "int"
+  },
+  {
+   "name": "CastKit",
+   "type": "int"
+  },
+  {
+   "name": "ImpactKit",
+   "type": "int"
+  },
+  {
+   "name": "StateKit",
+   "type": "int"
+  },
+  {
+   "name": "StateDoneKit",
+   "type": "int"
+  },
+  {
+   "name": "ChannelKit",
+   "type": "int"
+  },
+  {
+   "name": "HasMissile",
+   "type": "int"
+  },
+  {
+   "name": "MissileModel",
+   "type": "int"
+  },
+  {
+   "name": "MissilePathType",
+   "type": "int"
+  },
+  {
+   "name": "MissileDestinationAttachment",
+   "type": "int"
+  },
+  {
+   "name": "MissileSound",
+   "type": "int"
+  },
+  {
+   "name": "AnimEventSoundID",
+   "type": "int"
+  },
+  {
+   "name": "Flags",
+   "type": "int"
+  },
+  {
+   "name": "CasterImpactKit",
+   "type": "int"
+  },
+  {
+   "name": "TargetImpactKit",
+   "type": "int"
+  },
+  {
+   "name": "MissileAttachment",
+   "type": "int"
+  },
+  {
+   "name": "MissileFollowGroundHeight",
+   "type": "int"
+  },
+  {
+   "name": "MissileFollowGroundDropSpeed",
+   "type": "int"
+  },
+  {
+   "name": "MissileFollowGroundApproach",
+   "type": "int"
+  },
+  {
+   "name": "MissileFollowGroundFlags",
+   "type": "int"
+  },
+  {
+   "name": "MissileMotion",
+   "type": "int"
+  },
+  {
+   "name": "MissileTargetingKit",
+   "type": "int"
+  },
+  {
+   "name": "InstantAreaKit",
+   "type": "int"
+  },
+  {
+   "name": "ImpactAreaKit",
+   "type": "int"
+  },
+  {
+   "name": "PersistentAreaKit",
+   "type": "int"
+  },
+  {
+   "name": "MissileCastOffset_0",
+   "type": "float"
+  },
+  {
+   "name": "MissileCastOffset_1",
+   "type": "float"
+  },
+  {
+   "name": "MissileCastOffset_2",
+   "type": "float"
+  },
+  {
+   "name": "MissileImpactOffset_0",
+   "type": "float"
+  },
+  {
+   "name": "MissileImpactOffset_1",
+   "type": "float"
+  },
+  {
+   "name": "MissileImpactOffset_2",
+   "type": "float"
+  }
+ ]
+}

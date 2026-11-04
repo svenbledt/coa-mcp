@@ -1,0 +1,230 @@
+{
+ "table": "SkillLine",
+ "source": "SpellWork CoA SkillLineEntry.cs: CoA 3.3.5a layout: CoA DBCfmt.h SkillLinefmt (56 fields, 224 bytes); names from WoWDBDefs SkillLine.dbd 3.3.5.12340",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "CategoryID",
+   "type": "int"
+  },
+  {
+   "name": "SkillCostsID",
+   "type": "int"
+  },
+  {
+   "name": "DisplayNameLang_0",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_1",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_2",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_3",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_4",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_5",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_6",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_7",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_8",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_9",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_10",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_11",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_12",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_13",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_14",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLang_15",
+   "type": "string"
+  },
+  {
+   "name": "DisplayNameLangFlags",
+   "type": "uint"
+  },
+  {
+   "name": "DescriptionLang_0",
+   "type": "string"
+  },
+  {
+   "name": "DescriptionLang_1",
+   "type": "string"
+  },
+  {
+   "name": "DescriptionLang_2",
+   "type": "string"
+  },
+  {
+   "name": "DescriptionLang_3",
+   "type": "string"
+  },
+  {
+   "name": "DescriptionLang_4",
+   "type": "string"
+  },
+  {
+   "name": "DescriptionLang_5",
+   "type": "string"
+  },
+  {
+   "name": "DescriptionLang_6",
+   "type": "string"
+  },
+  {
+   "name": "DescriptionLang_7",
+   "type": "string"
+  },
+  {
+   "name": "DescriptionLang_8",
+   "type": "string"
+  },
+  {
+   "name": "DescriptionLang_9",
+   "type": "string"
+  },
+  {
+   "name": "DescriptionLang_10",
+   "type": "string"
+  },
+  {
+   "name": "DescriptionLang_11",
+   "type": "string"
+  },
+  {
+   "name": "DescriptionLang_12",
+   "type": "string"
+  },
+  {
+   "name": "DescriptionLang_13",
+   "type": "string"
+  },
+  {
+   "name": "DescriptionLang_14",
+   "type": "string"
+  },
+  {
+   "name": "DescriptionLang_15",
+   "type": "string"
+  },
+  {
+   "name": "DescriptionLangFlags",
+   "type": "uint"
+  },
+  {
+   "name": "SpellIconID",
+   "type": "int"
+  },
+  {
+   "name": "AlternateVerbLang_0",
+   "type": "string"
+  },
+  {
+   "name": "AlternateVerbLang_1",
+   "type": "string"
+  },
+  {
+   "name": "AlternateVerbLang_2",
+   "type": "string"
+  },
+  {
+   "name": "AlternateVerbLang_3",
+   "type": "string"
+  },
+  {
+   "name": "AlternateVerbLang_4",
+   "type": "string"
+  },
+  {
+   "name": "AlternateVerbLang_5",
+   "type": "string"
+  },
+  {
+   "name": "AlternateVerbLang_6",
+   "type": "string"
+  },
+  {
+   "name": "AlternateVerbLang_7",
+   "type": "string"
+  },
+  {
+   "name": "AlternateVerbLang_8",
+   "type": "string"
+  },
+  {
+   "name": "AlternateVerbLang_9",
+   "type": "string"
+  },
+  {
+   "name": "AlternateVerbLang_10",
+   "type": "string"
+  },
+  {
+   "name": "AlternateVerbLang_11",
+   "type": "string"
+  },
+  {
+   "name": "AlternateVerbLang_12",
+   "type": "string"
+  },
+  {
+   "name": "AlternateVerbLang_13",
+   "type": "string"
+  },
+  {
+   "name": "AlternateVerbLang_14",
+   "type": "string"
+  },
+  {
+   "name": "AlternateVerbLang_15",
+   "type": "string"
+  },
+  {
+   "name": "AlternateVerbLangFlags",
+   "type": "uint"
+  },
+  {
+   "name": "CanLink",
+   "type": "int"
+  }
+ ]
+}

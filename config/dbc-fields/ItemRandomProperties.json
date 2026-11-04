@@ -1,0 +1,102 @@
+{
+ "table": "ItemRandomProperties",
+ "source": "CoA server DBCStructure.h ItemRandomPropertiesEntry aligned with DBCfmt.h ItemRandomPropertiesfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "uint"
+  },
+  {
+   "name": "f1",
+   "type": "unknown"
+  },
+  {
+   "name": "Enchantment_0",
+   "type": "uint"
+  },
+  {
+   "name": "Enchantment_1",
+   "type": "uint"
+  },
+  {
+   "name": "Enchantment_2",
+   "type": "uint"
+  },
+  {
+   "name": "Enchantment_3",
+   "type": "uint"
+  },
+  {
+   "name": "Enchantment_4",
+   "type": "uint"
+  },
+  {
+   "name": "Name_0",
+   "type": "string"
+  },
+  {
+   "name": "Name_1",
+   "type": "string"
+  },
+  {
+   "name": "Name_2",
+   "type": "string"
+  },
+  {
+   "name": "Name_3",
+   "type": "string"
+  },
+  {
+   "name": "Name_4",
+   "type": "string"
+  },
+  {
+   "name": "Name_5",
+   "type": "string"
+  },
+  {
+   "name": "Name_6",
+   "type": "string"
+  },
+  {
+   "name": "Name_7",
+   "type": "string"
+  },
+  {
+   "name": "Name_8",
+   "type": "string"
+  },
+  {
+   "name": "Name_9",
+   "type": "string"
+  },
+  {
+   "name": "Name_10",
+   "type": "string"
+  },
+  {
+   "name": "Name_11",
+   "type": "string"
+  },
+  {
+   "name": "Name_12",
+   "type": "string"
+  },
+  {
+   "name": "Name_13",
+   "type": "string"
+  },
+  {
+   "name": "Name_14",
+   "type": "string"
+  },
+  {
+   "name": "Name_15",
+   "type": "string"
+  },
+  {
+   "name": "f23",
+   "type": "unknown"
+  }
+ ]
+}

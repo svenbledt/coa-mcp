@@ -1,0 +1,218 @@
+{
+ "table": "ItemSet",
+ "source": "CoA server DBCStructure.h ItemSetEntry aligned with DBCfmt.h ItemSetEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "name_0",
+   "type": "string"
+  },
+  {
+   "name": "name_1",
+   "type": "string"
+  },
+  {
+   "name": "name_2",
+   "type": "string"
+  },
+  {
+   "name": "name_3",
+   "type": "string"
+  },
+  {
+   "name": "name_4",
+   "type": "string"
+  },
+  {
+   "name": "name_5",
+   "type": "string"
+  },
+  {
+   "name": "name_6",
+   "type": "string"
+  },
+  {
+   "name": "name_7",
+   "type": "string"
+  },
+  {
+   "name": "name_8",
+   "type": "string"
+  },
+  {
+   "name": "name_9",
+   "type": "string"
+  },
+  {
+   "name": "name_10",
+   "type": "string"
+  },
+  {
+   "name": "name_11",
+   "type": "string"
+  },
+  {
+   "name": "name_12",
+   "type": "string"
+  },
+  {
+   "name": "name_13",
+   "type": "string"
+  },
+  {
+   "name": "name_14",
+   "type": "string"
+  },
+  {
+   "name": "name_15",
+   "type": "string"
+  },
+  {
+   "name": "f17",
+   "type": "unknown"
+  },
+  {
+   "name": "itemId_0",
+   "type": "uint"
+  },
+  {
+   "name": "itemId_1",
+   "type": "uint"
+  },
+  {
+   "name": "itemId_2",
+   "type": "uint"
+  },
+  {
+   "name": "itemId_3",
+   "type": "uint"
+  },
+  {
+   "name": "itemId_4",
+   "type": "uint"
+  },
+  {
+   "name": "itemId_5",
+   "type": "uint"
+  },
+  {
+   "name": "itemId_6",
+   "type": "uint"
+  },
+  {
+   "name": "itemId_7",
+   "type": "uint"
+  },
+  {
+   "name": "itemId_8",
+   "type": "uint"
+  },
+  {
+   "name": "itemId_9",
+   "type": "uint"
+  },
+  {
+   "name": "f28",
+   "type": "unknown"
+  },
+  {
+   "name": "f29",
+   "type": "unknown"
+  },
+  {
+   "name": "f30",
+   "type": "unknown"
+  },
+  {
+   "name": "f31",
+   "type": "unknown"
+  },
+  {
+   "name": "f32",
+   "type": "unknown"
+  },
+  {
+   "name": "f33",
+   "type": "unknown"
+  },
+  {
+   "name": "f34",
+   "type": "unknown"
+  },
+  {
+   "name": "spells_0",
+   "type": "uint"
+  },
+  {
+   "name": "spells_1",
+   "type": "uint"
+  },
+  {
+   "name": "spells_2",
+   "type": "uint"
+  },
+  {
+   "name": "spells_3",
+   "type": "uint"
+  },
+  {
+   "name": "spells_4",
+   "type": "uint"
+  },
+  {
+   "name": "spells_5",
+   "type": "uint"
+  },
+  {
+   "name": "spells_6",
+   "type": "uint"
+  },
+  {
+   "name": "spells_7",
+   "type": "uint"
+  },
+  {
+   "name": "items_to_triggerspell_0",
+   "type": "uint"
+  },
+  {
+   "name": "items_to_triggerspell_1",
+   "type": "uint"
+  },
+  {
+   "name": "items_to_triggerspell_2",
+   "type": "uint"
+  },
+  {
+   "name": "items_to_triggerspell_3",
+   "type": "uint"
+  },
+  {
+   "name": "items_to_triggerspell_4",
+   "type": "uint"
+  },
+  {
+   "name": "items_to_triggerspell_5",
+   "type": "uint"
+  },
+  {
+   "name": "items_to_triggerspell_6",
+   "type": "uint"
+  },
+  {
+   "name": "items_to_triggerspell_7",
+   "type": "uint"
+  },
+  {
+   "name": "required_skill_id",
+   "type": "uint"
+  },
+  {
+   "name": "required_skill_value",
+   "type": "uint"
+  }
+ ]
+}

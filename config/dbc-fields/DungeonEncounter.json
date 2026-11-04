@@ -1,0 +1,98 @@
+{
+ "table": "DungeonEncounter",
+ "source": "CoA server DBCStructure.h DungeonEncounterEntry aligned with DBCfmt.h DungeonEncounterfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "id",
+   "type": "uint"
+  },
+  {
+   "name": "mapId",
+   "type": "uint"
+  },
+  {
+   "name": "difficulty",
+   "type": "uint"
+  },
+  {
+   "name": "f3",
+   "type": "unknown"
+  },
+  {
+   "name": "encounterIndex",
+   "type": "uint"
+  },
+  {
+   "name": "encounterName_0",
+   "type": "string"
+  },
+  {
+   "name": "encounterName_1",
+   "type": "string"
+  },
+  {
+   "name": "encounterName_2",
+   "type": "string"
+  },
+  {
+   "name": "encounterName_3",
+   "type": "string"
+  },
+  {
+   "name": "encounterName_4",
+   "type": "string"
+  },
+  {
+   "name": "encounterName_5",
+   "type": "string"
+  },
+  {
+   "name": "encounterName_6",
+   "type": "string"
+  },
+  {
+   "name": "encounterName_7",
+   "type": "string"
+  },
+  {
+   "name": "encounterName_8",
+   "type": "string"
+  },
+  {
+   "name": "encounterName_9",
+   "type": "string"
+  },
+  {
+   "name": "encounterName_10",
+   "type": "string"
+  },
+  {
+   "name": "encounterName_11",
+   "type": "string"
+  },
+  {
+   "name": "encounterName_12",
+   "type": "string"
+  },
+  {
+   "name": "encounterName_13",
+   "type": "string"
+  },
+  {
+   "name": "encounterName_14",
+   "type": "string"
+  },
+  {
+   "name": "encounterName_15",
+   "type": "string"
+  },
+  {
+   "name": "f21",
+   "type": "unknown"
+  },
+  {
+   "name": "f22",
+   "type": "unknown"
+  }
+ ]
+}

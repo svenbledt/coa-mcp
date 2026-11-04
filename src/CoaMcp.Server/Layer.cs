@@ -1,0 +1,178 @@
+using System.Collections.Concurrent;
+using CoaMcp.Core;
+using ModelContextProtocol;
+
+namespace CoaMcp.Server;
+
+/// <summary>Every connection or search slot stayed taken for the whole bounded wait. The caller sees the message and may retry.</summary>
+public sealed class LayerBusyException() : McpException("The server is busy, so this request did not run. Retry in a few seconds.");
+
+/// <summary>
+/// One layer file with a small pool of read-only connections, so a slow search never holds up other requests.
+/// At most <see cref="SearchSlots"/> searches run at once per layer, which leaves connections free for lookups.
+/// A layer that has been swapped out is <see cref="Retire"/>d: its connections close once every lease and statement on it has finished.
+/// </summary>
+public sealed class Layer : IDisposable
+{
+    private const int PoolSize = 4;
+    private const int SearchSlots = 2;
+    private static readonly TimeSpan DefaultBusyWait = TimeSpan.FromSeconds(5);
+
+    private readonly string _path;
+    private readonly TimeSpan _busyWait;
+    private readonly SemaphoreSlim _pool = new(PoolSize);
+    private readonly SemaphoreSlim _searches = new(SearchSlots);
+    private readonly ConcurrentBag<LayerReader> _idle = new();
+    private readonly List<LayerReader> _all = new();
+    private readonly object _gate = new();
+    private int _active;
+    private bool _retired;
+    private bool _disposed;
+    private bool _readersClosed;
+
+    public LayerMeta Meta { get; }
+    public IReadOnlyDictionary<string, long> CountsByType { get; }
+
+    /// <param name="busyWait">How long a statement or search waits for a free slot before giving up. Default 5 seconds.</param>
+    public Layer(string path, TimeSpan? busyWait = null)
+    {
+        _path = path;
+        _busyWait = busyWait ?? DefaultBusyWait;
+        var first = new LayerReader(path);
+        try
+        {
+            _all.Add(first);
+            _idle.Add(first);
+            Meta = first.Meta;
+            CountsByType = first.Query("SELECT type, COUNT(*) AS n FROM entities GROUP BY type ORDER BY type")
+                .ToDictionary(r => (string)r["type"]!, r => (long)r["n"]!);
+        }
+        catch
+        {
+            first.Dispose();
+            throw;
+        }
+    }
+
+    /// <summary>Leases held plus statements running. A retired layer stays open until this is zero.</summary>
+    public int ActiveRequests { get { lock (_gate) return _active; } }
+
+    public bool IsDisposed { get { lock (_gate) return _disposed; } }
+
+    /// <summary>
+    /// Takes a lease for a whole operation (a search, a tool call), so the layer cannot close between its statements.
+    /// Returns null when the layer is already closed; the caller then fetches the current layer again.
+    /// </summary>
+    internal LayerLease? TryLease() => TryAcquire() ? new LayerLease(this) : null;
+
+    private bool TryAcquire()
+    {
+        lock (_gate)
+        {
+            if (_disposed) return false;
+            _active++;
+            return true;
+        }
+    }
+
+    internal void Release()
+    {
+        bool close;
+        lock (_gate)
+        {
+            _active--;
+            close = _retired && _active == 0 && !_disposed;
+            if (close) _disposed = true;
+        }
+        if (close) CloseReaders();
+    }
+
+    /// <summary>
+    /// Marks the layer as replaced. It closes at once if nothing is using it, otherwise when the last lease or statement ends.
+    /// There is no timer: running work is never cut off.
+    /// </summary>
+    public void Retire()
+    {
+        bool close;
+        lock (_gate)
+        {
+            _retired = true;
+            close = _active == 0 && !_disposed;
+            if (close) _disposed = true;   // decided and recorded under one lock, so no new user can slip in
+        }
+        if (close) CloseReaders();
+    }
+
+    private T Use<T>(Func<LayerReader, T> work)
+    {
+        if (!TryAcquire()) throw new ObjectDisposedException(nameof(Layer), "This layer version was replaced and released.");
+        try
+        {
+            if (!_pool.Wait(_busyWait)) throw new LayerBusyException();
+            try
+            {
+                if (!_idle.TryTake(out var reader))
+                {
+                    reader = new LayerReader(_path);
+                    lock (_all)
+                    {
+                        if (_readersClosed) { reader.Dispose(); throw new ObjectDisposedException(nameof(Layer)); }
+                        _all.Add(reader);
+                    }
+                }
+                try { return work(reader); }
+                finally { _idle.Add(reader); }
+            }
+            finally { _pool.Release(); }
+        }
+        finally { Release(); }
+    }
+
+    public Entity? Get(string id) => Use(r => r.Get(id));
+
+    /// <summary>Code-defined SQL only, never user text.</summary>
+    public IReadOnlyList<IReadOnlyDictionary<string, object?>> Query(string sql, params object?[] args) =>
+        Use(r => r.Query(sql, args));
+
+    /// <summary>Code-defined SQL only. SQLite stops the statement when <paramref name="budget"/> has passed; see <see cref="LayerReader.QueryWithin"/>.</summary>
+    public IReadOnlyList<IReadOnlyDictionary<string, object?>> QueryWithin(TimeSpan budget, string sql, params object?[] args) =>
+        Use(r => r.QueryWithin(budget, sql, args));
+
+    /// <summary>Runs a search under the per-layer search limit. The work calls <see cref="Query"/> for each statement.</summary>
+    /// <param name="slotWait">How long to wait for a search slot, if not this layer's usual wait.</param>
+    public T Searching<T>(Func<T> work, TimeSpan? slotWait = null)
+    {
+        if (!_searches.Wait(slotWait ?? _busyWait)) throw new LayerBusyException();
+        try { return work(); }
+        finally { _searches.Release(); }
+    }
+
+    /// <summary>Closes the layer now, even under running work. Only for shutdown; swaps use <see cref="Retire"/>.</summary>
+    public void Dispose()
+    {
+        lock (_gate)
+        {
+            if (_disposed) return;
+            _disposed = true;
+        }
+        CloseReaders();
+    }
+
+    private void CloseReaders()
+    {
+        lock (_all)
+        {
+            _readersClosed = true;
+            foreach (var r in _all) r.Dispose();
+        }
+    }
+}
+
+/// <summary>Keeps a <see cref="Layer"/> open for the length of one operation. Dispose it when the operation ends.</summary>
+public sealed class LayerLease : IDisposable
+{
+    private Layer? _layer;
+    internal LayerLease(Layer layer) => _layer = layer;
+    public Layer Layer => _layer ?? throw new ObjectDisposedException(nameof(LayerLease));
+    public void Dispose() => Interlocked.Exchange(ref _layer, null)?.Release();
+}

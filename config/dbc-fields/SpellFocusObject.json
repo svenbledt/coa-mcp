@@ -1,0 +1,78 @@
+{
+ "table": "SpellFocusObject",
+ "source": "SpellWork CoA SpellFocusObjectEntry.cs: CoA 3.3.5a layout: CoA DBCfmt.h SpellFocusObjectfmt (18 fields, 72 bytes); names from WoWDBDefs SpellFocusObject.dbd 3.3.5.12340",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "NameLang_0",
+   "type": "string"
+  },
+  {
+   "name": "NameLang_1",
+   "type": "string"
+  },
+  {
+   "name": "NameLang_2",
+   "type": "string"
+  },
+  {
+   "name": "NameLang_3",
+   "type": "string"
+  },
+  {
+   "name": "NameLang_4",
+   "type": "string"
+  },
+  {
+   "name": "NameLang_5",
+   "type": "string"
+  },
+  {
+   "name": "NameLang_6",
+   "type": "string"
+  },
+  {
+   "name": "NameLang_7",
+   "type": "string"
+  },
+  {
+   "name": "NameLang_8",
+   "type": "string"
+  },
+  {
+   "name": "NameLang_9",
+   "type": "string"
+  },
+  {
+   "name": "NameLang_10",
+   "type": "string"
+  },
+  {
+   "name": "NameLang_11",
+   "type": "string"
+  },
+  {
+   "name": "NameLang_12",
+   "type": "string"
+  },
+  {
+   "name": "NameLang_13",
+   "type": "string"
+  },
+  {
+   "name": "NameLang_14",
+   "type": "string"
+  },
+  {
+   "name": "NameLang_15",
+   "type": "string"
+  },
+  {
+   "name": "NameLangFlags",
+   "type": "uint"
+  }
+ ]
+}

@@ -1,0 +1,18 @@
+{
+ "table": "SpellVisualKitAreaModel",
+ "source": "SpellWork CoA SpellVisualKitAreaModelEntry.cs: CoA 3.3.5a layout: WoWDBDefs SpellVisualKitAreaModel.dbd 3.3.5.12340 (3 fields, 12 bytes; not loaded by the CoA server; no parent-kit column, so not chained)",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "Name",
+   "type": "string"
+  },
+  {
+   "name": "EnumID",
+   "type": "int"
+  }
+ ]
+}

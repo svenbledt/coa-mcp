@@ -1,0 +1,22 @@
+# For Coolify (Docker Compose application). Set the domain coa-mcp.bledt.dev on the service in Coolify:
+# it generates the Traefik labels itself, so none are written here. No host port is published.
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    expose:
+      - "8080"
+    environment:
+      Layers__Root: /data
+      # Traefik reaches the app from a private address (10.0.13.x on the app's own network). Forwarded headers are believed only
+      # from peers in these networks. Behind Traefik, X-Forwarded-For is Traefik's immediate peer; if that is a Cloudflare edge
+      # address, CF-Connecting-IP is the client, otherwise the X-Forwarded-For address itself is (a direct connection).
+      Network__PeerNetworks__0: 10.0.0.0/8
+      # Set as a secret in Coolify, with no default here. Unset or under 32 characters: writes are off, reads work.
+      COA_MCP_BEARER_TOKEN: ${COA_MCP_BEARER_TOKEN}
+    volumes:
+      # Read-write: the writable store lives at /data/writable (owned by UID 10001). Layer files are root-owned 0644 under 0755 folders,
+      # so the server can read them but not change them, and it never opens them for writing.
+      - /data/coamcp:/data

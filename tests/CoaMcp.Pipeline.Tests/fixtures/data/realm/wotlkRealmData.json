@@ -1,0 +1,3 @@
+{"realmId":"wotlk","classData":{"warrior":{"name":"Warrior","icon":"c","specs":{"arms":{"id":1,"name":"Arms","icon":"x"}}},"mage":{"name":"Mage","icon":"c","specs":{"fire":{"id":1,"name":"Fire","icon":"x"}}}},"classSpecs":[{"className":"Warrior","specName":"Arms","defaultWeights":{"strength":1}}],
+"talentData":{"warrior":{"arms":[[null,null],[null,null]]},"mage":{"fire":[[{"name":"Improved Fire Blast","spellId":"11078","icon":"spell_fire_fireball","lockRules":[],"headers":[],"ranks":[{"text":"Reduces the cooldown by 1 sec."},{"text":"Reduces the cooldown by 2 sec."}]},null],[null,null]]}},
+"statScaling":{"source":"triumvirate-dbc","level":60}}

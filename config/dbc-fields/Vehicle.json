@@ -1,0 +1,166 @@
+{
+ "table": "Vehicle",
+ "source": "CoA server DBCStructure.h VehicleEntry aligned with DBCfmt.h VehicleEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "m_ID",
+   "type": "uint"
+  },
+  {
+   "name": "m_flags",
+   "type": "uint"
+  },
+  {
+   "name": "m_turnSpeed",
+   "type": "float"
+  },
+  {
+   "name": "m_pitchSpeed",
+   "type": "float"
+  },
+  {
+   "name": "m_pitchMin",
+   "type": "float"
+  },
+  {
+   "name": "m_pitchMax",
+   "type": "float"
+  },
+  {
+   "name": "m_seatID_0",
+   "type": "uint"
+  },
+  {
+   "name": "m_seatID_1",
+   "type": "uint"
+  },
+  {
+   "name": "m_seatID_2",
+   "type": "uint"
+  },
+  {
+   "name": "m_seatID_3",
+   "type": "uint"
+  },
+  {
+   "name": "m_seatID_4",
+   "type": "uint"
+  },
+  {
+   "name": "m_seatID_5",
+   "type": "uint"
+  },
+  {
+   "name": "m_seatID_6",
+   "type": "uint"
+  },
+  {
+   "name": "m_seatID_7",
+   "type": "uint"
+  },
+  {
+   "name": "m_mouseLookOffsetPitch",
+   "type": "float"
+  },
+  {
+   "name": "m_cameraFadeDistScalarMin",
+   "type": "float"
+  },
+  {
+   "name": "m_cameraFadeDistScalarMax",
+   "type": "float"
+  },
+  {
+   "name": "m_cameraPitchOffset",
+   "type": "float"
+  },
+  {
+   "name": "m_facingLimitRight",
+   "type": "float"
+  },
+  {
+   "name": "m_facingLimitLeft",
+   "type": "float"
+  },
+  {
+   "name": "m_msslTrgtTurnLingering",
+   "type": "float"
+  },
+  {
+   "name": "m_msslTrgtPitchLingering",
+   "type": "float"
+  },
+  {
+   "name": "m_msslTrgtMouseLingering",
+   "type": "float"
+  },
+  {
+   "name": "m_msslTrgtEndOpacity",
+   "type": "float"
+  },
+  {
+   "name": "m_msslTrgtArcSpeed",
+   "type": "float"
+  },
+  {
+   "name": "m_msslTrgtArcRepeat",
+   "type": "float"
+  },
+  {
+   "name": "m_msslTrgtArcWidth",
+   "type": "float"
+  },
+  {
+   "name": "m_msslTrgtImpactRadius_0",
+   "type": "float"
+  },
+  {
+   "name": "m_msslTrgtImpactRadius_1",
+   "type": "float"
+  },
+  {
+   "name": "m_msslTrgtArcTexture",
+   "type": "string"
+  },
+  {
+   "name": "m_msslTrgtImpactTexture",
+   "type": "string"
+  },
+  {
+   "name": "m_msslTrgtImpactModel_0",
+   "type": "string"
+  },
+  {
+   "name": "m_msslTrgtImpactModel_1",
+   "type": "string"
+  },
+  {
+   "name": "m_cameraYawOffset",
+   "type": "float"
+  },
+  {
+   "name": "m_uiLocomotionType",
+   "type": "uint"
+  },
+  {
+   "name": "m_msslTrgtImpactTexRadius",
+   "type": "float"
+  },
+  {
+   "name": "m_uiSeatIndicatorType",
+   "type": "uint"
+  },
+  {
+   "name": "m_powerDisplayId",
+   "type": "uint"
+  },
+  {
+   "name": "f38",
+   "type": "unknown"
+  },
+  {
+   "name": "f39",
+   "type": "unknown"
+  }
+ ]
+}

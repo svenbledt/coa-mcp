@@ -1,0 +1,66 @@
+{
+ "table": "Light",
+ "source": "CoA server DBCStructure.h LightEntry aligned with DBCfmt.h LightEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "Id",
+   "type": "uint"
+  },
+  {
+   "name": "MapId",
+   "type": "uint"
+  },
+  {
+   "name": "X",
+   "type": "float"
+  },
+  {
+   "name": "Y",
+   "type": "float"
+  },
+  {
+   "name": "Z",
+   "type": "float"
+  },
+  {
+   "name": "f5",
+   "type": "unknown"
+  },
+  {
+   "name": "f6",
+   "type": "unknown"
+  },
+  {
+   "name": "f7",
+   "type": "unknown"
+  },
+  {
+   "name": "f8",
+   "type": "unknown"
+  },
+  {
+   "name": "f9",
+   "type": "unknown"
+  },
+  {
+   "name": "f10",
+   "type": "unknown"
+  },
+  {
+   "name": "f11",
+   "type": "unknown"
+  },
+  {
+   "name": "f12",
+   "type": "unknown"
+  },
+  {
+   "name": "f13",
+   "type": "unknown"
+  },
+  {
+   "name": "f14",
+   "type": "unknown"
+  }
+ ]
+}

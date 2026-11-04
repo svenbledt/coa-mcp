@@ -1,0 +1,1 @@
+{"realmId":"s10","classData":{"warrior":{"name":"Warrior","icon":"c","specs":{"arms":{"id":1,"name":"Arms","icon":"x"}}}},"classSpecs":[{"className":"Warrior","specName":"Arms","defaultWeights":{"strength":1}}],"calculateS10Stats":"[function a]"}

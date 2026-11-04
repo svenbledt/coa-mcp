@@ -1,0 +1,90 @@
+{
+ "table": "CreatureDisplayInfoExtra",
+ "source": "CoA server DBCStructure.h CreatureDisplayInfoExtraEntry aligned with DBCfmt.h CreatureDisplayInfoExtrafmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "int"
+  },
+  {
+   "name": "DisplayRaceID",
+   "type": "uint"
+  },
+  {
+   "name": "f2",
+   "type": "unknown"
+  },
+  {
+   "name": "f3",
+   "type": "unknown"
+  },
+  {
+   "name": "f4",
+   "type": "unknown"
+  },
+  {
+   "name": "f5",
+   "type": "unknown"
+  },
+  {
+   "name": "f6",
+   "type": "unknown"
+  },
+  {
+   "name": "f7",
+   "type": "unknown"
+  },
+  {
+   "name": "NPCItemDisplay_0",
+   "type": "uint"
+  },
+  {
+   "name": "NPCItemDisplay_1",
+   "type": "uint"
+  },
+  {
+   "name": "NPCItemDisplay_2",
+   "type": "uint"
+  },
+  {
+   "name": "NPCItemDisplay_3",
+   "type": "uint"
+  },
+  {
+   "name": "NPCItemDisplay_4",
+   "type": "uint"
+  },
+  {
+   "name": "NPCItemDisplay_5",
+   "type": "uint"
+  },
+  {
+   "name": "NPCItemDisplay_6",
+   "type": "uint"
+  },
+  {
+   "name": "NPCItemDisplay_7",
+   "type": "uint"
+  },
+  {
+   "name": "NPCItemDisplay_8",
+   "type": "uint"
+  },
+  {
+   "name": "NPCItemDisplay_9",
+   "type": "uint"
+  },
+  {
+   "name": "NPCItemDisplay_10",
+   "type": "uint"
+  },
+  {
+   "name": "f19",
+   "type": "unknown"
+  },
+  {
+   "name": "f20",
+   "type": "unknown"
+  }
+ ]
+}

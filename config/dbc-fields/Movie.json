@@ -1,0 +1,18 @@
+{
+ "table": "Movie",
+ "source": "CoA server DBCStructure.h MovieEntry aligned with DBCfmt.h MovieEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "Id",
+   "type": "uint"
+  },
+  {
+   "name": "f1",
+   "type": "unknown"
+  },
+  {
+   "name": "f2",
+   "type": "unknown"
+  }
+ ]
+}

@@ -1,0 +1,62 @@
+{
+ "table": "FactionTemplate",
+ "source": "CoA server DBCStructure.h FactionTemplateEntry aligned with DBCfmt.h FactionTemplateEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "uint"
+  },
+  {
+   "name": "faction",
+   "type": "uint"
+  },
+  {
+   "name": "factionFlags",
+   "type": "uint"
+  },
+  {
+   "name": "ourMask",
+   "type": "uint"
+  },
+  {
+   "name": "friendlyMask",
+   "type": "uint"
+  },
+  {
+   "name": "hostileMask",
+   "type": "uint"
+  },
+  {
+   "name": "enemyFaction_0",
+   "type": "uint"
+  },
+  {
+   "name": "enemyFaction_1",
+   "type": "uint"
+  },
+  {
+   "name": "enemyFaction_2",
+   "type": "uint"
+  },
+  {
+   "name": "enemyFaction_3",
+   "type": "uint"
+  },
+  {
+   "name": "friendFaction_0",
+   "type": "uint"
+  },
+  {
+   "name": "friendFaction_1",
+   "type": "uint"
+  },
+  {
+   "name": "friendFaction_2",
+   "type": "uint"
+  },
+  {
+   "name": "friendFaction_3",
+   "type": "uint"
+  }
+ ]
+}

@@ -1,0 +1,102 @@
+{
+ "table": "TaxiNodes",
+ "source": "CoA server DBCStructure.h TaxiNodesEntry aligned with DBCfmt.h TaxiNodesEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "uint"
+  },
+  {
+   "name": "map_id",
+   "type": "uint"
+  },
+  {
+   "name": "x",
+   "type": "float"
+  },
+  {
+   "name": "y",
+   "type": "float"
+  },
+  {
+   "name": "z",
+   "type": "float"
+  },
+  {
+   "name": "name_0",
+   "type": "string"
+  },
+  {
+   "name": "name_1",
+   "type": "string"
+  },
+  {
+   "name": "name_2",
+   "type": "string"
+  },
+  {
+   "name": "name_3",
+   "type": "string"
+  },
+  {
+   "name": "name_4",
+   "type": "string"
+  },
+  {
+   "name": "name_5",
+   "type": "string"
+  },
+  {
+   "name": "name_6",
+   "type": "string"
+  },
+  {
+   "name": "name_7",
+   "type": "string"
+  },
+  {
+   "name": "name_8",
+   "type": "string"
+  },
+  {
+   "name": "name_9",
+   "type": "string"
+  },
+  {
+   "name": "name_10",
+   "type": "string"
+  },
+  {
+   "name": "name_11",
+   "type": "string"
+  },
+  {
+   "name": "name_12",
+   "type": "string"
+  },
+  {
+   "name": "name_13",
+   "type": "string"
+  },
+  {
+   "name": "name_14",
+   "type": "string"
+  },
+  {
+   "name": "name_15",
+   "type": "string"
+  },
+  {
+   "name": "f21",
+   "type": "unknown"
+  },
+  {
+   "name": "MountCreatureID_0",
+   "type": "uint"
+  },
+  {
+   "name": "MountCreatureID_1",
+   "type": "uint"
+  }
+ ]
+}

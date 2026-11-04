@@ -1,0 +1,70 @@
+{
+ "table": "ItemExtendedCost",
+ "source": "CoA server DBCStructure.h ItemExtendedCostEntry aligned with DBCfmt.h ItemExtendedCostEntryfmt; columns the server skips stay unnamed",
+ "fields": [
+  {
+   "name": "ID",
+   "type": "uint"
+  },
+  {
+   "name": "reqhonorpoints",
+   "type": "uint"
+  },
+  {
+   "name": "reqarenapoints",
+   "type": "uint"
+  },
+  {
+   "name": "reqarenaslot",
+   "type": "uint"
+  },
+  {
+   "name": "reqitem_0",
+   "type": "uint"
+  },
+  {
+   "name": "reqitem_1",
+   "type": "uint"
+  },
+  {
+   "name": "reqitem_2",
+   "type": "uint"
+  },
+  {
+   "name": "reqitem_3",
+   "type": "uint"
+  },
+  {
+   "name": "reqitem_4",
+   "type": "uint"
+  },
+  {
+   "name": "reqitemcount_0",
+   "type": "uint"
+  },
+  {
+   "name": "reqitemcount_1",
+   "type": "uint"
+  },
+  {
+   "name": "reqitemcount_2",
+   "type": "uint"
+  },
+  {
+   "name": "reqitemcount_3",
+   "type": "uint"
+  },
+  {
+   "name": "reqitemcount_4",
+   "type": "uint"
+  },
+  {
+   "name": "reqpersonalarenarating",
+   "type": "uint"
+  },
+  {
+   "name": "f15",
+   "type": "unknown"
+  }
+ ]
+}
