@@ -80,6 +80,7 @@ public sealed class WriteStore : IDisposable
 
     private SqliteConnection Open(bool create)
     {
+        Secure(create, sidecarsToo: false);   // before SQLite first creates the file, and on every open: an older, wider file is tightened
         var c = new SqliteConnection(new SqliteConnectionStringBuilder
         {
             DataSource = _path,
@@ -93,12 +94,36 @@ public sealed class WriteStore : IDisposable
             Exec(c, null, "PRAGMA synchronous = FULL");
             Exec(c, null, $"PRAGMA max_page_count = {_maxPages}");
             if (!_ready) Prepare(c);
+            Secure(create: false, sidecarsToo: true);   // -wal and -shm exist now
             return c;
         }
         catch
         {
             c.Dispose();
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Keeps the store, and its -wal and -shm files, at mode 0640 or tighter on Unix. SQLite gives the -wal and -shm files the main file's mode.
+    /// A failure is logged and never stops the open: a store that is too open is better than reads that are down.
+    /// </summary>
+    private void Secure(bool create, bool sidecarsToo)
+    {
+        if (OperatingSystem.IsWindows()) return;
+        try
+        {
+            if (create) PrivateFile.CreateIfMissing(_path);
+            PrivateFile.Tighten(_path);
+            if (sidecarsToo)
+            {
+                PrivateFile.Tighten(_path + "-wal");
+                PrivateFile.Tighten(_path + "-shm");
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _log?.LogError(ex, "The writable store's file mode could not be set to 0640, so it may be readable by other users.");
         }
     }
 

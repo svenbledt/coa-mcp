@@ -225,7 +225,7 @@ public static class AdminCli
     private static void CopyStore(string path, string temp, string target)
     {
         File.Delete(temp);
-        CreatePrivateFile(temp);   // VACUUM INTO accepts an existing empty file, so the copy never has wider access than the file made here
+        PrivateFile.Create(temp);   // VACUUM INTO accepts an existing empty file, so the copy never has wider access than the file made here
         try
         {
             using (var c = OpenStore(path)) Exec(c, null, "VACUUM INTO $0", temp);
@@ -247,13 +247,6 @@ public static class AdminCli
     {
         if (OperatingSystem.IsWindows()) Directory.CreateDirectory(dir);
         else Directory.CreateDirectory(dir, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute | UnixFileMode.GroupRead | UnixFileMode.GroupExecute);
-    }
-
-    private static void CreatePrivateFile(string file)
-    {
-        var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write };
-        if (!OperatingSystem.IsWindows()) options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead;
-        new FileStream(file, options).Dispose();
     }
 
     private static int Prune(string dir, DateTime today)
