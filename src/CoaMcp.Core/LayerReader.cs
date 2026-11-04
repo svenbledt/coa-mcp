@@ -8,6 +8,8 @@ namespace CoaMcp.Core;
 
 public sealed class LayerReader : IDisposable
 {
+    internal const string MismatchKeyPrefix = "mismatch:";
+
     private readonly SqliteConnection _db;
 
     public LayerMeta Meta { get; }
@@ -56,7 +58,13 @@ public sealed class LayerReader : IDisposable
     {
         if (Query("SELECT 1 AS x FROM sqlite_master WHERE type = 'table' AND name = 'layer_client'").Count == 0) return null;
         var v = Query("SELECT key, value FROM layer_client").ToDictionary(r => (string)r["key"]!, r => (string)r["value"]!);
-        return new ClientRelease(int.Parse(v["revision"], CultureInfo.InvariantCulture), v["release_id"], v.GetValueOrDefault("note"));
+        var mismatches = v.Where(kv => kv.Key.StartsWith(MismatchKeyPrefix, StringComparison.Ordinal)).OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv =>
+        {
+            var parts = kv.Value.Split('/');
+            return new ClientArchiveMismatch(kv.Key[MismatchKeyPrefix.Length..], long.Parse(parts[0], CultureInfo.InvariantCulture), long.Parse(parts[1], CultureInfo.InvariantCulture),
+                parts[2].Length == 0 ? null : long.Parse(parts[2], CultureInfo.InvariantCulture));
+        }).ToList();
+        return new ClientRelease(int.Parse(v["revision"], CultureInfo.InvariantCulture), v["release_id"], v.GetValueOrDefault("note"), mismatches.Count > 0 ? mismatches : null);
     }
 
     public Entity? Get(string id)

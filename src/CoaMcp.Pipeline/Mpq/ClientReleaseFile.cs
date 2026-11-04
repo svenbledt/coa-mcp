@@ -33,6 +33,7 @@ public static class ClientReleaseFile
                 throw new InvalidDataException($"{path}: needs a text releaseId.");
 
             var notes = new List<string>();
+            var mismatches = new List<ClientArchiveMismatch>();
             if (root.TryGetProperty("files", out var files) && files.ValueKind == JsonValueKind.Object)
             {
                 foreach (var f in files.EnumerateObject().Where(f => f.Name.StartsWith(DataPrefix, StringComparison.OrdinalIgnoreCase)))
@@ -40,21 +41,25 @@ public static class ClientReleaseFile
                     var archive = f.Name[DataPrefix.Length..];
                     var listed = Bytes(f.Value);
                     if (listed is null || !archiveSizes.TryGetValue(archive, out var actual) || actual == listed) continue;
-                    notes.Add(Mismatch(root, f.Name, archive, revision, listed.Value, actual));
+                    var before = PreviousBytes(root, f.Name);
+                    notes.Add(Mismatch(root, archive, revision, listed.Value, actual, before));
+                    mismatches.Add(new ClientArchiveMismatch(archive, listed.Value, actual, before));
                 }
             }
-            return new ClientRelease(revision, id.GetString()!, notes.Count > 0 ? string.Join(" ", notes) : null);
+            return new ClientRelease(revision, id.GetString()!, notes.Count > 0 ? string.Join(" ", notes) : null, mismatches.Count > 0 ? mismatches : null);
         }
         catch (JsonException ex) { throw new InvalidDataException($"{path}: {ex.Message}", ex); }
     }
 
-    private static string Mismatch(JsonElement root, string key, string archive, int revision, long listed, long actual)
+    private static long? PreviousBytes(JsonElement root, string key) =>
+        root.TryGetProperty("previousPackage", out var previous) && previous.ValueKind == JsonValueKind.Object && previous.TryGetProperty(key, out var entry) ? Bytes(entry) : null;
+
+    private static string Mismatch(JsonElement root, string archive, int revision, long listed, long actual, long? previousBytes)
     {
         var text = $"its revision {revision} entry for {archive} says {N(listed)} bytes, but the client's file is {N(actual)} bytes";
-        if (!root.TryGetProperty("previousPackage", out var previous) || previous.ValueKind != JsonValueKind.Object
-            || !previous.TryGetProperty(key, out var entry) || Bytes(entry) is not { } before)
-            return $"CLIENT-RELEASE.json: {text}.";
+        if (previousBytes is not { } before) return $"CLIENT-RELEASE.json: {text}.";
 
+        var previous = root.GetProperty("previousPackage");
         var label = previous.TryGetProperty("clientRevision", out var r) && r.ValueKind == JsonValueKind.Number ? $"previous package (revision {r.GetRawText()})" : "previous package";
         return before == actual
             ? $"CLIENT-RELEASE.json: {text}, which is the size it gives for the {label}."

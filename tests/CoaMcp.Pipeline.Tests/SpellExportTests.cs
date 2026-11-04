@@ -67,8 +67,8 @@ public sealed class SpellExportTests(SpellFixture f)
     }
 
     [Theory]
-    [InlineData("patch-T.MPQ", "project", "CoA client DBC (via Spellwork), client revision 8, Spell.dbc from patch-T.MPQ (project-built archive)")]
-    [InlineData("patch-M.MPQ", "unknown", "CoA client DBC (via Spellwork), client revision 8, Spell.dbc from patch-M.MPQ (origin unknown)")]
+    [InlineData("patch-T.MPQ", "project", "CoA client DBC (via Spellwork), per CLIENT-RELEASE.json, client revision 8, Spell.dbc from patch-T.MPQ (project-built archive)")]
+    [InlineData("patch-M.MPQ", "unknown", "CoA client DBC (via Spellwork), per CLIENT-RELEASE.json, client revision 8, Spell.dbc from patch-M.MPQ (origin unknown)")]
     public void Pages_FromAWinnersFolder_SayWhichArchiveWonSpellDbc(string archive, string origin, string expected)
     {
         var dir = Path.Combine(Path.GetTempPath(), "coamcp-winners-" + Guid.NewGuid().ToString("N"));
@@ -91,6 +91,42 @@ public sealed class SpellExportTests(SpellFixture f)
             Assert.Equal(8, r.Meta.Client!.Revision);
             Assert.Equal("spells", CoaMcp.Pipeline.Publish.PublishGuard.Check(layer).LayerName);
             Assert.True(CoaMcp.Pipeline.Publish.PublishGuard.Check(layer).Ok);
+        }
+        finally
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Theory]
+    [InlineData("patch-T.MPQ", true)]
+    [InlineData("patch-M.MPQ", false)]
+    public void Pages_SayWhenSpellDbcsWinnerMismatches_AndOnlyThen(string winner, bool expected)
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "coamcp-winners-" + Guid.NewGuid().ToString("N"));
+        FakeDbc.Create(dir);
+        var layer = Path.Combine(dir, "spells.sqlite");
+        const string Line = "patch-T.MPQ on disk (5.0 MB) doesn't match the release file's entry (4.0 MB), so it may be newer than revision 8.";
+        try
+        {
+            CoaMcp.Pipeline.Dbc.DbcWinnerList.Write(dir, new Dictionary<string, CoaMcp.Pipeline.Dbc.DbcWinnerFile>
+            {
+                ["Spell.dbc"] = new(winner, "project", "2026-10-03"),
+            }, new ClientRelease(8, "rel-8", "n", new[]
+            {
+                new ClientArchiveMismatch("patch-T.MPQ", 4000000, 5000000, null),
+                new ClientArchiveMismatch("patch-Other.MPQ", 1, 2, null),
+            }));
+
+            SpellsImport.Run(SpellSource.OpenWinners(dir), layer);
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+
+            using var r = new LayerReader(layer);
+            var body = r.Get("spell:133")!.BodyMd;
+            Assert.Equal(expected, body.Contains(Line, StringComparison.Ordinal));
+            Assert.DoesNotContain("patch-Other.MPQ", body);    // only the archive this layer's pages come from
+            Assert.Equal(expected ? 1 : 0, r.Meta.Client!.Mismatches?.Count ?? 0);
         }
         finally
         {

@@ -50,6 +50,7 @@ public static class DbcPages
     {
         var sb = new StringBuilder($"DBC {t.Name} (realm {Render.RealmText(Realm)}, trust {Render.Trust(Trust.Client)}, source {ClientRelease.Source(DbcLayerBuilder.Source, layer.Meta.Client)}, source date {Date(t.SourceDate)}; layer {LayerName} v{layer.Meta.Version}).\n");
         sb.Append(CopyLine(t)).Append('\n');
+        if (layer.Meta.Client?.MismatchLine(t.Archive) is { } mismatch) sb.Append(mismatch).Append('\n');
         if (BaseOf(layer, t) is { } b) sb.Append($"Base copy: DBC table {b.Name}.\n");
         if (t.Problem is not null) sb.Append("Note: ").Append(Render.OneLine(t.Problem, 400)).Append('\n');
         return sb.ToString();
@@ -138,6 +139,7 @@ public static class DbcPages
         var page = new Entity($"dbc:{t.Name}:{rowId}", "dbc_row", $"{t.Name} row {rowId}", Realm, Trust.Client, ClientRelease.Source(DbcLayerBuilder.Source, layer.Meta.Client), t.SourceDate, "", null, Array.Empty<Link>());
         var sb = new StringBuilder(Render.Header(page, layer.Meta)).Append("\n\n");
         sb.Append(CopyLine(t)).Append('\n');
+        if (layer.Meta.Client?.MismatchLine(t.Archive) is { } mismatch) sb.Append(mismatch).Append('\n');
         if (t.NamesSource is not null) sb.Append("Field names from: ").Append(Render.OneLine(t.NamesSource, 200)).Append('\n');
         if (t.Problem is not null) sb.Append("Note: ").Append(Render.OneLine(t.Problem, 400)).Append('\n');
         if (idField.Guessed) sb.Append($"{idField.Name} is taken to be the id because it is the first column; that is itself a guess.\n");
@@ -172,6 +174,7 @@ public static class DbcPages
     {
         if (BaseOf(layer, t) is not { } b) return;
         sb.Append($"\nBase copy {b.Name}: {DbcLayerBuilder.OriginText(b.Origin, b.Archive)}.\n");
+        if (layer.Meta.Client?.MismatchLine(b.Archive) is { } mismatch) sb.Append(mismatch).Append('\n');
         if (NotReadable(b) is { } why) { sb.Append(why).Append('\n'); return; }
 
         var baseFields = Fields(layer, b.Name);

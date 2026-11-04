@@ -67,7 +67,10 @@ public sealed class DbcTools
         var sb = new StringBuilder($"DBC tables (realm the CoA client (unproven), trust {Render.Trust(Trust.Client)}, source {ClientRelease.Source(DbcLayerBuilder.Source, layer.Meta.Client)}; layer {DbcPages.LayerName} v{layer.Meta.Version}, source date {layer.Meta.SourceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}).\n");
         if (note is not null) sb.Append(note).Append('\n');
         sb.Append($"{Math.Min(rows.Count, lim)} tables (offset {off}, limit {lim}). A project-built winner is not evidence about Ascension. A base table is not claimed as Ascension either.\n");
-        foreach (var r in rows.Take(lim)) sb.Append(TableLine(DbcTableRef.From(r))).Append('\n');
+        var listed = rows.Take(lim).Select(DbcTableRef.From).ToList();
+        foreach (var t in listed) sb.Append(TableLine(t)).Append('\n');
+        foreach (var archive in listed.Where(t => t.Status == DbcStatus.Ok).Select(t => t.Archive).Distinct())
+            if (layer.Meta.Client?.MismatchLine(archive) is { } mismatch) sb.Append(mismatch).Append('\n');
         if (rows.Count > lim) sb.Append($"More results may exist: use offset={off + lim}.\n");
 
         if (text is not null && DbcPages.Find(layer, text) is { Status: DbcStatus.Ok } exact)

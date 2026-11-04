@@ -30,7 +30,10 @@ public sealed class SpellSource
 
     public ClientRelease? Client { get; }
 
-    private SpellSource(McpServerConfig config, SpellDataService service, string dbcDir, DateOnly sourceDate, string sourceText, ClientRelease? client)
+    /// <summary>A line for each page when the archive that won Spell.dbc differs from the release file.</summary>
+    public string? SourceWarning { get; }
+
+    private SpellSource(McpServerConfig config, SpellDataService service, string dbcDir, DateOnly sourceDate, string sourceText, ClientRelease? client, string? sourceWarning)
     {
         Config = config;
         Spells = new SpellTools(service);
@@ -39,6 +42,7 @@ public sealed class SpellSource
         SourceDate = sourceDate;
         SourceText = sourceText;
         Client = client;
+        SourceWarning = sourceWarning;
     }
 
     /// <summary>All spell ids in the loaded data, ascending.</summary>
@@ -69,10 +73,15 @@ public sealed class SpellSource
         var list = CoaMcp.Pipeline.Dbc.DbcWinnerList.Read(winnersDir);
         var spell = list.Files["Spell.dbc"];
         var origin = spell.Origin == "project" ? "project-built archive" : $"origin {spell.Origin}";
-        return Open(winnersDir, locale, date, $"{ClientRelease.Source(SpellExporter.Source, list.Client)}, Spell.dbc from {spell.Archive} ({origin})", list.Client);
+        // This layer's data comes from Spell.dbc's winner, so that is the only archive its answers need to flag.
+        var client = list.Client is null ? null : list.Client with
+        {
+            Mismatches = list.Client.Mismatches?.Where(m => string.Equals(m.Archive, spell.Archive, StringComparison.OrdinalIgnoreCase)).ToList() is { Count: > 0 } kept ? kept : null,
+        };
+        return Open(winnersDir, locale, date, $"{ClientRelease.Source(SpellExporter.Source, list.Client)}, Spell.dbc from {spell.Archive} ({origin})", client, client?.MismatchLine(spell.Archive));
     }
 
-    public static SpellSource Open(string dbcDir, string locale = "enUS", DateOnly? sourceDate = null, string? sourceText = null, ClientRelease? client = null)
+    public static SpellSource Open(string dbcDir, string locale = "enUS", DateOnly? sourceDate = null, string? sourceText = null, ClientRelease? client = null, string? sourceWarning = null)
     {
         var spellFile = Path.Combine(dbcDir, "Spell.dbc");
         if (!File.Exists(spellFile)) throw new InvalidOperationException($"No Spell.dbc in '{dbcDir}'.");
@@ -98,6 +107,6 @@ public sealed class SpellSource
         var data = service.GetAsync().GetAwaiter().GetResult();
         if (!data.Loaded) throw new InvalidOperationException($"Spellwork could not load '{dbcDir}': {data.ErrorMessage}");
 
-        return new SpellSource(config, service, dbcDir, sourceDate ?? DateOnly.FromDateTime(File.GetLastWriteTimeUtc(spellFile)), sourceText ?? SpellExporter.Source, client);
+        return new SpellSource(config, service, dbcDir, sourceDate ?? DateOnly.FromDateTime(File.GetLastWriteTimeUtc(spellFile)), sourceText ?? SpellExporter.Source, client, sourceWarning);
     }
 }

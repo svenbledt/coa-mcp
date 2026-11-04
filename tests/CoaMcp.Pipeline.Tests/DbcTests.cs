@@ -771,8 +771,23 @@ public class DbcExportTests : IDisposable
         Assert.Equal(8, r.Meta.Client!.Revision);
         Assert.Equal("rel-8", r.Meta.Client.ReleaseId);
         Assert.Equal("a note", r.Meta.Client.Note);
-        Assert.Equal("CoA client DBC, client revision 8", r.Get("dbc:Spell")!.Source);
+        Assert.Equal("CoA client DBC, per CLIENT-RELEASE.json, client revision 8", r.Get("dbc:Spell")!.Source);
         Assert.Equal(8, DbcWinnerList.Read(_w.Winners).Client!.Revision);
+        Assert.True(PublishGuard.Check(_w.Layer).Ok);
+    }
+
+    [Fact]
+    public void Export_ClientMismatches_SurviveTheLayerAndWinnersList()
+    {
+        _w.Add("patch-M.MPQ", "Thing", Simple());
+        var mismatch = new ClientArchiveMismatch("patch-M.MPQ", 100, 200, 150);
+
+        _w.Export(new ClientRelease(8, "rel-8", "n", new[] { mismatch }));
+
+        using var r = _w.Open();
+        Assert.Equal(mismatch, Assert.Single(r.Meta.Client!.Mismatches!));
+        Assert.Equal(mismatch, Assert.Single(DbcWinnerList.Read(_w.Winners).Client!.Mismatches!));
+        Assert.Contains("patch-M.MPQ on disk", r.Get("dbc:Thing")!.BodyMd);
         Assert.True(PublishGuard.Check(_w.Layer).Ok);
     }
 
@@ -844,6 +859,11 @@ public class ClientReleaseFileTests : IDisposable
         Assert.Contains("8,982,122", c.Note);
         Assert.Contains("228,738,210", c.Note);
         Assert.DoesNotContain("patch-T.MPQ", c.Note);
+        var m = Assert.Single(c.Mismatches!);
+        Assert.Equal(new ClientArchiveMismatch("patch-B.MPQ", 8987639, 228738210, 8982122), m);
+        Assert.Equal("patch-B.MPQ on disk (228.7 MB) doesn't match the release file's entry (9.0 MB), so it may be newer than revision 8.", c.MismatchLine("patch-b.mpq"));
+        Assert.Null(c.MismatchLine("patch-T.MPQ"));
+        Assert.Null(c.MismatchLine(null));
     }
 
     [Fact]
@@ -853,6 +873,7 @@ public class ClientReleaseFileTests : IDisposable
 
         Assert.Contains("previous package", c.Note);
         Assert.Contains("revision 7", c.Note);
+        Assert.Equal("patch-B.MPQ on disk (9.0 MB) doesn't match the release file's entry (9.0 MB); it matches the previous package's entry.", c.MismatchLine("patch-B.MPQ"));
     }
 
     [Theory]

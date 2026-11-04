@@ -191,5 +191,5 @@ public sealed class LayerSet : IDisposable
 
     public static string Describe(Layer layer) =>
         $"v{layer.Meta.Version}, built {layer.Meta.BuiltAt.UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}, source date {layer.Meta.SourceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}" +
-        (layer.Meta.Client is { } c ? $", client revision {c.Revision} ({Render.OneLine(c.ReleaseId, 60)})" : "");
+        (layer.Meta.Client is { } c ? $", {c.Claim} ({Render.OneLine(c.ReleaseId, 60)})" : "");
 }

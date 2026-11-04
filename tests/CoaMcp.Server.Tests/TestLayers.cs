@@ -112,7 +112,7 @@ public static class TestLayers
     public static void BuildPaths(string path)
     {
         using var w = new LayerWriter(path, "paths", "2");
-        w.SetClient(new ClientRelease(8, "test-release", null));
+        w.SetClient(new ClientRelease(8, "test-release", null, new[] { new ClientArchiveMismatch("patch-3.MPQ", 8987639, 228738210, null) }));
         var b = new PathsLayerBuilder(w);
         b.Add(new PathRecord("DBFilesClient/Map.dbc", 900, "patch-S.MPQ", "unknown", false, null, null,
             H(("patch-S.MPQ", "unknown", 900, false, null), ("common.MPQ", "unknown", 800, false, null))));
@@ -141,9 +141,10 @@ public static class TestLayers
 
     public const string SpellSourceText = "CoA client DBC (via Spellwork)";
 
-    public static void BuildSpells(string path, string source = SpellSourceText)
+    public static void BuildSpells(string path, string source = SpellSourceText, ClientRelease? client = null)
     {
         using var w = new LayerWriter(path, "spells", "3");
+        if (client is not null) w.SetClient(client);
         w.Add(E("spell:1", "spell", "Fire Blast",
             "## summary\nSpell 1: Fire Blast\n\n## effects\nEFFECTSMARK\n\n## triggers\nTriggers no spells.\n\n## visuals\nVISUALSMARK\n",
             source, Trust.Client, new[] { "coa-client" }, false,

@@ -36,6 +36,13 @@ public sealed partial class SpellHelperTools
     private static string Source(Entity e) =>
         $"realm {Render.RealmText(e.Realm)}, trust {Render.Trust(e.Trust)}, source {e.Source}, source date {e.SourceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}";
 
+    /// <summary>The layer holds a mismatch only for the archive that won Spell.dbc, so each one applies to every answer here.</summary>
+    private static void AppendWarnings(StringBuilder sb, Layer layer)
+    {
+        foreach (var m in layer.Meta.Client?.Mismatches ?? Array.Empty<ClientArchiveMismatch>())
+            sb.Append(layer.Meta.Client!.MismatchLine(m.Archive)).Append('\n');
+    }
+
     private Entity Spell(Layer layer, string id) =>
         layer.Get(id) ?? throw new McpException($"No spell with id '{id}' in the spells layer.");
 
@@ -63,6 +70,7 @@ public sealed partial class SpellHelperTools
         var sb = new StringBuilder();
         sb.Append($"A = {a.Id} {Render.OneLine(a.Title, 80)} ({Source(a)})\n");
         sb.Append($"B = {b.Id} {Render.OneLine(b.Title, 80)} ({Source(b)})\n");
+        AppendWarnings(sb, layer);
         sb.Append($"{diffs.Count} differing fields (A | B):\n");
         foreach (var d in diffs.Take(MaxDiffs)) sb.Append(d).Append('\n');
         if (diffs.Count > MaxDiffs) sb.Append($"and {diffs.Count - MaxDiffs} more not shown.\n");
@@ -121,6 +129,7 @@ public sealed partial class SpellHelperTools
         var source = (string)layer.Query("SELECT source FROM entities LIMIT 1")[0]["source"]!;
         var sb = new StringBuilder($"{match["kind"]} 0x{mask:X} ({mask}) from the spells layer v{layer.Meta.Version} " +
             $"(trust {Render.Trust(Trust.Client)}, source {source}, source date {layer.Meta.SourceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}):\n");
+        AppendWarnings(sb, layer);
         if (mask == 0) sb.Append("no bits set\n");
         foreach (var m in set) sb.Append($"- {m.Label} (0x{m.Bits:X})\n");
         if (unmatched != 0) sb.Append($"unmatchedBits: 0x{unmatched:X}\n");
@@ -162,6 +171,7 @@ public sealed partial class SpellHelperTools
             .ToDictionary(g => g.Key, g => string.Join(" / ", g.Select(r => (string)r["label"]!)));
 
         var sb = new StringBuilder($"{spell.Id} {Render.OneLine(spell.Title, 80)} at level {lvl} ({Source(spell)})\n");
+        AppendWarnings(sb, layer);
         if (notes.Count > 0) sb.Append("Note: ").Append(string.Join("; ", notes)).Append(".\n");
         if (rows.Count == 0) sb.Append("This spell has no effects.\n");
         foreach (var r in rows)

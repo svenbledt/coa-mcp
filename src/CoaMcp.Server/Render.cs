@@ -12,7 +12,7 @@ public static class Render
     private const int MaxListedSections = 100;
     private const int PreambleChars = 600;
     private const int SnippetChars = 160;
-    private const int MaxHitSourceChars = 130;   // long enough that a project-built archive's name is never cut off
+    private const int MaxHitSourceChars = 150;   // long enough that a project-built archive's name is never cut off
 
     public static string Trust(Trust t) => t.ToString().ToLowerInvariant();
 

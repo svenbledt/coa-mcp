@@ -31,7 +31,7 @@ internal static class SpellPage
         "description", "auraDescription", "nameSubtext", "visual",
     };
 
-    public static Entity Build(JsonElement spell, Func<int, string?> nameOf, string source, RealmSet realm, DateOnly date)
+    public static Entity Build(JsonElement spell, Func<int, string?> nameOf, string source, RealmSet realm, DateOnly date, string? sourceWarning = null)
     {
         var id = spell.GetProperty("id").GetInt32();
         var name = Str(spell, "name");
@@ -40,7 +40,7 @@ internal static class SpellPage
 
         var triggered = new List<int>();
         var body = new StringBuilder();
-        Summary(body, spell, id, title, rank, source, realm);
+        Summary(body, spell, id, title, rank, source, realm, sourceWarning);
         Effects(body, spell);
         Triggers(body, spell, id, nameOf, triggered);
         Visuals(body, spell);
@@ -50,11 +50,12 @@ internal static class SpellPage
         return new Entity($"spell:{id}", "spell", title, realm, Trust.Client, source, date, body.ToString().TrimEnd('\n') + "\n", DataJson(spell), links);
     }
 
-    private static void Summary(StringBuilder b, JsonElement spell, int id, string title, string rank, string source, RealmSet realm)
+    private static void Summary(StringBuilder b, JsonElement spell, int id, string title, string rank, string source, RealmSet realm, string? sourceWarning)
     {
         b.Line("## summary");
         b.Line($"Spell {id}: {title}" + (rank.Length > 0 ? $" ({rank})" : ""));
         b.Line($"Source: {source}. Realm: {realm.Label()}. Raw client data, not proven for any server.");
+        if (sourceWarning is not null) b.Line(sourceWarning);
         foreach (var p in spell.EnumerateObject())
         {
             if (NotInSummary.Contains(p.Name)) continue;

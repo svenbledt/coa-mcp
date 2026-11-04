@@ -16,7 +16,11 @@ public static class TestDbc
     public static void Build(string path)
     {
         using var w = new LayerWriter(path, "dbc", "4");
-        var b = new DbcLayerBuilder(w, new ClientRelease(8, "test-release", "the release file's patch-B entry is off"));
+        var b = new DbcLayerBuilder(w, new ClientRelease(8, "test-release", "the release file's patch-B entry is off", new[]
+        {
+            new ClientArchiveMismatch("patch-M.MPQ", 8987639, 228738210, null),
+            new ClientArchiveMismatch("enUS/patch-enUS-3.MPQ", 1000000, 2000000, 2000000),
+        }));
 
         var spell = new[]
         {
@@ -143,14 +147,14 @@ public class DbcToolTests : IClassFixture<DbcFixture>
         Assert.Contains("Gone", text);
         Assert.Contains("deleted", text);
         Assert.Contains("trust client", text);
-        Assert.Contains("source CoA client DBC, client revision 8", text);
+        Assert.Contains("source CoA client DBC, per CLIENT-RELEASE.json, client revision 8", text);
     }
 
     [Fact]
     public async Task Rows_SourceNamesTheClientRevision()
     {
         var (text, _) = await Rows(("table", "Spell"), ("limit", 1));
-        Assert.Contains("source CoA client DBC, client revision 8", text);
+        Assert.Contains("source CoA client DBC, per CLIENT-RELEASE.json, client revision 8", text);
     }
 
     [Fact]
@@ -465,7 +469,7 @@ public class DbcToolTests : IClassFixture<DbcFixture>
         Assert.Contains("patch-T.MPQ", text);
         Assert.Contains("project", text);
         Assert.Contains("trust: client", text);
-        Assert.Contains("source: CoA client DBC, client revision 8", text);
+        Assert.Contains("source: CoA client DBC, per CLIENT-RELEASE.json, client revision 8", text);
         Assert.Contains("source date: 2026-10-03", text);
         Assert.Contains("the CoA client", text);
         Assert.DoesNotContain("Unused", text.Split("omitted")[0]);
@@ -498,6 +502,47 @@ public class DbcToolTests : IClassFixture<DbcFixture>
         Assert.Contains("guessed", text);
         Assert.Contains("f1 (guessed int_or_string): 11 \"Sword\"", text);
         Assert.Contains("f2 (guessed float): 2.5", text);
+    }
+
+    private const string MismatchM = "patch-M.MPQ on disk (228.7 MB) doesn't match the release file's entry (9.0 MB), so it may be newer than revision 8.";
+
+    [Fact]
+    public async Task Get_RowWinnerSizeMismatch_SaysSo()
+    {
+        var (text, _) = await _f.Call("get", A(("id", "dbc:Thing:7")));
+        Assert.Contains(MismatchM, text);
+    }
+
+    [Fact]
+    public async Task Get_RowWinnerMatches_NoLineForThatArchive()
+    {
+        var (text, _) = await _f.Call("get", A(("id", "dbc:Spell:134")));   // patch-T has no mismatch; its base, patch-enUS-3, does
+        Assert.DoesNotContain("patch-T.MPQ on disk", text);
+        Assert.DoesNotContain("patch-M.MPQ on disk", text);
+    }
+
+    [Fact]
+    public async Task Get_BaseCopyMismatch_SaysSo_AndMatchingThePreviousPackageIsNotCalledNewer()
+    {
+        var (text, _) = await _f.Call("get", A(("id", "dbc:Spell:133")));
+        Assert.Contains("enUS/patch-enUS-3.MPQ on disk (2.0 MB) doesn't match the release file's entry (1.0 MB); it matches the previous package's entry.", text);
+    }
+
+    [Fact]
+    public async Task Rows_And_Tables_SayWhenAWinnerMismatches()
+    {
+        var (rows, _) = await Rows(("table", "Thing"));
+        Assert.Contains(MismatchM, rows);
+        var (spellRows, _) = await Rows(("table", "Spell"), ("limit", 1));
+        Assert.DoesNotContain("patch-M.MPQ on disk", spellRows);
+
+        var (tables, _) = await _f.Call("dbc_tables", A(("filter", "Thing")));
+        Assert.Contains(MismatchM, tables);
+        var (spellTables, _) = await _f.Call("dbc_tables", A(("filter", "Spell")));
+        Assert.DoesNotContain("patch-M.MPQ on disk", spellTables);
+
+        var (page, _) = await _f.Call("get", A(("id", "dbc:Thing")));
+        Assert.Contains(MismatchM, page);
     }
 
     [Fact]
@@ -571,7 +616,7 @@ public class DbcToolTests : IClassFixture<DbcFixture>
         Assert.Contains("dbc:", text);
         Assert.Contains("6 tables", text);
         Assert.Contains("guessed", text);
-        Assert.Contains("client revision 8 (test-release)", text);
+        Assert.Contains("per CLIENT-RELEASE.json, client revision 8 (test-release)", text);
         Assert.Contains("the release file's patch-B entry is off", text);
     }
 
@@ -595,8 +640,8 @@ public class SpellSourceToolTests
     private static Dictionary<string, object?> A(params (string, object?)[] pairs) => pairs.ToDictionary(p => p.Item1, p => p.Item2);
 
     [Theory]
-    [InlineData("CoA client DBC (via Spellwork), client revision 8, Spell.dbc from patch-T.MPQ (project-built archive)")]
-    [InlineData("CoA client DBC (via Spellwork), client revision 8, Spell.dbc from enUS/patch-enUS-3.MPQ (origin unknown)")]
+    [InlineData("CoA client DBC (via Spellwork), per CLIENT-RELEASE.json, client revision 8, Spell.dbc from patch-T.MPQ (project-built archive)")]
+    [InlineData("CoA client DBC (via Spellwork), per CLIENT-RELEASE.json, client revision 8, Spell.dbc from enUS/patch-enUS-3.MPQ (origin unknown)")]
     public async Task EverySpellAnswer_CarriesTheWinningArchive(string source)
     {
         var dir = TestLayers.Build(withSpells: false);
@@ -618,6 +663,50 @@ public class SpellSourceToolTests
                 Assert.False(isError, text);
                 Assert.True(text.Contains(source, StringComparison.Ordinal), $"{tool} did not carry the source: {text}");
             }
+        }
+    }
+}
+
+public class SpellMismatchToolTests
+{
+    private static Dictionary<string, object?> A(params (string, object?)[] pairs) => pairs.ToDictionary(p => p.Item1, p => p.Item2);
+
+    private const string Line = "patch-T.MPQ on disk (5.0 MB) doesn't match the release file's entry (4.0 MB), so it may be newer than revision 8.";
+
+    [Fact]
+    public async Task SpellTools_SayWhenSpellDbcsWinnerMismatches()
+    {
+        var dir = TestLayers.Build(withSpells: false);
+        TestLayers.BuildSpells(Path.Combine(dir, "spells.sqlite"), client: new ClientRelease(8, "r", null, new[] { new ClientArchiveMismatch("patch-T.MPQ", 4000000, 5000000, null) }));
+        using var h = new ServerHarness(dir);
+        var client = await h.ConnectAsync();
+        await using (client)
+        {
+            foreach (var (tool, args) in new (string, Dictionary<string, object?>)[]
+            {
+                ("spell_compare", A(("idA", "spell:1"), ("idB", "spell:2"))),
+                ("spell_scaling", A(("id", "spell:10"), ("level", 80))),
+                ("decode_flags", A(("kind", "SpellSchoolMask"), ("value", "4"))),
+            })
+            {
+                var (text, isError) = await ServerHarness.CallAsync(client, tool, args);
+                Assert.False(isError, text);
+                Assert.Contains(Line, text);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task SpellTools_NoMismatch_NoLine()
+    {
+        var dir = TestLayers.Build(withSpells: false);
+        TestLayers.BuildSpells(Path.Combine(dir, "spells.sqlite"), client: new ClientRelease(8, "r", null));
+        using var h = new ServerHarness(dir);
+        var client = await h.ConnectAsync();
+        await using (client)
+        {
+            var (text, _) = await ServerHarness.CallAsync(client, "spell_scaling", A(("id", "spell:10"), ("level", 80)));
+            Assert.DoesNotContain("doesn't match the release file", text);
         }
     }
 }

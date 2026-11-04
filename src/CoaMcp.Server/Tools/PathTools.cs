@@ -53,7 +53,7 @@ public sealed class PathTools
         // One whole path, in either spelling and any case, gets the full answer.
         var whole = words is null ? start : (type is null && start is null ? Join(query).TrimStart('/') : null);
         if (whole is not null && whole.Length > 0 && !whole.EndsWith('/') && layer.Query("SELECT * FROM paths WHERE path = $0", whole) is [var exact])
-            return sb.Append(Detail(exact)).ToString().TrimEnd();
+            return sb.Append(Detail(exact, layer.Meta.Client)).ToString().TrimEnd();
 
         if (words is null && type is null && start is not null && Folder(layer, start) is { } folder)
             Browse(layer, folder, lim, off, sb);
@@ -143,7 +143,15 @@ public sealed class PathTools
         return result;
     }
 
-    private static string Detail(IReadOnlyDictionary<string, object?> r)
+    /// <summary>One line per archive whose copy differs from the release file, among those winning these rows.</summary>
+    private static void AppendMismatches(StringBuilder sb, Layer layer, IEnumerable<IReadOnlyDictionary<string, object?>> rows)
+    {
+        if (layer.Meta.Client is not { } client) return;
+        foreach (var archive in rows.Where(r => !IsDeleted(r)).Select(r => r["winner_archive"] as string).Distinct())
+            if (client.MismatchLine(archive) is { } line) sb.Append(line).Append('\n');
+    }
+
+    private static string Detail(IReadOnlyDictionary<string, object?> r, ClientRelease? client)
     {
         var sb = new StringBuilder(Path(r)).Append('\n');
         var holders = Holders(r["holders_json"] as string);
@@ -165,6 +173,7 @@ public sealed class PathTools
             var project = r["winner_origin"] as string == "project";
             sb.Append($"winner: {Render.OneLine(win, 60)}, {size}, ");
             sb.Append(project ? "project-built archive (project files are not evidence about Ascension)" : $"origin {r["winner_origin"]}").Append('\n');
+            if (client?.MismatchLine(win) is { } mismatch) sb.Append(mismatch).Append('\n');
             if (project)
                 sb.Append(r["base_winner"] is string b
                     ? $"base copy: {Render.OneLine(b, 60)}, {(r["base_size"] is long bs ? Bytes(bs) : "size unknown")}, origin unknown\n"
@@ -230,11 +239,13 @@ public sealed class PathTools
             }
         }
         var fileOffset = Math.Max(0, offset - folders);
-        foreach (var r in layer.Query("SELECT * FROM paths WHERE dir_id = $0 ORDER BY id LIMIT $1 OFFSET $2", folder.Id, (long)(limit - shown), fileOffset))
+        var fileRows = layer.Query("SELECT * FROM paths WHERE dir_id = $0 ORDER BY id LIMIT $1 OFFSET $2", folder.Id, (long)(limit - shown), fileOffset);
+        foreach (var r in fileRows)
         {
             sb.Append(Line(r)).Append('\n');
             shown++;
         }
+        AppendMismatches(sb, layer, fileRows);
         if (shown == 0) sb.Append("Nothing at this offset.\n");
         if (offset + shown < folders + files) sb.Append($"More below: use offset={offset + shown}.\n");
     }
@@ -273,6 +284,7 @@ public sealed class PathTools
         if (ext is not null) what.Add($"of type {ext}");
         sb.Append($"{Math.Min(rows.Count, limit)} paths {string.Join(", ", what)} (offset {offset}, limit {limit}), in path order.\n");
         foreach (var r in rows.Take(limit)) sb.Append(Line(r)).Append('\n');
+        AppendMismatches(sb, layer, rows.Take(limit));
         if (rows.Count > limit) sb.Append($"More results may exist: use offset={offset + limit}.\n");
     }
 

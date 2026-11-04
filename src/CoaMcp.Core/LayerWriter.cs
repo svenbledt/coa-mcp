@@ -78,6 +78,9 @@ public sealed class LayerWriter : IDisposable
         Run("CREATE TABLE layer_client(key TEXT PRIMARY KEY, value TEXT NOT NULL)");
         Run("INSERT INTO layer_client VALUES ('revision', $0), ('release_id', $1)", client.Revision.ToString(CultureInfo.InvariantCulture), client.ReleaseId);
         if (client.Note is not null) Run("INSERT INTO layer_client VALUES ('note', $0)", client.Note);
+        foreach (var m in client.Mismatches ?? Array.Empty<ClientArchiveMismatch>())
+            Run("INSERT INTO layer_client VALUES ($0, $1)", LayerReader.MismatchKeyPrefix + m.Archive,
+                string.Create(CultureInfo.InvariantCulture, $"{m.ListedBytes}/{m.ActualBytes}/{m.PreviousBytes}"));
     }
 
     /// <summary>A prepared insert for large tables. <paramref name="table"/> and <paramref name="columns"/> are code-defined names, never user text.</summary>

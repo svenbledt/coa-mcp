@@ -32,7 +32,7 @@ public class PathToolTests : IClassFixture<ReadFixture>
         Assert.Contains("common.MPQ", text);   // the older copy is listed as a holder
         Assert.Contains("trust client", text);
         Assert.Contains("realm the CoA client", text);
-        Assert.Contains("source CoA client file list, client revision 8", text);
+        Assert.Contains("source CoA client file list, per CLIENT-RELEASE.json, client revision 8", text);
         Assert.Contains("2026-11-03", text);
         Assert.Contains("paths only", text, StringComparison.OrdinalIgnoreCase);
     }
@@ -45,6 +45,44 @@ public class PathToolTests : IClassFixture<ReadFixture>
         Assert.Contains("base copy: none", text);
         Assert.Contains("delete marker in patch-3.MPQ", text);
         Assert.Contains("removed", text);
+    }
+
+    private const string Mismatch = "patch-3.MPQ on disk (228.7 MB) doesn't match the release file's entry (9.0 MB), so it may be newer than revision 8.";
+
+    [Fact]
+    public async Task ExactPath_WinnerSizeMismatch_SaysSo()
+    {
+        var (text, _) = await Paths(("query", "DBFilesClient/SpellVisual.dbc"));
+        Assert.Contains(Mismatch, text);
+    }
+
+    [Fact]
+    public async Task ExactPath_WinnerMatches_NoMismatchLine()
+    {
+        var (text, _) = await Paths(("query", "DBFilesClient/Map.dbc"));
+        Assert.Contains("per CLIENT-RELEASE.json, client revision 8", text);
+        Assert.DoesNotContain("doesn't match the release file", text);
+    }
+
+    [Fact]
+    public async Task ExactPath_OnlyAnOlderHolderMismatches_NoMismatchLine()
+    {
+        // patch-3.MPQ holds this path too, but under a delete marker: patch-3 doesn't win it for a reader of the winner.
+        var (text, _) = await Paths(("query", "Sound/Project/Gone.mp3"));
+        Assert.DoesNotContain("doesn't match the release file", text);
+    }
+
+    [Fact]
+    public async Task Lists_MentionAMismatchOnce_OnlyWhenAListedWinnerHasIt()
+    {
+        var (browse, _) = await Paths(("prefix", "DBFilesClient/"));
+        Assert.Single(browse.Split('\n'), l => l == Mismatch);
+
+        var (search, _) = await Paths(("query", "spell"), ("limit", 100));
+        Assert.Single(search.Split('\n'), l => l == Mismatch);
+
+        var (none, _) = await Paths(("query", "Theme.mp3"));
+        Assert.DoesNotContain("doesn't match the release file", none);
     }
 
     [Fact]
