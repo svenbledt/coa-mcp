@@ -307,9 +307,9 @@ public class SpotCheckTests
         c.Has(site.Text, "the emulator project, not Ascension", "its source says so too");
     });
 
-    /// <summary>patch-T.MPQ is of unknown origin, so nothing it won may be presented as built by the project. The general sentence in dbc_tables about project-built winners isn't about it, so that's read line by line.</summary>
+    /// <summary>patch-T.MPQ is Ascension's archive per the project's records, so nothing it won may be presented as built by the project, or as checked against live. The general sentence in dbc_tables about project-built winners isn't about it, so that's read line by line.</summary>
     [SkippableFact]
-    public Task PatchT_Winners_SayOriginUnknown() => Suite.Run(Area, "a patch-T winner says origin unknown, and no answer calls it project-built", async c =>
+    public Task PatchT_Winners_SayAscensionPerProjectRecords() => Suite.Run(Area, "a patch-T winner says Ascension's archive per project records, and no answer calls it project-built or live-verified", async c =>
     {
         var client = await Suite.Anonymous();
         var manifest = ClientManifest.Instance;
@@ -317,14 +317,16 @@ public class SpotCheckTests
         var rng = Suite.Rng("patch-t");
         var won = manifest.Paths.Values.Where(p => p.Winner is { Marker: false, Archive: Archive }).ToList();
         c.That(won.Count > 0, "the manifest has files won by patch-T.MPQ");
-        c.That(won.All(p => p.Winner!.Origin == "unknown"), "the manifest's own origin for patch-T.MPQ is unknown", won[0].Winner!.Origin);
+        c.That(won.All(p => p.Winner!.Origin == "ascension"), "the manifest's own origin for patch-T.MPQ is ascension", won[0].Winner!.Origin);
 
         var captured = false;
         foreach (var p in won.OrderBy(_ => rng.Next()).Take(8).Append(manifest.Dbc("Spell")!).DistinctBy(p => p.Path))
         {
-            var r = await client.Call("client_paths", new { prefix = p.Path }, captured ? null : "a patch-T winner says origin unknown");
+            var r = await client.Call("client_paths", new { prefix = p.Path }, captured ? null : "a patch-T winner says what its origin means");
             captured = true;
-            c.Has(r.Text, $"winner: {Archive}, {p.Winner!.Size.ToString("N0", CultureInfo.InvariantCulture)} bytes, origin unknown", $"{p.Path}: winner and origin");
+            c.Has(r.Text, $"winner: {Archive}, {p.Winner!.Size.ToString("N0", CultureInfo.InvariantCulture)} bytes, {Settings.AscensionWords}", $"{p.Path}: winner and origin");
+            c.Lacks(r.Text, "origin ascension", $"{p.Path}: doesn't read as verified");
+            c.Lacks(r.Text, "origin unknown", $"{p.Path}: isn't called unknown");
             c.Lacks(r.Text, "project-built", $"{p.Path}: isn't called project-built");
             c.Lacks(r.Text, "not evidence about Ascension", $"{p.Path}: isn't dismissed as project material");
             var page = await client.Call("get", new { id = "path:" + p.Path });
@@ -333,7 +335,15 @@ public class SpotCheckTests
 
         var list = await client.Call("client_paths", new { query = "Spell.dbc", ext = "dbc", limit = 5 });
         foreach (var line in list.Text.Split('\n').Where(l => l.Contains(Archive, StringComparison.Ordinal)))
+        {
             c.Lacks(line, "project-built", $"a list line isn't called project-built: {line}");
+            c.Has(line, Settings.AscensionWords, $"a list line says what its origin means: {line}");
+        }
+
+        // A search snippet is cut, so a DBC hit's source must carry the note whole.
+        var hits = await client.Call("search", new { query = "archive", topic = "dbc", limit = 100 }, "a DBC search hit from a patch-T table");
+        var spellHit = hits.Text.Split('\n').FirstOrDefault(l => l.Contains("| dbc:Spell]", StringComparison.Ordinal)) ?? "";
+        c.Has(spellHit, $"from {Archive} ({Settings.AscensionWords})", "dbc:Spell's hit carries the note in its source");
 
         // Spell.dbc comes from patch-T.MPQ, so everything built on it must say the same.
         foreach (var (tool, args) in new (string, object)[]
@@ -351,7 +361,7 @@ public class SpotCheckTests
 
         var tables = await client.Call("dbc_tables", new { filter = "Spell", limit = 100 });
         var spellLine = tables.Text.Split('\n').FirstOrDefault(l => l.StartsWith("Spell |", StringComparison.Ordinal)) ?? "";
-        c.Has(spellLine, $"{Archive} (unknown)", "dbc_tables gives Spell's archive with origin unknown");
+        c.Has(spellLine, $"{Archive} ({Settings.AscensionWords})", "dbc_tables gives Spell's archive and what its origin means");
     });
 
     [SkippableFact]

@@ -36,6 +36,8 @@ dotnet run --project src/CoaMcp.Pipeline -- publish --layer spells.sqlite --dry-
 dotnet run --project src/CoaMcp.Pipeline -- publish --layer spells.sqlite --host BledtIT
 ```
 
+When a change touches the client layers, deploy the server first, then publish `dbc`, `spells` and `paths` together: older server code can't read a layer built with a launcher client record, and the three layers should describe one client.
+
 `publish` does this, in order, and stops at the first failure:
 
 1. Runs the publish guard: only tables on the layer's allow-list (`src/CoaMcp.Pipeline/Publish/LayerAllowList.cs`), no BLOBs, and no text that starts with MPQ, DBC, BLP or M2 file signatures. A refused layer is never sent.
