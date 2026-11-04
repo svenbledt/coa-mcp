@@ -62,10 +62,11 @@ public class ArchiveOrderTests : IDisposable
         Assert.Contains("no archives", ex.Message);
     }
 
-    [Fact]
+    [SkippableFact]
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     public void Order_UnreadableFolder_FailsLoudly()
     {
-        if (!OperatingSystem.IsWindows()) return;   // the deny rule below is Windows-only
+        Skip.IfNot(OperatingSystem.IsWindows(), "The deny rule this test sets is Windows-only.");
         var data = DataWith("common.MPQ", "enUS/locale-enUS.MPQ");
         var denied = new DirectoryInfo(Path.Combine(data, "enUS"));
         var me = System.Security.Principal.WindowsIdentity.GetCurrent().User!;

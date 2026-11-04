@@ -260,11 +260,11 @@ public class PublisherTests : IDisposable
     public void SshRemote_Script_RefusesDataThatCouldEndTheHeredocEarly() =>
         Assert.Throws<ArgumentException>(() => SshRemote.BuildScript("cat", "a\nCOAMCP_DATA_END\nrm -rf /"));
 
-    [Fact]
+    [SkippableFact]
     public async Task SshRemote_Script_RunsUnderRealSh_WithAwkwardPathsAndData()
     {
         var sh = FindSh();
-        if (sh is null) return;   // no POSIX sh on this machine; the argument tests above still apply
+        Skip.If(sh is null, "No POSIX sh on this machine, so the script can't run. The argument tests still apply.");
         using var dir = new TempDir();
         const string odd = "d o'ir";      // relative to the working folder, so no Windows drive letters get in the way
         var tmp = $"{odd}/current.json.tmp";

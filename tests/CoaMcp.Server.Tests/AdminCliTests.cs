@@ -197,17 +197,28 @@ public sealed class AdminCliTests : IDisposable
         Assert.Equal(Scalar("SELECT COUNT(*) FROM entries WHERE undone_at IS NOT NULL"), Scalar("SELECT COUNT(*) FROM entries WHERE undone_at IS NOT NULL", file));
         Assert.Equal(5, Scalar("SELECT COUNT(*) FROM entries_fts WHERE entries_fts MATCH 'alpha'", file));
         Assert.DoesNotContain(Directory.GetFiles(backups), f => f.EndsWith(".tmp"));
-        if (!OperatingSystem.IsWindows())
-        {
-            Assert.Equal(UnixFileMode.None, File.GetUnixFileMode(backups) & (UnixFileMode.GroupWrite | UnixFileMode.OtherRead | UnixFileMode.OtherWrite | UnixFileMode.OtherExecute));
-            Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(file) & (UnixFileMode.UserRead | UnixFileMode.UserWrite));
-        }
-        if (!OperatingSystem.IsWindows())
-            Assert.Equal(0, (int)(File.GetUnixFileMode(file) & (UnixFileMode.GroupWrite | UnixFileMode.OtherRead | UnixFileMode.OtherWrite | UnixFileMode.OtherExecute)));
 
         // A second run on the same day replaces the file, and still leaves one.
         Assert.Equal(0, Run("admin", "backup", backups).Code);
         Assert.Single(Directory.GetFiles(backups));
+    }
+
+    [SkippableFact]
+    [System.Runtime.Versioning.UnsupportedOSPlatform("windows")]
+    public void Backup_FileAndFolder_AreNotOpenToOthers()
+    {
+        Skip.If(OperatingSystem.IsWindows(), "Unix file modes don't exist on Windows; production runs on Linux.");
+        var backups = Path.Combine(_root, "backups");
+        using var s = Store();
+        Add(s, "Ann", "item:1", "alpha");
+
+        Assert.Equal(0, Run("admin", "backup", backups).Code);
+
+        var file = Assert.Single(Directory.GetFiles(backups));
+        const UnixFileMode Others = UnixFileMode.GroupWrite | UnixFileMode.OtherRead | UnixFileMode.OtherWrite | UnixFileMode.OtherExecute;
+        Assert.Equal(UnixFileMode.None, File.GetUnixFileMode(backups) & Others);
+        Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(file) & (UnixFileMode.UserRead | UnixFileMode.UserWrite));
+        Assert.Equal(UnixFileMode.None, File.GetUnixFileMode(file) & Others);
     }
 
     private static string Text(string sql, string path)
