@@ -6,8 +6,8 @@ using System.Text;
 namespace CoaMcp.Acceptance;
 
 /// <summary>
-/// 20 concurrent clients for 2 minutes of mixed reads. The real per-client limit applies, by design, so they run in bursts that stay inside
-/// 120 a minute from this one address, plus a small run from a second address at the same time. This shows how the server answers concurrent reads, not its ceiling.
+/// 20 concurrent clients for 2 minutes of mixed reads. The real per-client limits apply, by design, so they run in bursts that stay inside
+/// 120 a minute and 8 requests at once from this one address, plus a small run from a second address at the same time. This shows how the server answers concurrent reads, not its ceiling.
 /// </summary>
 [Collection("17 Load")]
 public class LoadTests
@@ -77,7 +77,8 @@ public class LoadTests
         var perMinuteOk = true;
         var bursts = 0;
         var watch = Stopwatch.StartNew();
-        var remote = Shell.Ssh(LimitTests.RemoteCurl(30, 10));
+        var remote = Shell.Ssh(LimitTests.RemoteCurl(30, 8));
+        using var perClient = new SemaphoreSlim(8);
 
         while (watch.Elapsed < Duration)
         {
@@ -92,6 +93,7 @@ public class LoadTests
                     pick = Mix[rng.Next(Mix.Length)];
                     args = pick.Args(rng);
                 }
+                await perClient.WaitAsync();
                 try
                 {
                     var r = await client.Call(pick.Tool, args);
@@ -101,6 +103,7 @@ public class LoadTests
                 {
                     results.Add((pick.Tool, -1, ex.GetType().Name + ": " + ex.Message));
                 }
+                finally { perClient.Release(); }
             }));
             var wait = started + BurstEvery - watch.Elapsed;
             if (wait > TimeSpan.Zero) await Task.Delay(wait);
@@ -117,7 +120,7 @@ public class LoadTests
         var limited = Interlocked.Read(ref CountingHandler.Limited);
 
         var sb = new StringBuilder();
-        sb.Append($"{Clients} real MCP clients, one burst of {Clients} concurrent mixed reads every {BurstEvery.TotalSeconds:F0} s, for {elapsed.TotalSeconds:F0} s: {bursts} bursts, {all.Count} calls, {errors.Count} errors, {limited} rate limited, {Interlocked.Read(ref CountingHandler.Faults)} HTTP 5xx.\n\n");
+        sb.Append($"{Clients} real MCP clients, one burst of {Clients} mixed reads, at most 8 at once, every {BurstEvery.TotalSeconds:F0} s, for {elapsed.TotalSeconds:F0} s: {bursts} bursts, {all.Count} calls, {errors.Count} errors, {limited} rate limited, {Interlocked.Read(ref CountingHandler.Faults)} HTTP 5xx.\n\n");
         sb.Append($"Overall: p50 {ReportBook.Percentile(times, 50)} ms, p95 {ReportBook.Percentile(times, 95)} ms, max {(times.Count > 0 ? times.Max() : 0)} ms.\n\n");
         sb.Append("| Tool | Calls | p50 | p95 | Max |\n|---|---:|---:|---:|---:|\n");
         foreach (var g in ok.GroupBy(r => r.Tool).OrderBy(g => g.Key, StringComparer.Ordinal))

@@ -144,13 +144,13 @@ public class LimitTests
     public Task SmallConcurrentRun_FromTheOtherClient() => Suite.Run(Area, "a small concurrent run from the other client", async c =>
     {
         await NextWindow();
-        var r = await Shell.Ssh(RemoteCurl(30, 10));
+        var r = await Shell.Ssh(RemoteCurl(30, 8));
         c.Equal(0, r.Exit, "the run finished");
         var lines = r.Out.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l.Split(' ')).ToList();
         c.Equal(30, lines.Count, "30 requests were made");
         c.That(lines.All(l => l[0] == "200"), "all of them worked", r.Out);
         var times = lines.Select(l => (long)(double.Parse(l[1], CultureInfo.InvariantCulture) * 1000)).ToList();
-        c.Book.Load("From BledtIT through Cloudflare", $"30 `status` calls with `curl`, 10 at a time: p50 {ReportBook.Percentile(times, 50)} ms, p95 {ReportBook.Percentile(times, 95)} ms, {lines.Count(l => l[0] != "200")} errors.");
+        c.Book.Load("From BledtIT through Cloudflare", $"30 `status` calls with `curl`, 8 at a time: p50 {ReportBook.Percentile(times, 50)} ms, p95 {ReportBook.Percentile(times, 95)} ms, {lines.Count(l => l[0] != "200")} errors.");
     });
 
     /// <summary>Read-only curl calls from the server itself, out through Cloudflare, printing each status and total time.</summary>

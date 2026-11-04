@@ -14,7 +14,8 @@ public sealed class WriteFixture : IAsyncLifetime
     {
         var dir = TestLayers.Build();
         TestDbc.Build(Path.Combine(dir, "dbc.sqlite"));
-        Harness = W.Harness(Token, new Dictionary<string, string?> { ["RateLimit:WritesPerMinute"] = "100000", ["RateLimit:WritesPerDay"] = "100000" }, layerDir: dir);
+        // The store is what these tests load, so one client's concurrency cap is lifted, as the write limits are.
+        Harness = W.Harness(Token, new Dictionary<string, string?> { ["Concurrency:MaxPerClient"] = "1000", ["RateLimit:WritesPerMinute"] = "100000", ["RateLimit:WritesPerDay"] = "100000" }, layerDir: dir);
         Client = await W.Writer(Harness, Token);
     }
 

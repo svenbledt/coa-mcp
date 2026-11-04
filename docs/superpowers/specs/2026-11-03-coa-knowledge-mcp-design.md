@@ -218,7 +218,7 @@ Reads never need a token, and sending one doesn't change what a reader sees, apa
 The endpoint is open to the internet with no login, so it needs per-IP rate limits and result caps, to keep anyone from overloading the server or pulling the entire database through one query. **[Design call]**
 
 - **The client address:** requests normally arrive through Cloudflare and then Traefik, but the origin can also be reached directly, past Cloudflare, and Traefik serves that too. So forged headers can't be allowed to escape the limit. Forwarded headers are believed only from a peer in `Network:PeerNetworks` (default none, which trusts nothing). Behind Traefik the rightmost `X-Forwarded-For` address is what Traefik saw: if it's a Cloudflare edge address, the client is `CF-Connecting-IP`, otherwise it's that address. **[Design call]**
-- **Overload:** `/mcp` has a concurrency limit across all clients, and a request past it gets a 503 with a short JSON-RPC error. Waits for a layer connection or search slot are bounded, with a clean busy answer. `/healthz` stays outside the limit. **[Design call]**
+- **Overload:** `/mcp` has a concurrency cap per client (past it, a 429) and one across all clients, with a short queue whose wait is bounded (past those, a 503), all with a short JSON-RPC error. A request body must arrive within a short time, or it gets a 408, so slow senders can't hold capacity. Waits for a layer connection or search slot are bounded, with a clean busy answer. `/healthz` stays outside the limits. **[Design call]**
 
 ### Merging written data into the project
 

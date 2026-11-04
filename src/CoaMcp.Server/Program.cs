@@ -58,11 +58,14 @@ ThreadPool.SetMinThreads(Math.Max(minWorkers, concurrency.MaxRunning + 8), minIo
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    o.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
-        ctx.Request.Path == "/healthz"
-            ? RateLimitPartition.GetNoLimiter("health")
-            : RateLimitPartition.GetFixedWindowLimiter(ctx.Connection.RemoteIpAddress is { } ip ? ClientIpResolver.RateKey(ip) : "unknown",
-                _ => new FixedWindowRateLimiterOptions { PermitLimit = perMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    o.GlobalLimiter = PartitionedRateLimiter.CreateChained(
+        PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
+            ctx.Request.Path == "/healthz"
+                ? RateLimitPartition.GetNoLimiter("health")
+                : RateLimitPartition.GetFixedWindowLimiter(McpConcurrency.ClientKey(ctx),
+                    _ => new FixedWindowRateLimiterOptions { PermitLimit = perMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 })),
+        PartitionedRateLimiter.Create<HttpContext, string>(concurrency.PerClient));
+    o.OnRejected = (context, _) => McpRequestGuard.RefuseTooMany(context.HttpContext);
     o.AddPolicy(McpConcurrency.PolicyName, concurrency);
 });
 
@@ -106,7 +109,8 @@ app.Use((ctx, next) =>
     return next(ctx);
 });
 app.UseAuthorization();
-app.Use((ctx, next) => McpRequestGuard.Run(ctx, () => next(ctx)));
+var bodyLimit = TimeSpan.FromSeconds(Math.Max(1, config.GetValue("Request:BodySeconds", McpRequestGuard.DefaultBodySeconds)));
+app.Use((ctx, next) => McpRequestGuard.Run(ctx, bodyLimit, () => next(ctx)));
 app.MapGet("/healthz", () => Results.Ok());
 app.MapMcp("/mcp").RequireRateLimiting(McpConcurrency.PolicyName);
 

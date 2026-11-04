@@ -108,7 +108,7 @@ public class BusyTests
     [Fact]
     public async Task McpAtItsLimit_Refuses503WithAJsonRpcError_WhileHealthzAnswers()
     {
-        using var h = new ServerHarness(settings: new Dictionary<string, string?> { ["Concurrency:MaxRunning"] = "2", ["Concurrency:MaxQueued"] = "1" });
+        using var h = new ServerHarness(settings: new Dictionary<string, string?> { ["Concurrency:MaxRunning"] = "2", ["Concurrency:MaxQueued"] = "1", ["Concurrency:QueueWaitSeconds"] = "60" });
         var http = h.Http();
         using var lease = h.Services.GetRequiredService<LayerSet>().Lease("bisbeard")!;
 
