@@ -611,6 +611,19 @@ public class DbcToolTests : IClassFixture<DbcFixture>
     }
 
     [Fact]
+    public async Task Status_NamesALauncherClient()
+    {
+        var dir = TestLayers.Build();
+        TestLayers.BuildSpells(Path.Combine(dir, "spells.sqlite"), client: new ClientRelease(null, "published 2026-10-30", null, Launcher: "2026-10-30-01"));
+        using var h = new ServerHarness(dir);
+        await using var client = await h.ConnectAsync();
+
+        var (text, _) = await ServerHarness.CallAsync(client, "status");
+
+        Assert.Matches(@"(?m)^- spells: v\S+, built \d{4}-\d\d-\d\d, client files dated \d{4}-\d\d-\d\d, client 2026-10-30-01 \(launcher\), published 2026-10-30", text);
+    }
+
+    [Fact]
     public async Task Status_DatesClientLayersByTheirFiles_AndOtherLayersByTheirSource()
     {
         var (text, _) = await _f.Call("status", A());

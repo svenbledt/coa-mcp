@@ -873,6 +873,93 @@ public class ClientReleaseFileTests : IDisposable
     private const string Release = """
         {"releaseId":"rel-8","clientRevision":8,
          "previousPackage":{"name":"old","clientRevision":7,"Data/patch-B.MPQ":{"bytes":8982122}},
+    private string Client(string state)
+    {
+        var dir = _dir.File("client-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(dir, ".coa-launcher"));
+        File.WriteAllText(Path.Combine(dir, ".coa-launcher", "state.json"), state);
+        var release = Path.Combine(dir, "CLIENT-RELEASE.json");
+        File.WriteAllText(release, Release);
+        return release;
+    }
+
+    private const string State = """
+        {"schema":1,"version":"2026-10-30-01","publishedAt":"2026-10-30T14:41:55.561Z",
+         "files":[{"path":"Ascension.exe","size":1},{"path":"Data/patch-B.MPQ","size":228738210},{"path":"Data/area-52/patch-D.MPQ","size":23214335}]}
+        """;
+
+    [Fact]
+    public void Launcher_NamesTheClient_WhenArchivesMatch_WithNoMismatchLine()
+    {
+        var c = ClientReleaseFile.ReadForArchives(Client(State), new Dictionary<string, long> { ["patch-B.MPQ"] = 228738210, ["area-52/patch-D.MPQ"] = 23214335 });
+
+        Assert.Equal("client 2026-10-30-01 (launcher)", c.Claim);
+        Assert.Equal("CoA client DBC, client 2026-10-30-01 (launcher)", ClientRelease.Source("CoA client DBC", c));
+        Assert.Equal("published 2026-10-30", c.ReleaseId);
+        Assert.Null(c.Note);
+        Assert.Null(c.Mismatches);
+        Assert.Null(c.MismatchLine("patch-B.MPQ"));
+        Assert.DoesNotContain("CLIENT-RELEASE", c.Claim);
+    }
+
+    [Fact]
+    public void Launcher_MismatchLine_OnlyForTheArchiveThatDiffers()
+    {
+        var c = ClientReleaseFile.ReadForArchives(Client(State), new Dictionary<string, long> { ["patch-B.MPQ"] = 5000000, ["area-52/patch-D.MPQ"] = 23214335 });
+
+        Assert.Equal("patch-B.MPQ on disk (5.0 MB) doesn't match the launcher's entry (228.7 MB), so this copy isn't exactly client 2026-10-30-01.", c.MismatchLine("patch-B.MPQ"));
+        Assert.Null(c.MismatchLine("area-52/patch-D.MPQ"));
+        Assert.Contains("patch-B.MPQ", c.Note);
+        Assert.DoesNotContain("patch-D", c.Note);
+    }
+
+    [Fact]
+    public void Launcher_AnArchiveItDoesNotList_IsNoted_NotAMismatch()
+    {
+        var c = ClientReleaseFile.ReadForArchives(Client(State), new Dictionary<string, long> { ["patch-Z.MPQ"] = 1 });
+
+        Assert.Null(c.MismatchLine("patch-Z.MPQ"));
+        Assert.Contains("doesn't list patch-Z.MPQ", c.Note);
+    }
+
+    [Fact]
+    public void Launcher_NoStateFile_FallsBackToTheReleaseFile()
+    {
+        var c = ClientReleaseFile.ReadForArchives(File_(Release), new Dictionary<string, long> { ["patch-B.MPQ"] = 8987639, ["patch-T.MPQ"] = 19507059 });
+
+        Assert.Equal("per CLIENT-RELEASE.json, client revision 8", c.Claim);
+        Assert.Null(c.Launcher);
+    }
+
+    [Theory]
+    [InlineData("{ not json")]
+    [InlineData("[]")]
+    [InlineData("""{"files":[]}""")]
+    [InlineData("""{"version":"v"}""")]
+    [InlineData("""{"version":"v","files":[{"path":"Data/x.MPQ"}]}""")]
+    public void Launcher_DamagedStateFile_IsAnError_NotAFallback(string state)
+    {
+        var release = Client(state);
+        Assert.Throws<InvalidDataException>(() => ClientReleaseFile.ReadForArchives(release, new Dictionary<string, long>()));
+    }
+
+    [Fact]
+    public void Launcher_ClientRoundTripsThroughALayer()
+    {
+        var path = _dir.File("meta.sqlite");
+        using (var w = new LayerWriter(path, "paths", "1"))
+        {
+            w.SetClient(new ClientRelease(null, "published 2026-10-30", null, new[] { new ClientArchiveMismatch("patch-B.MPQ", 2, 3, null) }, "2026-10-30-01"));
+            w.Finish();
+        }
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+
+        using var r = new LayerReader(path);
+        Assert.Equal("client 2026-10-30-01 (launcher)", r.Meta.Client!.Claim);
+        Assert.Null(r.Meta.Client.Revision);
+        Assert.Contains("the launcher's entry", r.Meta.Client.MismatchLine("patch-B.MPQ"));
+    }
+
          "files":{"README.txt":{"bytes":5},"Data/patch-B.MPQ":{"bytes":8987639},"Data/patch-T.MPQ":{"bytes":19507059}}}
         """;
 

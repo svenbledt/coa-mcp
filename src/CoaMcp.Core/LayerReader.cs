@@ -64,7 +64,7 @@ public sealed class LayerReader : IDisposable
             return new ClientArchiveMismatch(kv.Key[MismatchKeyPrefix.Length..], long.Parse(parts[0], CultureInfo.InvariantCulture), long.Parse(parts[1], CultureInfo.InvariantCulture),
                 parts[2].Length == 0 ? null : long.Parse(parts[2], CultureInfo.InvariantCulture));
         }).ToList();
-        return new ClientRelease(int.Parse(v["revision"], CultureInfo.InvariantCulture), v["release_id"], v.GetValueOrDefault("note"), mismatches.Count > 0 ? mismatches : null);
+        return new ClientRelease(v.TryGetValue("revision", out var revision) ? int.Parse(revision, CultureInfo.InvariantCulture) : null, v["release_id"], v.GetValueOrDefault("note"), mismatches.Count > 0 ? mismatches : null, v.GetValueOrDefault("launcher"));
     }
 
     public Entity? Get(string id)
