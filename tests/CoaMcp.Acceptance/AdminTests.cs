@@ -63,18 +63,21 @@ public class AdminTests
             var hostFile = HostRoot + m.Groups[1].Value[ContainerRoot.Length..];
             c.Book.ProductionChange($"Wrote a backup of the store to {hostFile} with admin backup. It stays there, and the owner's nightly backup prunes such files after 14 days.");
 
-            // Modes, on the host.
-            var modes = await Shell.Ssh($"cd {HostRoot}/writable && stat -c '%n %a %u' . store.sqlite '{hostFile}'\n");
+            // Modes, on the host. The server tightens them when it opens the store, and the write above opened it, so a wide mode here means tightening didn't work.
+            // The log and shared-memory files may have gone by now, and are checked when they're there.
+            var modes = await Shell.Ssh($"cd {HostRoot}/writable && stat -c '%n %a %u' . store.sqlite '{hostFile}' && for f in store.sqlite-wal store.sqlite-shm; do if [ -f \"$f\" ]; then stat -c '%n %a %u' \"$f\"; fi; done\n");
             c.Equal(0, modes.Exit, "file modes can be read");
             c.Book.Transcript("File modes on the host", modes.Out.Trim());
             var lines = modes.Out.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l.Split(' ')).ToList();
-            if (c.Equal(3, lines.Count, "stat gave three lines"))
+            if (c.That(lines.Count >= 3, "stat gave at least three lines", modes.Out + modes.Err))
             {
                 c.Equal("750", lines[0][1], "writable/ has mode 0750");
                 c.Equal("10001", lines[0][2], "and belongs to the server's user");
                 c.That(AtMost640(lines[1][1]), "store.sqlite has mode 0640 or tighter", $"mode {lines[1][1]}");
                 c.Equal("10001", lines[1][2], "and belongs to the server's user");
                 c.That(AtMost640(lines[2][1]), "the backup has mode 0640 or tighter", $"mode {lines[2][1]}");
+                foreach (var extra in lines.Skip(3))
+                    c.That(AtMost640(extra[1]), $"{extra[0]} has mode 0640 or tighter", $"mode {extra[1]}");
             }
 
             // The backup itself, opened here. A temp folder outside the repository, removed below.
