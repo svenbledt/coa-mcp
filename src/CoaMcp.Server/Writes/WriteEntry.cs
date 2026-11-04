@@ -8,11 +8,11 @@ public sealed record NewEntry(
     string SubjectId, string Kind, IReadOnlyList<string> Realms, Trust Trust, string ContentMd,
     string EvidenceJson, string? Field, string? Value, string? PositionJson, string Author, string? RequestedKind = null);
 
-/// <summary>One stored entry. <paramref name="SupersededBy"/> is the next live page version, worked out when read.</summary>
+/// <summary>One stored entry. <paramref name="SupersededBy"/> is the next live page version, worked out when read. <paramref name="Unreadable"/> means its stored data is damaged: only its id and undo state are real.</summary>
 public sealed record WriteEntry(
     long Id, string SubjectId, string Kind, IReadOnlyList<string> Realms, Trust Trust, string ContentMd,
     string EvidenceJson, string? Field, string? Value, string? PositionJson, string Author, string CreatedAt,
-    long? SupersedesId, string? UndoneAt, string? UndoneBy, long? SupersededBy = null, string? RequestedKind = null);
+    long? SupersedesId, string? UndoneAt, string? UndoneBy, long? SupersededBy = null, string? RequestedKind = null, bool Unreadable = false);
 
 /// <summary>The evidence argument of write_entry, and the shape of evidence_json.</summary>
 public sealed record EntryEvidence(
@@ -47,4 +47,4 @@ public sealed record EntryReceipt(long Id, long? SupersedesId);
 
 public sealed record UndoReceipt(long Id, string UndoneAt, string UndoneBy, bool AlreadyUndone);
 
-public sealed record StoreCounts(int Live, int Observed, int Memory, int Undone, int Superseded, bool Exists, string? Problem, string? WriteProblem);
+public sealed record StoreCounts(int Live, int Observed, int Memory, int Undone, int Superseded, bool Exists, string? Problem, string? WriteProblem, int Damaged = 0);

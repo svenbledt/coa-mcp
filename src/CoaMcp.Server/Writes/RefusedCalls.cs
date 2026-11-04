@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
@@ -9,7 +10,7 @@ namespace CoaMcp.Server;
 
 /// <summary>
 /// Answers refused tool calls before the SDK logs them. The endpoint is public, so a call that is forbidden, invalid or badly shaped is the caller's mistake,
-/// and the SDK would log a stack trace for each one. The caller still gets the refusal. Any other exception is a real fault, and carries on to the SDK's log.
+/// and the SDK would log a stack trace for each one. The caller still gets the refusal. Every other exception is a real fault, and carries on to the SDK's log and its generic text.
 /// </summary>
 public static class RefusedCalls
 {
@@ -26,13 +27,24 @@ public static class RefusedCalls
         {
             return Refusal(ex.Message);
         }
-        catch (Exception ex) when (ex is ArgumentException or JsonException)
+        catch (Exception ex) when (ex is ArgumentException or JsonException && IsFromBinding(ex))
         {
-            // Almost always the SDK binding arguments. One line and no stack trace, but kept, in case it is a bug in a tool. The message goes no further than the log.
-            context.Services?.GetService<ILoggerFactory>()?.CreateLogger("Tools").LogInformation("A tool call had bad arguments: {Problem}", ex.Message);
             return Refusal(BadArguments);
         }
     };
+
+    /// <summary>
+    /// The SDK binding arguments never reaches this server's code. The same exception types from anywhere in here are a real fault:
+    /// damaged data or a bug, which must go on to the SDK's error log and not be blamed on the caller.
+    /// </summary>
+    private static bool IsFromBinding(Exception ex) =>
+        !new StackTrace(ex).GetFrames().Any(frame => frame.GetMethod()?.DeclaringType is { } type && type.Assembly == typeof(RefusedCalls).Assembly && !IsThisFilter(type));
+
+    private static bool IsThisFilter(Type type)
+    {
+        while (type.DeclaringType is { } outer) type = outer;
+        return type == typeof(RefusedCalls);
+    }
 
     /// <summary>The alternate-result pipeline, the only one that wraps the SDK's authorization check, which refuses a call by throwing.</summary>
     public static async ValueTask<ResultOrAlternate<CallToolResult>> AroundAuthorization(

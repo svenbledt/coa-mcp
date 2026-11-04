@@ -67,6 +67,7 @@ public sealed class WriteStore : IDisposable
     private volatile bool _ready;
     private volatile string? _problem;
     private volatile string? _writeProblem;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<long, byte> _damaged = new();
 
     public WriteStore(string path, ILogger? log = null, long maxBytes = DefaultMaxBytes)
     {
@@ -242,7 +243,7 @@ public sealed class WriteStore : IDisposable
 
     // ---- reads ----
 
-    private static List<WriteEntry> Query(SqliteConnection c, SqliteTransaction? tx, string sql, params object?[] args) =>
+    private List<WriteEntry> Query(SqliteConnection c, SqliteTransaction? tx, string sql, params object?[] args) =>
         Rows(c, tx, sql, args, ToEntry);
 
     private static List<T> Rows<T>(SqliteConnection c, SqliteTransaction? tx, string sql, object?[] args, Func<SqliteDataReader, T> map)
@@ -259,10 +260,36 @@ public sealed class WriteStore : IDisposable
 
     private static string? Text(SqliteDataReader r, string column) => r[column] as string;
 
-    private static WriteEntry ToEntry(SqliteDataReader r) => new(
-        (long)r["id"], (string)r["subject_id"], (string)r["kind"], JsonSerializer.Deserialize<string[]>((string)r["realm_json"])!, (Trust)(long)r["trust"],
-        (string)r["content_md"], (string)r["evidence_json"], Text(r, "field"), Text(r, "value"), Text(r, "position_json"), (string)r["author"], (string)r["created_at"],
-        r["supersedes_id"] as long?, Text(r, "undone_at"), Text(r, "undone_by"), r["superseded_by"] as long?, Text(r, "requested_kind"));
+    /// <summary>Reads one row. A row whose stored JSON is damaged comes back marked unreadable, so it costs only itself.</summary>
+    private WriteEntry ToEntry(SqliteDataReader r)
+    {
+        var id = (long)r["id"];
+        try
+        {
+            var evidence = (string)r["evidence_json"];
+            JsonSerializer.Deserialize<EntryEvidence>(evidence);
+            var position = Text(r, "position_json");
+            if (position is not null && JsonSerializer.Deserialize<EntryPosition>(position) is null) throw new JsonException("position_json is null.");
+            return new WriteEntry(id, (string)r["subject_id"], (string)r["kind"], ParseRealms((string)r["realm_json"]), (Trust)(long)r["trust"],
+                (string)r["content_md"], evidence, Text(r, "field"), Text(r, "value"), position, (string)r["author"], (string)r["created_at"],
+                r["supersedes_id"] as long?, Text(r, "undone_at"), Text(r, "undone_by"), r["superseded_by"] as long?, Text(r, "requested_kind"));
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidCastException)
+        {
+            NoteDamaged(id, ex);
+            return new WriteEntry(id, "", "note", Array.Empty<string>(), Trust.Memory, "", "{}", null, null, null, "", "",
+                null, Text(r, "undone_at"), Text(r, "undone_by"), Unreadable: true);
+        }
+    }
+
+    private static string[] ParseRealms(string json) => JsonSerializer.Deserialize<string[]>(json) ?? throw new JsonException("realm_json is null.");
+
+    /// <summary>Logged once per entry, because anyone reading the page would otherwise repeat it. The message never holds the entry's text.</summary>
+    private void NoteDamaged(long id, Exception ex)
+    {
+        if (_damaged.TryAdd(id, 0))
+            _log?.LogError("Written entry:{Id} is damaged and can't be read ({Problem}). It is shown as unreadable.", id, ex.GetType().Name);
+    }
 
     /// <returns>The entry, with what replaced it if it is an old page version. Null with <paramref name="unavailable"/> false means no such entry.</returns>
     public WriteEntry? Get(long id, out bool unavailable)
@@ -292,7 +319,7 @@ public sealed class WriteStore : IDisposable
     /// The distinct values of each structured field, best entry first. One field can't crowd out another: values are capped per field, and fields with
     /// more than one value come before the rest. If the total cap is still reached, the caller is told, so a conflict is never dropped silently.
     /// </summary>
-    private static (List<FieldClaim> Claims, bool Truncated) Claims(SqliteConnection c, string subject)
+    private (List<FieldClaim> Claims, bool Truncated) Claims(SqliteConnection c, string subject)
     {
         var total = 0L;
         var claims = Rows(c, null, $"""
@@ -310,8 +337,12 @@ public sealed class WriteStore : IDisposable
             """, new object?[] { subject, (long)MaxValuesPerField, (long)MaxFieldRows }, r =>
         {
             total = (long)r["total"];
-            return new FieldClaim((long)r["id"], (string)r["field"], (string)r["value"], (Trust)(long)r["trust"], (string)r["author"],
-                JsonSerializer.Deserialize<string[]>((string)r["realm_json"])!, (int)(long)r["same_value"], (int)(long)r["distinct_values"]);
+            var id = (long)r["id"];
+            string[] realms;
+            try { realms = ParseRealms((string)r["realm_json"]); }
+            catch (JsonException ex) { NoteDamaged(id, ex); realms = Array.Empty<string>(); }   // the value itself is still real, so the conflict still shows
+            return new FieldClaim(id, (string)r["field"], (string)r["value"], (Trust)(long)r["trust"], (string)r["author"],
+                realms, (int)(long)r["same_value"], (int)(long)r["distinct_values"]);
         });
         return (claims, total > MaxFieldRows);
     }
@@ -373,7 +404,7 @@ public sealed class WriteStore : IDisposable
             var superseded = Count(c, $"SELECT COUNT(*) FROM entries e WHERE e.undone_at IS NULL AND NOT {Live}");
             return new StoreCounts(observed + memory, observed, memory, undone, superseded, exists, null, null);
         });
-        return (counts ?? new StoreCounts(0, 0, 0, 0, 0, exists, null, null)) with { Problem = _problem, WriteProblem = _writeProblem };
+        return (counts ?? new StoreCounts(0, 0, 0, 0, 0, exists, null, null)) with { Problem = _problem, WriteProblem = _writeProblem, Damaged = _damaged.Count };
     }
 
     public void Dispose() => SqliteConnection.ClearAllPools();

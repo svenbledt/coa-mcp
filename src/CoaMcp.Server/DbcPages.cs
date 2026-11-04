@@ -116,8 +116,8 @@ public static class DbcPages
 
     public static bool IsRowId(string id) => id.StartsWith("dbc:", StringComparison.Ordinal) && id.Count(c => c == ':') == 2;
 
-    /// <summary>The canonical id and first row for a DBC row id, or null when there is no such row here.</summary>
-    public static (string Id, IReadOnlyDictionary<string, object?> Row)? FindRow(LayerSet layers, string id)
+    /// <summary>The canonical id of a DBC row, and the values of its first row, or null when there is no such row here.</summary>
+    public static (string Id, IReadOnlyList<GeneratedValue> Values)? FindRow(LayerSet layers, string id)
     {
         var parts = id.Split(':');
         using var lease = layers.Lease(LayerName);
@@ -125,7 +125,10 @@ public static class DbcPages
         if (!long.TryParse(parts[2], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var rowId)) return null;
         var idField = Fields(lease.Layer, t.Name).First(f => f.Name.Equals(t.IdColumn, StringComparison.OrdinalIgnoreCase));
         var rows = lease.Layer.Query($"SELECT * FROM {t.DataTable} WHERE {idField.Quoted} = $0 ORDER BY rowid LIMIT 1", rowId);
-        return rows.Count == 0 ? null : ($"dbc:{t.Name}:{rowId.ToString(CultureInfo.InvariantCulture)}", rows[0]);
+        if (rows.Count == 0) return null;
+        var provenance = $"trust {Render.Trust(Trust.Client)}, realm {Render.RealmText(Realm)}, source {ClientRelease.Source(DbcLayerBuilder.Source, lease.Layer.Meta.Client)}, source date {Date(t.SourceDate)}, layer {LayerName} v{lease.Layer.Meta.Version}";
+        var mark = CopyLine(t) + (lease.Layer.Meta.Client?.MismatchLine(t.Archive) is { } mismatch ? " " + mismatch : "");
+        return ($"dbc:{t.Name}:{rowId.ToString(CultureInfo.InvariantCulture)}", GeneratedValue.FromRow(rows[0], provenance, mark));
     }
 
     /// <summary>A stored value as plain text, for comparing with a written value: floats read the way they are shown.</summary>

@@ -396,6 +396,41 @@ public class TokenAuthTests
         Assert.False(File.Exists(h.StorePath));
     }
 
+    /// <summary>A real fault in a tool, here damaged JSON in a layer, must reach the log and must not be blamed on the caller.</summary>
+    [Fact]
+    public async Task ToolBug_NotReportedAsBadArguments()
+    {
+        var logs = new CaptureLogs();
+        var dir = TestLayers.Build(withSpells: false);
+        using (var w = new CoaMcp.Core.LayerWriter(Path.Combine(dir, "spells.sqlite"), "spells", "3"))
+        {
+            foreach (var id in new[] { "spell:1", "spell:2" })
+                w.Add(new CoaMcp.Core.Entity(id, "spell", "Damaged", new CoaMcp.Core.RealmSet(new[] { "coa-client" }, false), CoaMcp.Core.Trust.Client, "test", TestLayers.Date, "body", "{not json", Array.Empty<CoaMcp.Core.Link>()));
+            w.Finish();
+        }
+        using var h = W.Harness(null, logging: b => b.AddProvider(logs), layerDir: dir);
+        await using var c = await h.ConnectAsync(null);
+
+        var (text, isError) = await W.Call(c, "spell_compare", new() { ["idA"] = "spell:1", ["idB"] = "spell:2" });
+        Assert.True(isError);
+        Assert.DoesNotContain(RefusedCalls.BadArguments, text);
+        Assert.Contains("An error occurred", text);
+        Assert.Contains(logs.Lines, l => l.Level == LogLevel.Error && l.Text.Contains("   at ", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task BadArguments_AreStillTheCallersMistake()
+    {
+        using var h = W.Harness(null);
+        await using var c = await h.ConnectAsync(null);
+        foreach (var args in new Dictionary<string, object?>[] { new(), new() { ["id"] = "item:1", ["entries_offset"] = "soon" } })
+        {
+            var (text, isError) = await W.Call(c, "get", args);
+            Assert.True(isError);
+            Assert.Equal(RefusedCalls.BadArguments, text);
+        }
+    }
+
     [Fact]
     public async Task Write_RateLimitPerDay_Applies()
     {

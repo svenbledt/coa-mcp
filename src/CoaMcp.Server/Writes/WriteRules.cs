@@ -74,7 +74,7 @@ public static partial class WriteRules
         if (string.IsNullOrEmpty(subject) || subject.Length > Limits.MaxIdChars || TextProblem(subject, multiline: false) is not null) throw Refuse(allowed);
 
         if (PathTools.IsSubject(subject))
-            return PathShape().IsMatch(subject) && PathTools.FindRow(layers, subject) is { } file
+            return PathShape().IsMatch(subject) && PathTools.Find(layers, subject) is { } file
                 ? (file.Id, true)
                 : throw Refuse("subject names a client file that does not exist here, or has characters no client path has. Check it with client_paths.");
         if (DbcPages.IsRowId(subject))

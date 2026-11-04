@@ -39,8 +39,11 @@ public sealed class PathTools
 
     public static bool IsSubject(string id) => id.StartsWith(SubjectPrefix, StringComparison.Ordinal);
 
-    /// <summary>The canonical path:&lt;path&gt; id and row of a client file, in either slash and any case, or null when the client has no such file.</summary>
-    public static (string Id, IReadOnlyDictionary<string, object?> Row)? FindRow(LayerSet layers, string id)
+    /// <summary>A client file: its canonical id, the same answer client_paths gives for it, and its values for conflict checks.</summary>
+    public sealed record ClientFile(string Id, string Answer, IReadOnlyList<GeneratedValue> Values);
+
+    /// <summary>A client file by its path:&lt;path&gt; id, in either slash and any case, or null when the client has no such file.</summary>
+    public static ClientFile? Find(LayerSet layers, string id)
     {
         var path = id[SubjectPrefix.Length..].Replace('\\', '/');
         if (path.Any(char.IsControl)) return null;
@@ -48,7 +51,25 @@ public sealed class PathTools
         path = path.TrimStart('/');
         if (path.Length == 0 || path.EndsWith('/')) return null;
         using var lease = layers.Lease(LayerName);
-        return lease?.Layer.Query("SELECT * FROM paths WHERE path = $0", path) is [var row] ? (SubjectPrefix + (string)row["path"]!, row) : null;
+        return lease?.Layer.Query("SELECT * FROM paths WHERE path = $0", path) is [var row] ? File(lease.Layer, row, Header(lease.Layer) + "\n") : null;
+    }
+
+    private static ClientFile File(Layer layer, IReadOnlyDictionary<string, object?> row, string lead) => new(
+        SubjectPrefix + (string)row["path"]!,
+        (lead + Detail(row, layer.Meta.Client)).TrimEnd(),
+        GeneratedValue.FromRow(row, Provenance(layer), Mark(row, layer.Meta.Client)));
+
+    private static string Provenance(Layer layer) =>
+        $"trust {Render.Trust(Trust.Client)}, realm {Render.RealmText(ClientRealm)}, source {ClientRelease.Source(Source, layer.Meta.Client)}, source date {layer.Meta.SourceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}, layer {LayerName} v{layer.Meta.Version}";
+
+    /// <summary>What limits a file's values as evidence: the same things its detail says.</summary>
+    private static string? Mark(IReadOnlyDictionary<string, object?> r, ClientRelease? client)
+    {
+        var win = r["winner_archive"] as string;
+        if (IsDeleted(r)) return $"This file is removed by {Render.OneLine(win!, 60)}: the client does not see it.";
+        if (win is null) return "This file is not in the default client.";
+        var project = r["winner_origin"] as string == "project" ? "Won by a project-built archive: project files are not evidence about Ascension." : null;
+        return string.Join(" ", new[] { project, client?.MismatchLine(win) }.OfType<string>()) is { Length: > 0 } mark ? mark : null;
     }
 
     [McpServerTool(Name = "client_paths", ReadOnly = true), Description(
@@ -76,8 +97,10 @@ public sealed class PathTools
         // One whole path, in either spelling and any case, gets the full answer.
         var whole = words is null ? start : (type is null && start is null ? Join(query).TrimStart('/') : null);
         if (whole is not null && whole.Length > 0 && !whole.EndsWith('/') && layer.Query("SELECT * FROM paths WHERE path = $0", whole) is [var exact])
-            return EntryRender.AfterPage(_store, sb.Append(Detail(exact, layer.Meta.Client)).ToString().TrimEnd(), SubjectPrefix + (string)exact["path"]!,
-                GeneratedValue.FromRow(exact, Trust.Client, LayerName), Limits.DefaultEntries, 0, null);
+        {
+            var file = File(layer, exact, sb.ToString());
+            return EntryRender.AfterPage(_store, file.Answer, file.Id, file.Values, Limits.DefaultEntries, 0, null);
+        }
 
         if (words is null && type is null && start is not null && Folder(layer, start) is { } folder)
             Browse(layer, folder, lim, off, sb);

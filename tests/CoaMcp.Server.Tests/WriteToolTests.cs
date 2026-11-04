@@ -488,6 +488,29 @@ public class WriteToolTests : IClassFixture<WriteFixture>
     [InlineData("path:DBFilesClient/Spell.dbc\n")]
     public async Task Write_BadClientFile_Refused(string subject) => await Refused(W.Entry(subject));
 
+    /// <summary>The file's own id says exactly what client_paths says about it, whatever kind of file it is.</summary>
+    [Theory]
+    [InlineData("readme.txt", "winner: common.MPQ")]                                      // normal
+    [InlineData("Sound/Project/Gone.mp3", "project files are not evidence about Ascension")]   // project-built
+    [InlineData("Interface/Icons/Old/Retired.blp", "removed by patch-X.MPQ")]             // removed
+    [InlineData("Realm/Only.txt", "not in the default client")]                           // realm only
+    [InlineData("DBFilesClient/SpellVisual.dbc", "doesn't match the release file")]                          // archive differs from the release file
+    public async Task GetPath_SaysWhatClientPathsSays(string path, string fact)
+    {
+        var (exact, _) = await W.Call(_f.Client, "client_paths", new() { ["prefix"] = path });
+        var page = await Get("path:" + path);
+        Assert.Contains(fact, page);
+        Assert.Equal(exact, page);
+        Assert.Contains("trust client", page);
+        Assert.Contains("source CoA client file list", page);
+        Assert.Contains("source date", page);
+        Assert.Contains("realm the CoA client (unproven)", page);
+        Assert.DoesNotContain("A client file.", page);
+    }
+
+    [Fact]
+    public async Task GetPath_UnknownFile_IsNotFound() => Assert.Contains("No entity", await Get("path:No/Such/File.dbc"));
+
     [Fact]
     public async Task ClientPaths_NoEntries_ExactAnswerIsUnchanged()
     {

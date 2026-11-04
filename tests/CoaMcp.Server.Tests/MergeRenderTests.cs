@@ -536,7 +536,7 @@ public class MergeRenderTests : IAsyncLifetime
     public async Task Get_ConflictOnAClientFileField_ComparesWithItsRow()
     {
         await W.Write(_c, W.Entry("path:DBFilesClient/Spell.dbc", more: new[] { ("field", (object?)"size"), ("value", (object?)"1") }));
-        Assert.Contains("size = 4096 (trust client, layer paths)", await Get("path:DBFilesClient/Spell.dbc"));
+        Assert.Contains("size = 4096 (trust client", await Get("path:DBFilesClient/Spell.dbc"));
     }
 
     [Fact]
@@ -549,6 +549,56 @@ public class MergeRenderTests : IAsyncLifetime
         Assert.Contains("npc:shown", await Search("narwhal"));
         Assert.Contains("narwhal test text", await Get("test:hidden"));
     }
+
+    // ---- generated values in a conflict carry what the generated page says about them ----
+
+    [Fact]
+    public async Task Conflict_OnProjectBuiltFile_SaysSo()
+    {
+        await W.Write(_c, W.Entry("path:Interface/Icons/Spell_Fire_Fireball.blp", more: new[] { ("field", (object?)"size"), ("value", (object?)"999") }));
+        var line = GeneratedLine(await Get("path:Interface/Icons/Spell_Fire_Fireball.blp"));
+        Assert.Contains("size = 300 (trust client", line);
+        Assert.Contains("source CoA client file list", line);
+        Assert.Contains("source date", line);
+        Assert.Contains("realm the CoA client (unproven)", line);
+        Assert.Contains("project-built", line);
+        Assert.Contains("not evidence about Ascension", line);
+    }
+
+    [Fact]
+    public async Task Conflict_OnRemovedFile_SaysSo()
+    {
+        await W.Write(_c, W.Entry("path:Interface/Icons/Old/Retired.blp", more: new[] { ("field", (object?)"winner_archive"), ("value", (object?)"other.MPQ") }));
+        var line = GeneratedLine(await Get("path:Interface/Icons/Old/Retired.blp"));
+        Assert.Contains("winner_archive = patch-X.MPQ", line);
+        Assert.Contains("removed", line);
+    }
+
+    [Fact]
+    public async Task Conflict_OnMismatchedArchive_SaysSo()
+    {
+        await W.Write(_c, W.Entry("path:Interface/Icons/Spell_Frost_FrostBolt.blp", more: new[] { ("field", (object?)"size"), ("value", (object?)"999") }));
+        var page = await Get("path:Interface/Icons/Spell_Frost_FrostBolt.blp");
+        Assert.Contains("doesn't match the release file", page[page.IndexOf("Generated value:", StringComparison.Ordinal)..]);
+    }
+
+    [Fact]
+    public async Task Conflict_OnDbcRow_And_Entity_ShowSourceAndProjectMark()
+    {
+        await W.Write(_c, W.Entry("dbc:Spell:133", more: new[] { ("field", (object?)"Speed"), ("value", (object?)"30") }));
+        var row = GeneratedLine(await Get("dbc:Spell:133"));
+        Assert.Contains("Speed = 24 (trust client", row);
+        Assert.Contains("source CoA client DBC", row);
+        Assert.Contains("project-built", row);
+
+        await W.Write(_c, W.Entry("spell:1", more: new[] { ("field", (object?)"schoolMask"), ("value", (object?)"8") }));
+        var entity = GeneratedLine(await Get("spell:1"));
+        Assert.Contains("schoolMask = 4 (trust client", entity);
+        Assert.Contains("source " + TestLayers.SpellSourceText, entity);
+        Assert.Contains("realm the CoA client (unproven)", entity);
+    }
+
+    private static string GeneratedLine(string page) => page.Split('\n').Single(l => l.StartsWith("Generated value:", StringComparison.Ordinal));
 
     [Fact]
     public async Task LayerSwap_LeavesEntries()
