@@ -72,6 +72,7 @@ public class HostileInputTests
         C("get", "101-character section", ("id", "spell:133"), ("sections", new[] { new string('s', 101) })),
         C("get", "string for sections", ("id", "spell:133"), ("sections", "effects")),
         C("get", "null in sections", ("id", "spell:133"), ("sections", new string?[] { null })),
+        C("get", "empty string in sections", ("id", "spell:133"), ("sections", new[] { "" })),
         C("get", "huge entries offset", ("id", "spell:133"), ("entries_offset", long.MaxValue)),
         C("get", "negative entries offset", ("id", "spell:133"), ("entries_offset", long.MinValue)),
 
@@ -228,6 +229,8 @@ public class HostileInputTests
         ("an object as id", () => new RawCase(Encoding.UTF8.GetBytes("{\"jsonrpc\":\"2.0\",\"id\":{\"a\":1},\"method\":\"tools/list\"}"), "application/json")),
         ("invalid UTF-8", () => new RawCase(new byte[] { 0x7B, 0x22, 0xC3, 0x28, 0xFF, 0xFE, 0x22, 0x7D }, "application/json")),
         ("10,000 levels of nesting", () => new RawCase(Encoding.UTF8.GetBytes(new string('[', 10_000) + new string(']', 10_000)), "application/json")),
+        ("valid body, no content type", () => new RawCase(Encoding.UTF8.GetBytes(Raw.ToolsList), null)),
+        ("unknown charset", () => new RawCase(Encoding.UTF8.GetBytes(Raw.ToolsList), "application/json; charset=no-such-charset")),
         ("wrong content type", () => new RawCase(Encoding.UTF8.GetBytes(Raw.ToolsList), "text/plain")),
         ("XML", () => new RawCase(Encoding.UTF8.GetBytes("<?xml version=\"1.0\"?><a/>"), "application/xml")),
         ("no Accept header", () => new RawCase(Encoding.UTF8.GetBytes(Raw.ToolsList), "application/json", Accept: "")),

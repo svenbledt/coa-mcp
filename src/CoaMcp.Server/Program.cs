@@ -99,6 +99,7 @@ app.Use((ctx, next) =>
     return next(ctx);
 });
 app.UseAuthorization();
+app.Use((ctx, next) => McpRequestGuard.Run(ctx, () => next(ctx)));
 app.MapGet("/healthz", () => Results.Ok());
 app.MapMcp("/mcp");
 

@@ -656,13 +656,21 @@ public class SpellSourceToolTests
                 ("search", A(("query", "Fireball"), ("topic", "spells"))),
                 ("spell_compare", A(("idA", "spell:1"), ("idB", "spell:2"))),
                 ("spell_scaling", A(("id", "spell:10"), ("level", 80))),
-                ("decode_flags", A(("kind", "SpellSchoolMask"), ("value", "4"))),
             })
             {
                 var (text, isError) = await ServerHarness.CallAsync(client, tool, args);
                 Assert.False(isError, text);
                 Assert.True(text.Contains(source, StringComparison.Ordinal), $"{tool} did not carry the source: {text}");
             }
+
+            // Flag names come from Spellwork's enums, not from whichever archive won Spell.dbc, so this answer doesn't name one.
+            var (flags, flagsError) = await ServerHarness.CallAsync(client, "decode_flags", A(("kind", "SpellSchoolMask"), ("value", "4")));
+            Assert.False(flagsError, flags);
+            Assert.DoesNotContain(source, flags);
+            Assert.DoesNotContain("patch-", flags);
+            Assert.DoesNotContain(".MPQ", flags);
+            Assert.Contains("flag names from Spellwork's CoA enums", flags);
+            Assert.Contains("realm the CoA client (unproven)", flags);
         }
     }
 }
@@ -686,13 +694,16 @@ public class SpellMismatchToolTests
             {
                 ("spell_compare", A(("idA", "spell:1"), ("idB", "spell:2"))),
                 ("spell_scaling", A(("id", "spell:10"), ("level", 80))),
-                ("decode_flags", A(("kind", "SpellSchoolMask"), ("value", "4"))),
             })
             {
                 var (text, isError) = await ServerHarness.CallAsync(client, tool, args);
                 Assert.False(isError, text);
                 Assert.Contains(Line, text);
             }
+
+            // Spell.dbc's copy has no bearing on flag names.
+            var (flags, _) = await ServerHarness.CallAsync(client, "decode_flags", A(("kind", "SpellSchoolMask"), ("value", "4")));
+            Assert.DoesNotContain("patch-T.MPQ", flags);
         }
     }
 

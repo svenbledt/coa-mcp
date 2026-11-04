@@ -192,8 +192,10 @@ public class ReadToolTests
         c.Has(normal.Text, "SPELL_SCHOOL_MASK_FIRE (0x4)", "bit 4");
         c.Has(normal.Text, "SPELL_SCHOOL_MASK_FROST (0x10)", "bit 16");
         c.Has(normal.Text, "trust client", "shows trust");
-        c.Has(normal.Text, "source date", "shows the date");
-        c.That(Regex.IsMatch(normal.Text, "realm", RegexOptions.IgnoreCase), "the accuracy rule: every fact shows its realm", normal.Text);
+        c.That(Regex.IsMatch(normal.Text, @"source date \d{4}-\d\d-\d\d"), "shows the date", normal.Text);
+        c.Has(normal.Text, "realm the CoA client (unproven)", "the accuracy rule: every fact shows its realm");
+        c.Has(normal.Text, "flag names from Spellwork's CoA enums", "says where flag names really come from");
+        c.That(!Regex.IsMatch(normal.Text, @"\.MPQ|patch-", RegexOptions.IgnoreCase), "names no archive, since flag names don't come from one", normal.Text);
 
         var hex = await client.Call("decode_flags", new { kind = "SpellSchoolMask", value = "0x14" }, "hex value");
         c.Has(hex.Text, "SPELL_SCHOOL_MASK_FIRE", "hex means the same");

@@ -341,7 +341,8 @@ public class ReadToolTests : IClassFixture<ReadFixture>
         Assert.Contains("SPELL_SCHOOL_MASK_FIRE", text);
         Assert.DoesNotContain("SPELL_SCHOOL_MASK_NORMAL", text);
         Assert.Contains("trust client", text);
-        Assert.Contains("source CoA client DBC (via Spellwork)", text);
+        Assert.Contains("realm the CoA client (unproven)", text);
+        Assert.Contains("flag names from Spellwork's CoA enums", text);
         Assert.Contains("source date 2026-08-27", text);
 
         var (hex, _) = await _f.Call("decode_flags", A(("kind", "spellschoolmask"), ("value", "0x13")));

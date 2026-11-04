@@ -14,6 +14,7 @@ public sealed partial class SpellHelperTools
 {
     private const int MaxDiffs = 100;
     private const int MaxValueChars = 200;
+    private static readonly RealmSet ClientRealm = new(new[] { "coa-client" }, false);
 
     private readonly LayerSet _layers;
 
@@ -126,10 +127,9 @@ public sealed partial class SpellHelperTools
         var covered = set.Aggregate(0UL, (acc, m) => acc | m.Bits);
         var unmatched = mask & ~covered;
 
-        var source = (string)layer.Query("SELECT source FROM entities LIMIT 1")[0]["source"]!;
+        // The names come from Spellwork's enums, not from Spell.dbc, so this answer names no archive and carries none of its warnings.
         var sb = new StringBuilder($"{match["kind"]} 0x{mask:X} ({mask}) from the spells layer v{layer.Meta.Version} " +
-            $"(trust {Render.Trust(Trust.Client)}, source {source}, source date {layer.Meta.SourceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}):\n");
-        AppendWarnings(sb, layer);
+            $"(realm {Render.RealmText(ClientRealm)}, trust {Render.Trust(Trust.Client)}, flag names from Spellwork's CoA enums, source date {layer.Meta.SourceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}):\n");
         if (mask == 0) sb.Append("no bits set\n");
         foreach (var m in set) sb.Append($"- {m.Label} (0x{m.Bits:X})\n");
         if (unmatched != 0) sb.Append($"unmatchedBits: 0x{unmatched:X}\n");

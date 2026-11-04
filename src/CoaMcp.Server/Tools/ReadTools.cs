@@ -110,6 +110,7 @@ public sealed class ReadTools
         if (string.IsNullOrWhiteSpace(id)) throw new McpException("id is empty. Ids look like item:10531 or spell:133.");
         if (id.Length > Limits.MaxIdChars) throw new McpException($"id is too long (max {Limits.MaxIdChars} characters).");
         if (sections is { Length: > Limits.MaxSections }) throw new McpException($"Too many sections (max {Limits.MaxSections}).");
+        if (sections is not null && sections.Any(string.IsNullOrWhiteSpace)) throw new McpException("A section name is empty. Use the names a page lists.");
         if (sections is not null && sections.Any(s => s.Length > 100)) throw new McpException("A section name is too long.");
 
         var key = id.Trim();
