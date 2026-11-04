@@ -171,7 +171,7 @@ public sealed class ReadTools
     {
         var sb = new StringBuilder($"No entity with id '{Render.OneLine(id, 100)}'.");
         var words = System.Text.RegularExpressions.Regex.Replace(id, @"[^\p{L}\p{N}]+", " ");
-        var near = _layers.Search(words, null, null, 5, 0);
+        var near = _layers.Suggest(words, 5);
         if (near.Count > 0)
             sb.Append(" Did you mean:\n").Append(string.Join("\n", near.Select(h => $"- {h.Id}: {Render.OneLine(h.Title, 80)}")));
         else

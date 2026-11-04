@@ -10,11 +10,15 @@ namespace CoaMcp.Server;
 /// </summary>
 public static class McpRequestGuard
 {
-    private static byte[] Error(string message) => Encoding.UTF8.GetBytes($"{{\"jsonrpc\":\"2.0\",\"id\":null,\"error\":{{\"code\":-32600,\"message\":\"{message}\"}}}}");
+    private static byte[] Error(string message, int code = -32600) => Encoding.UTF8.GetBytes($"{{\"jsonrpc\":\"2.0\",\"id\":null,\"error\":{{\"code\":{code},\"message\":\"{message}\"}}}}");
 
     private static readonly byte[] Unreadable = Error("Send one JSON-RPC message as the body, with Content-Type: application/json.");
     private static readonly byte[] TooLarge = Error("The request body is too large.");
     private static readonly byte[] BadBody = Error("The request body could not be read.");
+    private static readonly byte[] Busy = Error("The server is busy. Retry in a few seconds.", -32000);
+
+    /// <summary>The answer when the concurrency limit on /mcp refuses a request.</summary>
+    public static ValueTask RefuseBusy(HttpContext ctx) => new(Refuse(ctx, StatusCodes.Status503ServiceUnavailable, Busy));
 
     private static async Task Refuse(HttpContext ctx, int status, byte[] body)
     {

@@ -37,7 +37,7 @@ internal static class LayerSearch
 
     /// <summary>The best <paramref name="n"/> candidates of one layer, best first.</summary>
     public static List<Candidate> Run(Layer layer, string layerName, FtsQuery query, string lowerText,
-        IReadOnlyList<string>? types, string? realm, int n)
+        IReadOnlyList<string>? types, string? realm, int n, TimeSpan? slotWait = null)
     {
         var wanted = (types ?? layer.CountsByType.Keys.ToList()).Where(layer.CountsByType.ContainsKey)
             .OrderBy(Priority).ThenBy(t => t, StringComparer.Ordinal).ToList();
@@ -58,7 +58,7 @@ internal static class LayerSearch
                     if (byId.TryAdd(c.Id, c)) others++;
             }
             return byId.Values.ToList();
-        });
+        }, slotWait);
     }
 
     private static List<Candidate> ExactTitle(Layer layer, string layerName, FtsQuery q, string lowerText,

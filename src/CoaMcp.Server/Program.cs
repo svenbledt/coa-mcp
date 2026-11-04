@@ -49,6 +49,12 @@ var peerNetworks = PeerNetworks.Read(config);
 var cloudflare = CloudflareRanges.FromConfig(config);
 
 var perMinute = config.GetValue("RateLimit:PerMinute", 120);
+var concurrency = McpConcurrency.FromConfig(config);
+
+// Tools block a pool thread while they read SQLite. Having that many threads ready means a burst cannot delay /healthz behind the pool's slow thread injection.
+ThreadPool.GetMinThreads(out var minWorkers, out var minIo);
+ThreadPool.SetMinThreads(Math.Max(minWorkers, concurrency.MaxRunning + 8), minIo);
+
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -57,6 +63,7 @@ builder.Services.AddRateLimiter(o =>
             ? RateLimitPartition.GetNoLimiter("health")
             : RateLimitPartition.GetFixedWindowLimiter(ctx.Connection.RemoteIpAddress is { } ip ? ClientIpResolver.RateKey(ip) : "unknown",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = perMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    o.AddPolicy(McpConcurrency.PolicyName, concurrency);
 });
 
 builder.Services.AddMcpServer(o => o.ServerInstructions =
@@ -101,7 +108,7 @@ app.Use((ctx, next) =>
 app.UseAuthorization();
 app.Use((ctx, next) => McpRequestGuard.Run(ctx, () => next(ctx)));
 app.MapGet("/healthz", () => Results.Ok());
-app.MapMcp("/mcp");
+app.MapMcp("/mcp").RequireRateLimiting(McpConcurrency.PolicyName);
 
 app.Run();
 return 0;

@@ -173,7 +173,7 @@ public sealed class LayerSet : IDisposable
     /// One page of a ranking with <paramref name="entryCount"/> written entries placed after the exact title matches and before everything else.
     /// Says which entries belong on the page, so the caller fetches only those.
     /// </summary>
-    public SearchWindow SearchAround(string text, IReadOnlyList<string>? types, string? realm, int limit, int offset, int entryCount)
+    public SearchWindow SearchAround(string text, IReadOnlyList<string>? types, string? realm, int limit, int offset, int entryCount, TimeSpan? slotWait = null)
     {
         var q = FtsQuery.FromUser(text);
         if (q.IsEmpty) return new SearchWindow(Array.Empty<LayerHit>(), 0, 0, Array.Empty<LayerHit>());
@@ -184,7 +184,7 @@ public sealed class LayerSet : IDisposable
         try
         {
             foreach (var (name, lease) in leases)
-                all.AddRange(LayerSearch.Run(lease.Layer, name, q, lower, types, realm, limit + offset));
+                all.AddRange(LayerSearch.Run(lease.Layer, name, q, lower, types, realm, limit + offset, slotWait));
 
             var ordered = all.OrderByDescending(c => c.Exact).ThenBy(c => LayerSearch.Priority(c.Type)).ThenBy(c => c.Rank)
                 .ThenBy(c => c.Id, StringComparer.Ordinal).ToList();
@@ -192,6 +192,20 @@ public sealed class LayerSet : IDisposable
             var exactCount = ordered.TakeWhile(c => c.Exact).Count();
             var exact = ordered.Take(exactCount).Skip(offset).Take(limit).ToList();
             var room = limit - exact.Count;
+    /// <summary>
+    /// Suggestions for an id that was not found. They are a courtesy, so a miss takes a search slot only if one is free right now and never queues behind real searches.
+    /// Busy means no suggestions, not an error.
+    /// </summary>
+    public IReadOnlyList<LayerHit> Suggest(string text, int limit)
+    {
+        try
+        {
+            var w = SearchAround(text, null, null, limit, 0, 0, TimeSpan.Zero);
+            return w.Exact.Concat(w.Rest).ToList();
+        }
+        catch (LayerBusyException) { return Array.Empty<LayerHit>(); }
+    }
+
             var entrySkip = Math.Max(0, offset - exactCount);
             var entryTake = Math.Min(room, Math.Max(0, entryCount - entrySkip));
             var rest = ordered.Skip(exactCount + Math.Max(0, offset - exactCount - entryCount)).Take(room - entryTake).ToList();

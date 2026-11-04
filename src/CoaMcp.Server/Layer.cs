@@ -1,7 +1,11 @@
 using System.Collections.Concurrent;
 using CoaMcp.Core;
+using ModelContextProtocol;
 
 namespace CoaMcp.Server;
+
+/// <summary>Every connection or search slot stayed taken for the whole bounded wait. The caller sees the message and may retry.</summary>
+public sealed class LayerBusyException() : McpException("The server is busy, so this request did not run. Retry in a few seconds.");
 
 /// <summary>
 /// One layer file with a small pool of read-only connections, so a slow search never holds up other requests.
@@ -12,8 +16,10 @@ public sealed class Layer : IDisposable
 {
     private const int PoolSize = 4;
     private const int SearchSlots = 2;
+    private static readonly TimeSpan DefaultBusyWait = TimeSpan.FromSeconds(5);
 
     private readonly string _path;
+    private readonly TimeSpan _busyWait;
     private readonly SemaphoreSlim _pool = new(PoolSize);
     private readonly SemaphoreSlim _searches = new(SearchSlots);
     private readonly ConcurrentBag<LayerReader> _idle = new();
@@ -27,9 +33,11 @@ public sealed class Layer : IDisposable
     public LayerMeta Meta { get; }
     public IReadOnlyDictionary<string, long> CountsByType { get; }
 
-    public Layer(string path)
+    /// <param name="busyWait">How long a statement or search waits for a free slot before giving up. Default 5 seconds.</param>
+    public Layer(string path, TimeSpan? busyWait = null)
     {
         _path = path;
+        _busyWait = busyWait ?? DefaultBusyWait;
         var first = new LayerReader(path);
         try
         {
@@ -100,7 +108,7 @@ public sealed class Layer : IDisposable
         if (!TryAcquire()) throw new ObjectDisposedException(nameof(Layer), "This layer version was replaced and released.");
         try
         {
-            _pool.Wait();
+            if (!_pool.Wait(_busyWait)) throw new LayerBusyException();
             try
             {
                 if (!_idle.TryTake(out var reader))
@@ -131,9 +139,10 @@ public sealed class Layer : IDisposable
         Use(r => r.QueryWithin(budget, sql, args));
 
     /// <summary>Runs a search under the per-layer search limit. The work calls <see cref="Query"/> for each statement.</summary>
-    public T Searching<T>(Func<T> work)
+    /// <param name="slotWait">How long to wait for a search slot, if not this layer's usual wait.</param>
+    public T Searching<T>(Func<T> work, TimeSpan? slotWait = null)
     {
-        _searches.Wait();
+        if (!_searches.Wait(slotWait ?? _busyWait)) throw new LayerBusyException();
         try { return work(); }
         finally { _searches.Release(); }
     }
