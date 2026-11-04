@@ -88,17 +88,18 @@ public static partial class WriteRules
     }
 
     /// <summary>
-    /// The subject rule without the layers, for restoring entries from the repository: the same limits and shapes, but whether a client file,
-    /// DBC row or generated id exists is not checked, because the layers are not there. Returns the id; throws if the shape is wrong.
+    /// The subject rule without the layers, for restoring entries from the repository. A live write accepts any id a layer holds (guide:, marker:,
+    /// project:, dbc:Spell, class:coa:barbarian ...) whatever its type, so this accepts any non-empty <c>type:rest</c> id within the length limit with
+    /// no text problems or invisible characters. The strict type list and lower-case slug rule stay in <see cref="Subject"/>, for new ids only.
+    /// A client file subject must still have the characters a client path can have; whether it exists is not checked, because the layers are not there.
     /// </summary>
     public static string SubjectShapeOnly(string? subject)
     {
-        var allowed = $"subject must be an existing id, or a <type>:<slug> in lower case, with type one of: {string.Join(", ", SubjectTypes)}.";
-        if (string.IsNullOrEmpty(subject) || subject.Length > Limits.MaxIdChars || TextProblem(subject, multiline: false) is not null) throw Refuse(allowed);
-        if (PathTools.IsSubject(subject))
-            return PathShape().IsMatch(subject) ? subject : throw Refuse("subject has characters no client path has.");
-        if (DbcPages.IsRowId(subject)) return subject;
-        if (!SubjectShape().IsMatch(subject) || !SubjectTypes.Contains(subject.Split(':')[0], StringComparer.Ordinal)) throw Refuse(allowed);
+        if (string.IsNullOrEmpty(subject) || subject.Length > Limits.MaxIdChars || TextProblem(subject, multiline: false) is not null)
+            throw Refuse($"subject must be 1 to {Limits.MaxIdChars} characters with no control or invisible characters.");
+        var colon = subject.IndexOf(':');
+        if (colon < 1 || colon == subject.Length - 1) throw Refuse("subject must look like <type>:<rest>.");
+        if (PathTools.IsSubject(subject) && !PathShape().IsMatch(subject)) throw Refuse("subject has characters no client path has.");
         return subject;
     }
 

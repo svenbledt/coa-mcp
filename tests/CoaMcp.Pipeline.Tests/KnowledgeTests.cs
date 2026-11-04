@@ -551,7 +551,6 @@ public sealed class KnowledgeTests : IDisposable
     [InlineData("requested_kind: \"note\"", "requested_kind: \"bogus\"", "kind")]
     [InlineData("author: \"Ann\"", "author: \"A\\u0001nn\"", "author")]
     [InlineData("author: \"Ann\"", "author: \" Ann\"", "author")]
-    [InlineData("subject_id: \"item:2\"", "subject_id: \"evil:x\"", "subject")]
     [InlineData("subject_id: \"item:2\"", "subject_id: \"path:bad|char\"", "subject")]
     [InlineData("subject_id: \"item:2\"", "subject_id: \"item:2\\u200b\"", "subject")]
     [InlineData("realm_json: \"[\\\"coa\\\"]\"", "realm_json: \"[\\\"mars\\\"]\"", "realm")]
@@ -592,6 +591,43 @@ public sealed class KnowledgeTests : IDisposable
         Assert.Contains("content", big);
         Assert.Contains("invisible", RestoreTampered("00000002.md", t => t + "ab​cd"));
         Assert.Contains("control", RestoreTampered("00000002.md", t => t + "a\u0001b"));
+    }
+
+    // Ids a live write accepts because a layer holds them, not because they are new <type>:<slug> ids.
+    [Theory]
+    [InlineData("guide:arcane-mage-guide")]
+    [InlineData("marker:12345")]
+    [InlineData("project:coa-notes")]
+    [InlineData("dbc:Spell")]
+    [InlineData("class:coa:barbarian")]
+    [InlineData("talents:coa:barbarian")]
+    [InlineData("spec:coa:barbarian:1")]
+    [InlineData("rules:coa:general")]
+    [InlineData("item:wotlk:19019")]
+    [InlineData("Weird:Mixed.Case_id-1")]
+    public void Restore_GeneratedSubjectIds_RoundTripThroughExport(string subject)
+    {
+        using (var s = Store()) Add(s, subject, content: "about " + subject);
+        KnowledgeExporter.Export(Snap, Out);
+        var target = Path.Combine(_dir, "restored.sqlite");
+
+        Assert.Equal(1, KnowledgeRestorer.Restore(Out, target));
+
+        Assert.Equal(Rows(Snap, AllColumns)[0], Rows(target, AllColumns)[0]);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("noseparator")]
+    [InlineData(":rest")]
+    [InlineData("type:")]
+    [InlineData("a:b​c")]
+    [InlineData("a:bc")]
+    public void Restore_SubjectWithoutTypeRestOrWithBadText_Refused(string subject)
+    {
+        var message = RestoreTampered("00000002.md", t => t.Replace("subject_id: \"item:2\"", "subject_id: " + System.Text.Json.JsonSerializer.Serialize(subject)));
+
+        Assert.Contains("subject", message);
     }
 
     [Fact]
