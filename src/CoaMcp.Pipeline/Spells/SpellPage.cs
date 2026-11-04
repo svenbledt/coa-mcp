@@ -40,7 +40,7 @@ internal static class SpellPage
 
         var triggered = new List<int>();
         var body = new StringBuilder();
-        Summary(body, spell, id, title, rank, source, realm, sourceWarning);
+        Summary(body, spell, id, title, rank, sourceWarning);
         Effects(body, spell);
         Triggers(body, spell, id, nameOf, triggered);
         Visuals(body, spell);
@@ -50,11 +50,12 @@ internal static class SpellPage
         return new Entity($"spell:{id}", "spell", title, realm, Trust.Client, source, date, body.ToString().TrimEnd('\n') + "\n", DataJson(spell), links);
     }
 
-    private static void Summary(StringBuilder b, JsonElement spell, int id, string title, string rank, string source, RealmSet realm, string? sourceWarning)
+    private static void Summary(StringBuilder b, JsonElement spell, int id, string title, string rank, string? sourceWarning)
     {
         b.Line("## summary");
         b.Line($"Spell {id}: {title}" + (rank.Length > 0 ? $" ({rank})" : ""));
-        b.Line($"Source: {source}. Realm: {realm.Label()}. Raw client data, not proven for any server.");
+        // The source and realm are in the page header, unindexed. Here their words would make every spell match a search for them.
+        b.Line("Raw client data, not proven for any server.");
         if (sourceWarning is not null) b.Line(sourceWarning);
         foreach (var p in spell.EnumerateObject())
         {

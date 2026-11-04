@@ -78,6 +78,7 @@ public class AccuracySpellTests
         c.Has(page, "realm: the CoA client (unproven)", who + " realm");
         c.Has(page, "trust: client", who + " trust");
         c.Has(page, $"{Settings.ClientClaim}, Spell.dbc from patch-T.MPQ ({Settings.AscensionWords})", who + " names the client and says what its copy's origin means");
+        c.Lacks(page[page.IndexOf("## summary", StringComparison.Ordinal)..], "Spell.dbc from", who + " keeps the source out of the indexed body");
 
         foreach (var key in new[] { "description", "nameSubtext", "auraDescription" })
             if (s.TryGetProperty(key, out var v) && v.GetString() is { Length: > 0 } text) c.Has(page, text, $"{who} {key}");

@@ -88,7 +88,11 @@ public sealed class SpellExportTests(SpellFixture f)
             using var r = new LayerReader(layer);
             var page = r.Get("spell:133")!;
             Assert.Equal(expected, page.Source);
-            Assert.Contains("Source: " + expected + ".", page.BodyMd);
+            Assert.DoesNotContain("Source:", page.BodyMd);   // the header and search hit carry it, and every spell's body would match its words
+            Assert.DoesNotContain(archive, page.BodyMd);
+            Assert.Contains("Raw client data, not proven for any server.", page.BodyMd);
+            foreach (var word in new[] { "archive", "records", "lag", "copy", "ascension" })
+                Assert.Equal(0L, r.Query("SELECT COUNT(*) AS n FROM entities_fts WHERE entities_fts MATCH $0", word).Single()["n"]);
             Assert.Equal(8, r.Meta.Client!.Revision);
             Assert.Equal("spells", CoaMcp.Pipeline.Publish.PublishGuard.Check(layer).LayerName);
             Assert.True(CoaMcp.Pipeline.Publish.PublishGuard.Check(layer).Ok);
