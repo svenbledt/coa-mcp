@@ -73,7 +73,12 @@ public sealed class SpellSource
         var list = CoaMcp.Pipeline.Dbc.DbcWinnerList.Read(winnersDir);
         if (!list.Files.TryGetValue("Spell.dbc", out var spell))
             throw new InvalidOperationException($"The winners list in '{winnersDir}' has no Spell.dbc.");
-        var origin = spell.Origin == "project" ? "project-built archive" : $"origin {spell.Origin}";
+        var origin = spell.Origin switch
+        {
+            ArchiveOrigin.Project => "project-built archive",
+            ArchiveOrigin.Ascension => ArchiveOrigin.AscensionNote,
+            _ => $"origin {spell.Origin}",
+        };
         // This layer's data comes from Spell.dbc's winner, so that is the only archive its answers need to flag.
         var client = list.Client is null ? null : list.Client with
         {

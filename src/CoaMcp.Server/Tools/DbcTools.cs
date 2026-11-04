@@ -85,7 +85,7 @@ public sealed class DbcTools
 
     private static string TableLine(DbcTableRef t)
     {
-        var sb = new StringBuilder($"{t.Name} | {t.Rows.ToString("N0", CultureInfo.InvariantCulture)} rows | {t.Fields} fields, {t.Named} named | {Render.OneLine(t.Archive ?? "no archive", 60)} ({t.Origin ?? "unknown"})");
+        var sb = new StringBuilder($"{t.Name} | {t.Rows.ToString("N0", CultureInfo.InvariantCulture)} rows | {t.Fields} fields, {t.Named} named | {Render.OneLine(t.Archive ?? "no archive", 60)} ({ArchiveOrigin.Label(t.Origin)})");
         if (t.BaseOf is not null) sb.Append($" | base copy of {t.BaseOf}");
         if (t.Status != DbcStatus.Ok) sb.Append(" | ").Append(t.Status);
         if (t.Problem is not null) sb.Append(" | ").Append(Render.OneLine(t.Problem, 160));

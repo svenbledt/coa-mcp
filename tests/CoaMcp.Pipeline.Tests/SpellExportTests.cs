@@ -69,6 +69,7 @@ public sealed class SpellExportTests(SpellFixture f)
     [Theory]
     [InlineData("patch-T.MPQ", "project", "CoA client DBC (via Spellwork), per CLIENT-RELEASE.json, client revision 8, Spell.dbc from patch-T.MPQ (project-built archive)")]
     [InlineData("patch-M.MPQ", "unknown", "CoA client DBC (via Spellwork), per CLIENT-RELEASE.json, client revision 8, Spell.dbc from patch-M.MPQ (origin unknown)")]
+    [InlineData("patch-T.MPQ", "ascension", "CoA client DBC (via Spellwork), per CLIENT-RELEASE.json, client revision 8, Spell.dbc from patch-T.MPQ (Ascension's archive per project records; this copy may lag live)")]
     public void Pages_FromAWinnersFolder_SayWhichArchiveWonSpellDbc(string archive, string origin, string expected)
     {
         var dir = Path.Combine(Path.GetTempPath(), "coamcp-winners-" + Guid.NewGuid().ToString("N"));

@@ -99,8 +99,12 @@ public class ArchiveOrderTests : IDisposable
         var config = RealConfig();
         Assert.Equal(new[] { "patch-B.MPQ" },
             config.Archives.Where(a => a.Origin == "project").Select(a => a.Path).OrderBy(p => p, StringComparer.Ordinal));
-        Assert.All(config.Archives.Where(a => a.Origin != "project"), a => Assert.Equal("unknown", a.Origin));
-        Assert.Contains("patch-T.MPQ: shipped in the project's client package, unchanged since revision 7; who built it is unconfirmed", config.Rules["origin"]);
+        Assert.Equal(new[] { "patch-T.MPQ" }, config.Archives.Where(a => a.Origin == "ascension").Select(a => a.Path));
+        Assert.All(config.Archives.Where(a => a.Origin is not ("project" or "ascension")), a => Assert.Equal("unknown", a.Origin));
+        var rule = config.Rules["origin"];
+        Assert.Contains("scarlet-monastery-whitemane-deep-sleep-ends.json", rule);
+        Assert.Contains("cultist-entropic-slam-insanity-gate.json", rule);
+        Assert.Contains("not byte-proven against live", rule);
     }
 
     [Fact]

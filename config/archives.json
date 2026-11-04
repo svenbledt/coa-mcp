@@ -7,7 +7,7 @@
     "base-table": "Slot in s_archives (F:/WorkDir/CoA64/WoW/Source/Client.cpp:167-196). OpenArchives starts basePriority at 63 and drops it by one per table entry, present on disk or not, skipping alternate and streaming entries (Client.cpp:1465, :1468-1474, :1508).",
     "realm": "Named by Data\\<realm>\\listarchive and opened from priority 0x200 upward, above every base and patch archive, only while that realm's data path is active: F:/WorkDir/ascension-extensions-reconstruction/src/Ascension/AscRealmData.cpp:3-5, :204-213. D:/WoW/Coa/Data/area-52/listarchive names patch-D.MPQ.",
     "not-opened": "Not in s_archives (Client.cpp:167-196) and not matched by any patch pattern (PatchFiles.cpp:33-44). The client only checks its stock size in F:/WorkDir/CoA64/WoW/Source/Ui/BugReport.cpp:56-57. Below zero: never a winning copy.",
-    "origin": "patch-B.MPQ is project-built: D:/WoW/Coa/CLIENT-RELEASE.json and README.txt (revision 8) record its build. patch-T.MPQ: shipped in the project's client package, unchanged since revision 7; who built it is unconfirmed. Everything else stays unknown until the owner confirms it; F:/WorkDir/CoA64/WoW/Source/Ui/BugReport.cpp:45-57 lists stock sizes for some archives, but that is not treated as proof of origin here."
+    "origin": "patch-B.MPQ is project-built: D:/WoW/Coa/CLIENT-RELEASE.json and README.txt (revision 8) record its build, and it is the only archive with a build record. patch-T.MPQ is Ascension's archive by the project's own records: F:/WorkDir/azerothcore-wotlk-coa/apps/coa-gameplay-test/scenarios/scarlet-monastery-whitemane-deep-sleep-ends.json:4 says CoA's Spell.dbc (Ascension patch-T), and cultist-entropic-slam-insanity-gate.json:4 in the same folder says the CoA client patch-T and Ascension live patch-T agree per #10485's own body. It is not byte-proven against live, and those records treat the client's copy and the live copy as separate, so origin ascension never means live-verified. Everything else stays unknown until the owner confirms it; F:/WorkDir/CoA64/WoW/Source/Ui/BugReport.cpp:45-57 lists stock sizes for some archives, but that is not treated as proof of origin here."
   },
   "archives": [
     {"path": "area-52/patch-D.MPQ", "priority": 512, "origin": "unknown", "realm": "area-52", "rule": "realm"},
@@ -28,7 +28,7 @@
     {"path": "patch-TW.MPQ", "priority": 114, "origin": "unknown", "realm": null, "rule": "patch-sorted"},
     {"path": "patch-TM.MPQ", "priority": 113, "origin": "unknown", "realm": null, "rule": "patch-sorted"},
     {"path": "patch-TA.MPQ", "priority": 112, "origin": "unknown", "realm": null, "rule": "patch-sorted"},
-    {"path": "patch-T.MPQ", "priority": 111, "origin": "unknown", "realm": null, "rule": "patch-sorted"},
+    {"path": "patch-T.MPQ", "priority": 111, "origin": "ascension", "realm": null, "rule": "patch-sorted"},
     {"path": "patch-S.MPQ", "priority": 110, "origin": "unknown", "realm": null, "rule": "patch-sorted"},
     {"path": "patch-R.MPQ", "priority": 109, "origin": "unknown", "realm": null, "rule": "patch-hd"},
     {"path": "patch-Q.MPQ", "priority": 108, "origin": "unknown", "realm": null, "rule": "patch-hd"},

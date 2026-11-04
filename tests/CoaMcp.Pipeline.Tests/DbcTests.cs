@@ -622,7 +622,7 @@ public class DbcExportTests : IDisposable
     }
 
     [Fact]
-    public void Export_UnknownOriginWinner_HasNoBaseTable_EvenAbovePatchB()
+    public void Export_AscensionWinner_HasNoBaseTable_AndSaysItIsPerProjectRecords()
     {
         _w.Add("common.MPQ", "Spell", Simple(1, 100))
           .Add("patch-B.MPQ", "Spell", Simple(1, 250))
@@ -631,9 +631,12 @@ public class DbcExportTests : IDisposable
         var result = _w.Export();
 
         using var r = _w.Open();
-        Assert.Equal("unknown", Table(r, "Spell")["origin"]);
+        Assert.Equal("ascension", Table(r, "Spell")["origin"]);
         Assert.Empty(r.Query("SELECT name FROM dbc_tables WHERE base_of IS NOT NULL"));
         Assert.Equal(0, result.BaseTables);
+        var body = r.Get("dbc:Spell")!.BodyMd;
+        Assert.Contains("patch-T.MPQ (Ascension's archive per project records; this copy may lag live)", body);
+        Assert.DoesNotContain("not claimed as Ascension", body);
     }
 
     [Fact]
@@ -870,9 +873,6 @@ public class ClientReleaseFileTests : IDisposable
         return path;
     }
 
-    private const string Release = """
-        {"releaseId":"rel-8","clientRevision":8,
-         "previousPackage":{"name":"old","clientRevision":7,"Data/patch-B.MPQ":{"bytes":8982122}},
     private string Client(string state)
     {
         var dir = _dir.File("client-" + Guid.NewGuid().ToString("N"));
@@ -960,6 +960,9 @@ public class ClientReleaseFileTests : IDisposable
         Assert.Contains("the launcher's entry", r.Meta.Client.MismatchLine("patch-B.MPQ"));
     }
 
+    private const string Release = """
+        {"releaseId":"rel-8","clientRevision":8,
+         "previousPackage":{"name":"old","clientRevision":7,"Data/patch-B.MPQ":{"bytes":8982122}},
          "files":{"README.txt":{"bytes":5},"Data/patch-B.MPQ":{"bytes":8987639},"Data/patch-T.MPQ":{"bytes":19507059}}}
         """;
 

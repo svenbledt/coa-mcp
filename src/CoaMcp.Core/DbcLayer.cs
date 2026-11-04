@@ -94,9 +94,12 @@ public sealed class DbcLayerBuilder
         _w.Finish();
     }
 
-    public static string OriginText(string? origin, string? archive) => origin == "project"
-        ? $"{archive}, a project-built archive (project files are not evidence about Ascension)"
-        : $"{archive}, origin {origin ?? "unknown"} (not claimed as Ascension)";
+    public static string OriginText(string? origin, string? archive) => origin switch
+    {
+        ArchiveOrigin.Project => $"{archive}, a project-built archive (project files are not evidence about Ascension)",
+        ArchiveOrigin.Ascension => $"{archive} ({ArchiveOrigin.AscensionNote})",
+        _ => $"{archive}, origin {origin ?? "unknown"} (not claimed as Ascension)",
+    };
 
     private static string Body(DbcTableInfo t, IReadOnlyList<DbcColumn> columns, ClientRelease? client)
     {

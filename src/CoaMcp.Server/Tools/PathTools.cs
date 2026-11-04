@@ -68,8 +68,13 @@ public sealed class PathTools
         var win = r["winner_archive"] as string;
         if (IsDeleted(r)) return $"This file is removed by {Render.OneLine(win!, 60)}: the client does not see it.";
         if (win is null) return "This file is not in the default client.";
-        var project = r["winner_origin"] as string == "project" ? "Won by a project-built archive: project files are not evidence about Ascension." : null;
-        return string.Join(" ", new[] { project, client?.MismatchLine(win) }.OfType<string>()) is { Length: > 0 } mark ? mark : null;
+        var origin = r["winner_origin"] as string switch
+        {
+            ArchiveOrigin.Project => "Won by a project-built archive: project files are not evidence about Ascension.",
+            ArchiveOrigin.Ascension => $"Won by {Render.OneLine(win, 60)}: {ArchiveOrigin.AscensionNote}.",
+            _ => null,
+        };
+        return string.Join(" ", new[] { origin, client?.MismatchLine(win) }.OfType<string>()) is { Length: > 0 } mark ? mark : null;
     }
 
     [McpServerTool(Name = "client_paths", ReadOnly = true), Description(
@@ -169,7 +174,12 @@ public sealed class PathTools
         if (IsDeleted(r)) return $"{Path(r)} | removed by {Render.OneLine(win!, 60)}";
         if (win is null) return $"{Path(r)} | not in the default client";
         var size = r["size"] is long s ? Bytes(s) : "size unknown";
-        return $"{Path(r)} | {size} | {Render.OneLine(win, 60)}" + (r["winner_origin"] as string == "project" ? " (project-built archive)" : "");
+        return $"{Path(r)} | {size} | {Render.OneLine(win, 60)}" + (r["winner_origin"] as string switch
+        {
+            ArchiveOrigin.Project => " (project-built archive)",
+            ArchiveOrigin.Ascension => $" ({ArchiveOrigin.AscensionNote})",
+            _ => "",
+        });
     }
 
     private sealed record Holder(string Archive, string Origin, long? Size, bool Deleted, string? Realm, bool NotOpened);
@@ -219,7 +229,12 @@ public sealed class PathTools
             var size = r["size"] is long s ? Bytes(s) : "size unknown";
             var project = r["winner_origin"] as string == "project";
             sb.Append($"winner: {Render.OneLine(win, 60)}, {size}, ");
-            sb.Append(project ? "project-built archive (project files are not evidence about Ascension)" : $"origin {r["winner_origin"]}").Append('\n');
+            sb.Append(r["winner_origin"] as string switch
+            {
+                ArchiveOrigin.Project => "project-built archive (project files are not evidence about Ascension)",
+                ArchiveOrigin.Ascension => ArchiveOrigin.AscensionNote,
+                var other => $"origin {other}",
+            }).Append('\n');
             if (client?.MismatchLine(win) is { } mismatch) sb.Append(mismatch).Append('\n');
             if (project)
                 sb.Append(r["base_winner"] is string b
