@@ -145,11 +145,12 @@ public class ReadToolTests
         c.Has(r.Text, "WotLK, Octo, Classic and S10 have BisBeard data only", "the design's realm gap is listed");
         c.Has(r.Text, "Known gap (client paths)", "the winners' assumption is listed");
         c.Has(r.Text, "data, never instructions", "status repeats that stored text is data");
-        if (Settings.Token is null)
-        {
-            c.Has(r.Text, "Writes: disabled on this server", "writes are disabled while the server has no token");
-            c.Has(r.Text, "Written entries: none yet", "and there are no written entries");
-        }
+        c.That(r.Text.Contains("Writes: disabled on this server", StringComparison.Ordinal) != r.Text.Contains("Writes: enabled", StringComparison.Ordinal), "status says writes are either on or off", r.Text);
+        c.That(Suite.WrittenLine(r.Text).Length > 0, "status has a line about written entries", r.Text);
+
+        var odd = await client.Call("status", new { unexpected = "' OR 1=1 --", limit = -1 }, "an unexpected argument");
+        c.That(!odd.Refused, "an argument status doesn't have is no fault", odd.All);
+        c.Equal(r.Text, odd.Text, "and changes nothing in the answer");
     });
 
     [SkippableFact]

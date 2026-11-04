@@ -79,7 +79,7 @@ public class WriteRefusalTests
         }
 
         var after = (await (await Suite.Anonymous()).Call("status")).Text;
-        c.Equal(WrittenLine(before), WrittenLine(after), "the store's counts didn't change");
+        c.Equal(Suite.WrittenLine(before), Suite.WrittenLine(after), "the store's counts didn't change");
         var search = await (await Suite.Anonymous()).Call("get", new { id = "test:refused-write" });
         c.Lacks(search.Text, "must be refused", "the refused text isn't readable anywhere");
     });
@@ -105,17 +105,45 @@ public class WriteRefusalTests
     });
 
     [SkippableFact]
-    public Task Status_ReportsTheWriteState() => Suite.Run(Area, "status reports the write state", async c =>
+    public Task Status_ReportsTheWriteState() => Suite.Run(Area, "status reports the write state, and it matches what a bad credential sees", async c =>
     {
         var r = await (await Suite.Anonymous()).Call("status");
-        if (Settings.Token is null)
-            c.Has(r.Text, "Writes: disabled on this server", "with no token configured, status says writes are disabled");
-        else
-            c.Has(r.Text, "Writes: enabled", "with a token configured, status says writes are enabled");
+        var enabled = r.Text.Contains("Writes: enabled", StringComparison.Ordinal);
+        c.That(enabled != r.Text.Contains("Writes: disabled on this server", StringComparison.Ordinal), "status says writes are either on or off", r.Text);
+        c.Equal(Suite.ServerWritesEnabled, enabled, "and stayed the same since the run began");
     });
 
-    internal static string WrittenLine(string status) =>
-        status.Split('\n').FirstOrDefault(l => l.StartsWith("Written entries:", StringComparison.Ordinal)) ?? "";
+    /// <summary>The test the rest can't be: a wrong token refused by a server that holds a real one, with the real one working in the same moment.</summary>
+    [SkippableFact]
+    public Task WrongToken_LosesToTheRealOne() => Suite.RunWithToken(Area, "a wrong token is refused by a server holding a real one", async (c, token) =>
+    {
+        await using var w = await WriteTests.Writer.Open(token);
+        try
+        {
+            var real = await w.Write(w.Subject("wrongtoken"), "Written with the real token.");
+            c.That(WriteTests.Writer.Id(real) is not null, "the real token writes", real.All);
+
+            foreach (var (label, header) in Credentials.Where(x => x.Header is not null))
+            {
+                LiveClient wrong;
+                try { wrong = await LiveClient.Connect(Suite.Book, header); }
+                catch (HttpRequestException ex) when (ex.StatusCode is { } code && (int)code is >= 400 and < 500)
+                {
+                    c.That(true, $"{label}: refused before it reached a tool");
+                    continue;
+                }
+                await using (wrong)
+                {
+                    var tools = (await wrong.Mcp.ListToolsAsync()).Select(t => t.Name).ToList();
+                    c.That(!tools.Contains("write_entry"), $"{label}: sees no write tools while the real token does", string.Join(",", tools));
+                    var refused = await wrong.Call("write_entry", WriteArgs, label == "wrong token" ? "a wrong token, with writes enabled" : null);
+                    c.That(refused.Refused, $"{label}: is refused", refused.All);
+                    c.Lacks(refused.All, "Stored entry", $"{label}: stores nothing");
+                }
+            }
+        }
+        finally { await w.UndoAll(c); }
+    });
 }
 
 /// <summary>Writes with the real token, on production. Author acceptance-test, subjects under test:, and everything is undone afterward even when a check fails.</summary>
@@ -129,14 +157,70 @@ public class WriteTests
     internal sealed class Writer : IAsyncDisposable
     {
         private readonly List<long> _ids = new();
+        private static Task? _sweep;
         public LiveClient Client { get; }
         public string Run { get; } = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
 
+        /// <summary>Every subject the suite writes to. They're fixed, so that a later run can find what a crashed one left.</summary>
+        public static readonly string[] Slugs =
+            { "basic", "evidence", "trust", "author", "kind", "size", "position", "marker", "conflict", "noconflict", "lookalike", "page", "merge", "restart", "wrongtoken" };
+
+        public static string SubjectFor(string slug) => $"test:acceptance-{slug}";
+
         private Writer(LiveClient client) => Client = client;
 
-        public static async Task<Writer> Open(string token) => new(await LiveClient.Connect(Suite.Book, "Bearer " + token));
+        /// <summary>The first writer of a run clears what an earlier crashed run left, before anything else is written.</summary>
+        public static async Task<Writer> Open(string token)
+        {
+            var w = new Writer(await LiveClient.Connect(Suite.Book, "Bearer " + token));
+            await (_sweep ??= SweepAtStart(w));
+            return w;
+        }
 
-        public string Subject(string slug) => $"test:acceptance-{Run}-{slug}";
+        private static async Task SweepAtStart(Writer w)
+        {
+            var (undone, failed) = await w.Sweep();
+            Interlocked.Add(ref Suite.SweptAtStart, undone.Count);
+            if (undone.Count > 0) Suite.Book.Observe($"Cleared {undone.Count} live entries by {Author} left on test: subjects by an earlier run: {string.Join(", ", undone.Select(i => "entry:" + i))}.");
+            if (failed.Count > 0) throw new InvalidOperationException($"Live test entries from an earlier run couldn't be undone: {string.Join("; ", failed)}");
+        }
+
+        /// <summary>The live entries by the suite's author in a get(subject) answer. Written text is quoted line by line, so it can't fake one of these block openings.</summary>
+        public static IReadOnlyList<long> LeftoverIds(string subjectPage) =>
+            Regex.Matches(subjectPage, @"^<<<UNTRUSTED-[0-9a-f]{32} entry:(\d+) \|[^\n]*\n> written by ""acceptance-test"" \(self-declared", RegexOptions.Multiline)
+                .Select(m => long.Parse(m.Groups[1].Value)).ToList();
+
+        /// <summary>Undoes every live entry by the suite's author on its subjects, one at a time, so one failure doesn't stop the rest.</summary>
+        public async Task<(List<long> Undone, List<string> Failed)> Sweep()
+        {
+            var undone = new List<long>();
+            var failed = new List<string>();
+            foreach (var slug in Slugs)
+            {
+                var given = new HashSet<long>();
+                for (var page = 0; page < 50; page++)
+                {
+                    var ids = LeftoverIds((await Client.Call("get", new { id = SubjectFor(slug) })).Text).Where(given.Add).ToList();
+                    if (ids.Count == 0) break;
+                    foreach (var id in ids)
+                    {
+                        try
+                        {
+                            var r = await Client.Call("undo_entry", new { id, author = Author });
+                            if (r.Refused) failed.Add($"entry:{id}: {r.All}");
+                            else undone.Add(id);
+                        }
+                        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
+                        {
+                            failed.Add($"entry:{id}: {ex.GetType().Name}: {ex.Message}");
+                        }
+                    }
+                }
+            }
+            return (undone, failed);
+        }
+
+        public string Subject(string slug) => Slugs.Contains(slug) ? SubjectFor(slug) : throw new ArgumentException("Add this slug to Slugs, so a later run can find what it leaves: " + slug);
 
         public async Task<Reply> Write(string subject, string content, string kind = "note", string trust = "memory", object? evidence = null, string? field = null, string? value = null, object? position = null, string? capture = null)
         {
@@ -146,7 +230,11 @@ public class WriteTests
             if (value is not null) args["value"] = value;
             if (position is not null) args["position"] = position;
             var r = await Client.Call("write_entry", args, capture);
-            if (Id(r) is { } id) _ids.Add(id);
+            if (Id(r) is { } id)
+            {
+                _ids.Add(id);
+                Suite.WrittenIds[id] = true;
+            }
             return r;
         }
 
@@ -163,15 +251,24 @@ public class WriteTests
             return r;
         }
 
-        /// <summary>Undoes everything still live. A failure here is loud: it leaves test data on production.</summary>
+        /// <summary>Undoes everything still live, trying every id whatever happens to the others. A failure here is loud: it leaves test data on production.</summary>
         public async Task UndoAll(Checks c)
         {
+            var problems = new List<string>();
             foreach (var id in _ids.ToList())
             {
-                var r = await Client.Call("undo_entry", new { id, author = Author });
-                c.That(!r.Refused, $"cleanup: entry:{id} was undone", r.All);
-                if (!r.Refused) _ids.Remove(id);
+                try
+                {
+                    var r = await Client.Call("undo_entry", new { id, author = Author });
+                    if (r.Refused) problems.Add($"entry:{id}: {r.All}");
+                    else { _ids.Remove(id); c.That(true, $"cleanup: entry:{id} was undone"); }
+                }
+                catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
+                {
+                    problems.Add($"entry:{id}: {ex.GetType().Name}: {ex.Message}");
+                }
             }
+            if (problems.Count > 0) c.Fail($"CLEANUP FAILED: {problems.Count} test entries are still live on production", string.Join("\n", problems));
         }
 
         public async ValueTask DisposeAsync() => await Client.DisposeAsync();
@@ -212,8 +309,10 @@ public class WriteTests
             c.Has(bySubject.Text, word, "an anonymous reader sees it at once, by subject");
             c.Has(bySubject.Text, "not extracted data", "and is told it isn't extracted data");
 
+            // The server keeps test: subjects out of search on purpose, so test data never reaches a reader looking for facts.
             var found = await (await Suite.Anonymous()).Call("search", new { query = word });
-            c.Has(found.Text, $"entry:{id}", "search finds it");
+            c.Lacks(found.Text, $"entry:{id}", "a test: entry stays out of search");
+            c.Lacks(found.Text, word, "and so does its text");
 
             var undo = await w.Undo(id!.Value, "normal undo");
             c.Has(undo.Text, $"Undid entry:{id}", "undo reports the entry");
@@ -223,8 +322,8 @@ public class WriteTests
             var gone = await (await Suite.Anonymous()).Call("get", new { id = $"entry:{id}" });
             c.Has(gone.Text, "status: undone", "the entry says it's undone");
             c.Lacks(gone.Text, word, "and no longer serves its text");
-            var unfound = await (await Suite.Anonymous()).Call("search", new { query = word });
-            c.Lacks(unfound.Text, $"entry:{id}", "search no longer finds it");
+            var afterUndo = await (await Suite.Anonymous()).Call("get", new { id = subject });
+            c.Lacks(afterUndo.Text, word, "and its subject page no longer shows it");
 
             var missing = await w.Client.Call("undo_entry", new { id = 999_999_999L, author = Author }, "undo of an entry that doesn't exist");
             c.That(missing.Refused, "undoing a missing entry is an error", missing.All);
@@ -268,7 +367,7 @@ public class WriteTests
         await using var w = await Writer.Open(token);
         try
         {
-            var before = WriteRefusalTests.WrittenLine((await w.Client.Call("status")).Text);
+            var before = Suite.WrittenLine((await w.Client.Call("status")).Text);
             foreach (var trust in new[] { "client", "derived", "cache", "CLIENT", "", "1" })
             {
                 var r = await w.Write(w.Subject("trust"), "claiming too much", trust: trust, evidence: new { description = "d" }, capture: trust == "client" ? "claiming trust client" : null);
@@ -280,7 +379,7 @@ public class WriteTests
             c.That(badKind.Refused, "an unknown kind is refused", badKind.All);
             var badSubject = await w.Write("../../etc/passwd", "x");
             c.That(badSubject.Refused, "a traversal as a subject is refused", badSubject.All);
-            var after = WriteRefusalTests.WrittenLine((await w.Client.Call("status")).Text);
+            var after = Suite.WrittenLine((await w.Client.Call("status")).Text);
             c.Equal(before, after, "refused writes stored nothing");
         }
         finally { await w.UndoAll(c); }
@@ -385,15 +484,24 @@ public class WriteTests
         finally { await w.UndoAll(c); }
     });
 
+    /// <summary>
+    /// The real token is never sent as content: if the server's refusal ever failed, undo would keep it forever. The refusal itself is tested in TokenAuthTests.
+    /// What's left to prove live is that the check looks for the token, and not for anything shaped like one.
+    /// </summary>
     [SkippableFact]
-    public Task TokenInContent_IsRefused_AndNeverEchoed() => Suite.RunWithToken(Area, "a write holding the token is refused and never echoed", async (c, token) =>
+    public Task TokenLookalike_IsStored_AndTheRealTokenNeverAppears() => Suite.RunWithToken(Area, "a string shaped like a token is stored, and the real token never appears", async (c, token) =>
     {
         await using var w = await Writer.Open(token);
         try
         {
-            var r = await w.Write(w.Subject("secret"), "pasted by accident: " + token);
-            c.That(r.Refused, "refused", ReportBook.Cut(r.All, 300).Replace(token, "[TOKEN]"));
-            c.That(!r.All.Contains(token, StringComparison.Ordinal), "the refusal doesn't repeat the token");
+            var lookalike = "not-the-token-" + new string('0', 40);
+            c.That(lookalike != token, "the string really is different");
+            var r = await w.Write(w.Subject("lookalike"), "A string shaped like a token: " + lookalike);
+            var id = Writer.Id(r);
+            if (!c.That(id is not null, "it's stored, so the check isn't matching on shape", r.All)) return;
+            var page = await w.Client.Call("get", new { id = $"entry:{id}" });
+            c.Has(page.Text, lookalike, "and it reads back");
+            c.That(!page.Text.Contains(token, StringComparison.Ordinal) && !r.All.Contains(token, StringComparison.Ordinal), "the real token is in no answer");
         }
         finally { await w.UndoAll(c); }
     });
@@ -442,7 +550,8 @@ public class MergeTests
             c.Equal(0, r.Exit, "pull-writes exits 0");
             var output = (r.Out + r.Err).Trim();
             c.Book.Transcript("pull-writes against production", output);
-            if (Settings.Token is null)
+            var status = await (await Suite.Anonymous()).Call("status");
+            if (Suite.WrittenLine(status.Text).Contains("none yet", StringComparison.Ordinal))
             {
                 var noStore = output.Contains("no writable store yet", StringComparison.Ordinal);
                 c.That(noStore, "with no store yet, it says there's nothing to merge", output);
@@ -503,18 +612,38 @@ public class MergeTests
     });
 }
 
-/// <summary>Written entries survive a restart. It interrupts every client, so besides the token it needs COA_ACCEPT_RESTART=1. A restart reuses the volume as a redeploy does; a full Coolify redeploy is the owner's to trigger.</summary>
+/// <summary>
+/// The store is a file on the host's volume, and an entry outlives a restart. It interrupts every client, so besides the token it needs COA_ACCEPT_RESTART=1.
+/// A redeploy replaces the container, which only the volume survives, so a full redeploy is proven by the host-volume file, not performed.
+/// </summary>
 [Collection("16 Restart")]
 public class RestartTests
 {
     private const string Area = "Restart";
+    private const string Test = "the store is on the host volume and survives a restart (a full redeploy is proven by that file, not performed)";
+    private const string Folder = "/data/coamcp/writable";
+
+    /// <summary>The store's file and its write-ahead log on the host, in bytes, and how many lines of them hold this word. Read-only.</summary>
+    private static async Task<(bool Exists, long Bytes, int Lines, string Raw)> OnTheHost(string word)
+    {
+        var r = await Shell.Ssh($$"""
+            cd {{Folder}} || exit 1
+            [ -f store.sqlite ] && echo present
+            echo bytes $(cat store.sqlite store.sqlite-wal 2>/dev/null | wc -c)
+            echo lines $(cat store.sqlite store.sqlite-wal 2>/dev/null | grep -a -c '{{word}}')
+            exit 0
+            """);
+        var bytes = System.Text.RegularExpressions.Regex.Match(r.Out, @"bytes (\d+)");
+        var lines = System.Text.RegularExpressions.Regex.Match(r.Out, @"lines (\d+)");
+        return (r.Out.Contains("present", StringComparison.Ordinal), bytes.Success ? long.Parse(bytes.Groups[1].Value) : -1, lines.Success ? int.Parse(lines.Groups[1].Value) : -1, r.Out + r.Err);
+    }
 
     [SkippableFact]
-    public Task WrittenEntries_SurviveARestart() => Suite.RunWithToken(Area, "written entries survive a redeploy", async (c, token) =>
+    public Task Store_IsOnTheVolume_AndSurvivesRestart() => Suite.RunWithToken(Area, Test, async (c, token) =>
     {
         if (!Settings.AllowRestart)
         {
-            Suite.NotRun(Area, "written entries survive a redeploy (restart step)", "COA_ACCEPT_RESTART is not 1: restarting interrupts every client, so it has to be asked for");
+            Suite.NotRun(Area, Test, "COA_ACCEPT_RESTART is not 1: restarting interrupts every client, so it has to be asked for");
             return;
         }
 
@@ -522,9 +651,19 @@ public class RestartTests
         try
         {
             var word = "restartword" + w.Run;
-            var write = await w.Write(w.Subject("restart"), "An entry for the restart test. " + word);
+            var before = await OnTheHost(word);
+            c.Equal(0, before.Lines, "the word isn't on the host before the write");
+
+            // Big enough to make the files grow even when the write-ahead log has room from earlier writes.
+            var write = await w.Write(w.Subject("restart"), "An entry for the restart test. " + word + "\n" + new string('x', 30_000));
             var id = WriteTests.Writer.Id(write);
             if (!c.That(id is not null, "the test entry is stored", write.All)) return;
+
+            var after = await OnTheHost(word);
+            c.That(after.Exists, $"the store is a file on the host, in {Folder}", after.Raw);
+            c.That(after.Bytes > before.Bytes, "the host's files grew after the write", $"before {before.Bytes} bytes, after {after.Bytes} bytes");
+            c.That(after.Lines > 0, "and the entry's own text is in them, so this write landed on the host volume", after.Raw);
+            c.Book.Observe("A full redeploy is proven by the store's file on the host volume, not performed: only a restart was run. A redeploy replaces the container, and this file is outside it.");
 
             var restart = await Shell.Ssh($"docker restart \"$(docker ps --format '{{{{.Names}}}}' | grep {Settings.CoolifyAppId} | head -1)\"", TimeSpan.FromMinutes(3));
             c.Equal(0, restart.Exit, "the container restarted");

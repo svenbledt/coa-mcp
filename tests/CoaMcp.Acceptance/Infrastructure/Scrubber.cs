@@ -9,6 +9,9 @@ public sealed partial class Scrubber
 {
     public const string Mask = "[TOKEN SCRUBBED]";
 
+    /// <summary>This run's token and this machine's paths.</summary>
+    public static Scrubber ForRun { get; } = new(new[] { Settings.Token }, Settings.LocalRoots);
+
     private readonly List<string> _secrets = new();
     private readonly IReadOnlyList<string> _roots;
 

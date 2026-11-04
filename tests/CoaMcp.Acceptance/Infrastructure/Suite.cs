@@ -114,10 +114,10 @@ public sealed class Checks
     }
 
     public bool Has(string text, string needle, string what) =>
-        That(text.Contains(needle, StringComparison.Ordinal), what, $"expected to find: {needle}\nin the response:\n{ReportBook.Cut(text, 1500)}");
+        That(text.Contains(needle, StringComparison.Ordinal), what, $"expected to find: {_book.Scrub(needle)}\nin the response:\n{ReportBook.Cut(_book.Scrub(text), 1500)}");
 
     public bool Lacks(string text, string needle, string what) =>
-        That(!text.Contains(needle, StringComparison.Ordinal), what, $"must not contain: {needle}\nin the response:\n{ReportBook.Cut(text, 1500)}");
+        That(!text.Contains(needle, StringComparison.Ordinal), what, $"must not contain: {_book.Scrub(needle)}\nin the response:\n{ReportBook.Cut(_book.Scrub(text), 1500)}");
 }
 
 /// <summary>What every test shares: the report, one anonymous client, and how a test's outcome reaches the report.</summary>
@@ -128,7 +128,19 @@ public static partial class Suite
     private static HttpClient? _rawPaced;
     private static bool _headerDone;
 
-    public static ReportBook Book { get; } = new(new Scrubber(new[] { Settings.Token }, Settings.LocalRoots));
+    public static ReportBook Book { get; } = new(Scrubber.ForRun);
+
+    /// <summary>Whether this server has writes on, as its own status says. The local token says nothing about that: either can be there without the other.</summary>
+    public static bool ServerWritesEnabled { get; private set; }
+
+    /// <summary>Live written entries when the run began, from status. Null when status gave no count.</summary>
+    public static int? LiveAtStart { get; private set; }
+
+    /// <summary>Every entry this run wrote, so the last test can check each one, whatever happened along the way.</summary>
+    public static System.Collections.Concurrent.ConcurrentDictionary<long, bool> WrittenIds { get; } = new();
+
+    /// <summary>Live entries an earlier crashed run left, which this run undid. They come off the expected count at the end.</summary>
+    public static int SweptAtStart;
 
     public static HttpClient RawPaced => _rawPaced ??= Raw.Paced(Book);
 
@@ -161,7 +173,7 @@ public static partial class Suite
         Book.Add(new TestResult(area, test, checks.Failed > 0 ? Outcome.Fail : Outcome.Pass, checks.Passed, checks.Failed, watch.Elapsed, null));
         Book.WriteTo(Settings.ReportPath);
         if (checks.Failed > 0)
-            throw new XunitException(new Scrubber(new[] { Settings.Token }, Settings.LocalRoots).Scrub($"{checks.Failed} checks failed in {area}: {test}. First: {string.Join(" / ", checks.FailedTitles.Take(5))}. See the report."));
+            throw new XunitException(Scrubber.ForRun.Scrub($"{checks.Failed} checks failed in {area}: {test}. First: {string.Join(" / ", checks.FailedTitles.Take(5))}. See the report."));
     }
 
     /// <summary>Records the test as NOT RUN, with why, and skips it. It never counts as passed.</summary>
@@ -176,10 +188,15 @@ public static partial class Suite
     public static async Task RunWithToken(string area, string test, Func<Checks, string, Task> body)
     {
         Skip.If(Settings.Url is null, "COA_MCP_URL is not set, so nothing can be tested and the report is left as it is.");
+        await Prepare();
         if (Settings.Token is not { } token)
         {
-            await Prepare();
-            NotRun(area, test, Settings.TokenAbsent);
+            NotRun(area, test, Settings.TokenAbsent + (ServerWritesEnabled ? "; the server has writes enabled, so this needs its token" : "; the server also has writes disabled"));
+            return;
+        }
+        if (!ServerWritesEnabled)
+        {
+            NotRun(area, test, "the server's status says writes are disabled, so a local token can't be used against it");
             return;
         }
         await Run(area, test, c => body(c, token));
@@ -198,6 +215,28 @@ public static partial class Suite
         var client = await Anonymous();
         var status = await client.Call("status");
         Book.LayersAtStart(LayerLines(status.Text));
+
+        ServerWritesEnabled = WritesEnabled(status.Text);
+        LiveAtStart = LiveEntries(status.Text);
+        var state = status.Text.Split('\n').FirstOrDefault(l => l.StartsWith("Writes:", StringComparison.Ordinal)) ?? "(status has no Writes line)";
+        Book.Header($"Write state from `status` at the start: \"{state}\" and \"{WrittenLine(status.Text)}\"");
+        Book.Header(ServerWritesEnabled
+            ? "Refusal tests ran with writes enabled, so a wrong token was refused by a server holding a real one."
+            : "Refusal tests ran with writes DISABLED: with no token set, the server refuses every credential, so \"Writes: refused\" doesn't show a wrong token losing to a real one. That's still untested on this server.");
+    }
+
+    public static bool WritesEnabled(string status) => status.Contains("Writes: enabled", StringComparison.Ordinal);
+
+    public static string WrittenLine(string status) =>
+        status.Split('\n').FirstOrDefault(l => l.StartsWith("Written entries:", StringComparison.Ordinal)) ?? "";
+
+    /// <summary>How many written entries status counts as live. No store yet means none. Null when status says the store can't be read.</summary>
+    public static int? LiveEntries(string status)
+    {
+        var line = WrittenLine(status);
+        if (line.Contains("none yet", StringComparison.Ordinal)) return 0;
+        var m = Regex.Match(line, @"Written entries: (\d+) live");
+        return m.Success ? int.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) : null;
     }
 
     private static string Git(string args)

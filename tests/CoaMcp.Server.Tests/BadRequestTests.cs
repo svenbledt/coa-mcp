@@ -165,9 +165,83 @@ public class BadRequestTests : IClassFixture<BadRequestFixture>
     public async Task OversizedBody_IsStillRefused(string? contentType)
     {
         var body = Encoding.UTF8.GetBytes("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"search\",\"arguments\":{\"query\":\"" + new string('o', 70_000) + "\"}}}");
-        var r = await Post(body, contentType);
-        Assert.True((int)r.Code is 400 or 413, $"status {(int)r.Code}");
-        Assert.DoesNotContain("\"result\"", r.Body);
+        await AssertNoErrorLogged(async () =>
+        {
+            var r = await Post(body, contentType);
+            Assert.True(r.Code == (contentType is null ? HttpStatusCode.BadRequest : HttpStatusCode.RequestEntityTooLarge), $"status {(int)r.Code}, body: {r.Body}");
+            Assert.DoesNotContain("\"result\"", r.Body);
+            AssertJsonRpcError(r.Body);
+            AssertClean(r.Body);
+        });
+    }
+
+    /// <summary>Exactly these bytes on a real socket, since no HTTP client will send a broken body. Closing the write side means the client has gone. Returns what came back, status 0 if nothing did.</summary>
+    private async Task<(int Status, string Body)> OnSocket(string headersAndBody, bool clientLeaves = false)
+    {
+        using var tcp = new System.Net.Sockets.TcpClient();
+        await tcp.ConnectAsync(_f.Http.BaseAddress!.Host, _f.Http.BaseAddress.Port);
+        var stream = tcp.GetStream();
+        await stream.WriteAsync(Encoding.ASCII.GetBytes(headersAndBody));
+        if (clientLeaves) tcp.Client.Shutdown(System.Net.Sockets.SocketShutdown.Send);
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var reply = new MemoryStream();
+        try { await stream.CopyToAsync(reply, timeout.Token); }
+        catch (Exception ex) when (ex is IOException or OperationCanceledException) { /* a reset after the answer is fine; what arrived is what counts */ }
+
+        var text = Encoding.UTF8.GetString(reply.ToArray());
+        var status = System.Text.RegularExpressions.Regex.Match(text, @"\AHTTP/1\.1 (\d{3})");
+        var split = text.IndexOf("\r\n\r\n", StringComparison.Ordinal);
+        return (status.Success ? int.Parse(status.Groups[1].Value) : 0, split < 0 ? "" : text[(split + 4)..]);
+    }
+
+    private const string PostHead = "POST /mcp HTTP/1.1\r\nHost: localhost\r\nAccept: application/json, text/event-stream\r\nContent-Type: application/json\r\n";
+
+    public static TheoryData<string, string, int> BrokenBodies => new()
+    {
+        { "a chunk size that isn't a number", PostHead + "Transfer-Encoding: chunked\r\n\r\nZZZ\r\nabc\r\n0\r\n\r\n", 400 },
+        { "a chunk with no terminator", PostHead + "Transfer-Encoding: chunked\r\n\r\n3\r\nabcXY0\r\n\r\n", 400 },
+        { "a chunked body over the limit", PostHead + "Transfer-Encoding: chunked\r\n\r\n11170\r\n" + new string('x', 70_000) + "\r\n0\r\n\r\n", 413 },
+    };
+
+    [Theory]
+    [MemberData(nameof(BrokenBodies))]
+    public async Task BrokenBodies_GetACleanAnswer_AndNoErrorLog(string label, string request, int expected)
+    {
+        await AssertNoErrorLogged(async () =>
+        {
+            var (status, body) = await OnSocket(request);
+            Assert.True(status == expected, $"{label}: status {status}, body: {body}");
+            AssertJsonRpcError(body);
+            AssertClean(body);
+        });
+    }
+
+    /// <summary>The client leaves partway through its body, so nobody is there to answer. It still mustn't reach the error log.</summary>
+    [Theory]
+    [InlineData("Transfer-Encoding: chunked\r\n\r\n20\r\n{\"jsonrpc\"")]
+    [InlineData("Content-Length: 100\r\n\r\n{\"jsonrpc\"")]
+    public async Task ClientLeavingMidBody_LogsNoError(string rest)
+    {
+        await AssertNoErrorLogged(async () =>
+        {
+            var (status, body) = await OnSocket(PostHead + rest, clientLeaves: true);
+            Assert.True(status is 0 or 400, $"status {status}, body: {body}");
+            await Task.Delay(100);
+        });
+    }
+
+    [Fact]
+    public async Task ABrokenBody_LogsAtMostOneShortLine()
+    {
+        var before = _f.Logs.Lines.Count;
+        await OnSocket(PostHead + "Transfer-Encoding: chunked\r\n\r\nZZZ\r\nabc\r\n0\r\n\r\n");
+        await Task.Delay(50);
+        var ours = _f.Logs.Lines.Skip(before).Where(l => l.Text.Contains("refused", StringComparison.Ordinal)).ToList();
+        Assert.Single(ours);
+        Assert.Equal(LogLevel.Information, ours[0].Level);
+        Assert.True(ours[0].Text.Length < 200, ours[0].Text);
+        Assert.DoesNotContain("   at ", ours[0].Text);
     }
 
     [Fact]
@@ -189,6 +263,15 @@ public class NullArgumentTests : IClassFixture<ReadFixture>
     public NullArgumentTests(ReadFixture f) => _f = f;
 
     private static Dictionary<string, object?> A(params (string, object?)[] pairs) => pairs.ToDictionary(p => p.Item1, p => p.Item2);
+
+    [Fact]
+    public async Task Status_UnexpectedArgument_IsIgnored()
+    {
+        var (plain, _) = await _f.Call("status");
+        var (text, isError) = await _f.Call("status", A(("unexpected", "' OR 1=1 --"), ("limit", -1)));
+        Assert.False(isError, text);
+        Assert.Equal(plain, text);
+    }
 
     public static TheoryData<string?[]> EmptySectionNames => new()
     {

@@ -45,16 +45,19 @@ public sealed class ReportBook
 
     public ReportBook(Scrubber scrubber) => _scrubber = scrubber;
 
-    public void Add(TestResult r) { lock (_lock) _results.Add(r); }
-    public void Add(Failure f) { lock (_lock) _failures.Add(f); }
-    public void Add(Capture c) { lock (_lock) _captures.Add(c); }
-    public void Observe(string text) { lock (_lock) if (!_observations.Contains(text)) _observations.Add(text); }
-    public void ProductionChange(string text) { lock (_lock) _productionChanges.Add(text); }
-    public void Transcript(string title, string text) { lock (_lock) _transcripts.Add((title, text)); }
-    public void Load(string title, string text) { lock (_lock) _load.Add((title, text)); }
-    public void Header(string line) { lock (_lock) _header.Add(line); }
-    public void LayersAtStart(string text) { lock (_lock) _layersAtStart ??= text; }
-    public void LayersAtEnd(string text) { lock (_lock) _layersAtEnd = text; }
+    /// <summary>Text is scrubbed the moment it arrives. Cutting it first could leave part of a token behind, past the reach of any later scrub.</summary>
+    public string Scrub(string? text) => _scrubber.Scrub(text);
+
+    public void Add(TestResult r) { lock (_lock) _results.Add(r with { Reason = r.Reason is null ? null : Scrub(r.Reason) }); }
+    public void Add(Failure f) { lock (_lock) _failures.Add(new Failure(f.Area, Scrub(f.Test), Scrub(f.What), Scrub(f.Detail))); }
+    public void Add(Capture c) { lock (_lock) _captures.Add(c with { Label = Scrub(c.Label), Arguments = Scrub(c.Arguments), Response = Scrub(c.Response) }); }
+    public void Observe(string text) { var clean = Scrub(text); lock (_lock) if (!_observations.Contains(clean)) _observations.Add(clean); }
+    public void ProductionChange(string text) { lock (_lock) _productionChanges.Add(Scrub(text)); }
+    public void Transcript(string title, string text) { lock (_lock) _transcripts.Add((Scrub(title), Scrub(text))); }
+    public void Load(string title, string text) { lock (_lock) _load.Add((Scrub(title), Scrub(text))); }
+    public void Header(string line) { lock (_lock) _header.Add(Scrub(line)); }
+    public void LayersAtStart(string text) { lock (_lock) _layersAtStart ??= Scrub(text); }
+    public void LayersAtEnd(string text) { lock (_lock) _layersAtEnd = Scrub(text); }
 
     public void Timing(string tool, long ms)
     {
@@ -86,8 +89,12 @@ public sealed class ReportBook
         return $"{fence}{lang}\n{text.TrimEnd('\n')}\n{fence}\n";
     }
 
-    public static string Cut(string text, int max = MaxShownChars) =>
-        text.Length <= max ? text : text[..max] + $"\n[... cut for the report: the full response is {text.Length.ToString("N0", CultureInfo.InvariantCulture)} characters, {Encoding.UTF8.GetByteCount(text).ToString("N0", CultureInfo.InvariantCulture)} bytes ...]";
+    public static string Cut(string text, int max = MaxShownChars)
+    {
+        // Tests cut text for failure details before the book sees it, so the run's token goes first here too.
+        var clean = Scrubber.ForRun.Scrub(text);
+        return clean.Length <= max ? clean : clean[..max] + $"\n[... cut for the report: the full response is {clean.Length.ToString("N0", CultureInfo.InvariantCulture)} characters, {Encoding.UTF8.GetByteCount(clean).ToString("N0", CultureInfo.InvariantCulture)} bytes ...]";
+    }
 
     private static string AreaResult(IReadOnlyList<TestResult> rs)
     {

@@ -59,7 +59,8 @@ public sealed class ServerHarness : IDisposable
     /// <summary>Starts the server on a real socket, because only Kestrel enforces body size limits. Returns its address.</summary>
     public Uri StartOnKestrel()
     {
-        _factory.UseKestrel(0);
+        // A port number here ends up on the default port, 5000, so two harnesses side by side would collide. Listening explicitly gets a free one.
+        _factory.UseKestrel(o => o.Listen(IPAddress.Loopback, 0));
         _factory.StartServer();
         return new Uri(_factory.Services.GetRequiredService<Microsoft.AspNetCore.Hosting.Server.IServer>()
             .Features.Get<Microsoft.AspNetCore.Hosting.Server.Features.IServerAddressesFeature>()!.Addresses.First());

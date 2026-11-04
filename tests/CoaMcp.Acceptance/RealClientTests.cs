@@ -154,8 +154,25 @@ public class FinalStateTests
         foreach (var layer in new[] { "bisbeard", "spells", "paths", "dbc", "notes" })
             c.That(Suite.LayerVersions(status.Text).ContainsKey(layer), $"{layer} is loaded", status.Text);
 
-        var left = await client.Call("search", new { query = "acceptance-test" });
-        c.Lacks(left.Text, "written entry", "no written entry by acceptance-test is visible in search");
+        // Search keeps test: subjects out, so it could never show a leftover. These can.
+        var live = Suite.LiveEntries(status.Text);
+        c.That(live is not null, "status gives a count of written entries", Suite.WrittenLine(status.Text));
+        if (live is not null && Suite.LiveAtStart is { } atStart)
+            c.Equal(atStart - Suite.SweptAtStart, live, "live written entries are back to where the run began, less what it cleared from an earlier run (someone else writing during a run shows here too)");
+
+        foreach (var id in Suite.WrittenIds.Keys.OrderBy(i => i))
+        {
+            var entry = await client.Call("get", new { id = $"entry:{id}" });
+            c.Has(entry.Text, "status: undone", $"entry:{id}, written by this run, is undone");
+        }
+        c.Book.Observe($"Final state: {Suite.WrittenIds.Count} entries written by this run were each checked with get(entry:n).");
+
+        foreach (var slug in WriteTests.Writer.Slugs)
+        {
+            var page = await client.Call("get", new { id = WriteTests.Writer.SubjectFor(slug) });
+            var left = WriteTests.Writer.LeftoverIds(page.Text);
+            c.That(left.Count == 0, $"{WriteTests.Writer.SubjectFor(slug)} shows no live entry by the suite", string.Join(", ", left.Select(i => "entry:" + i)));
+        }
 
         var health = await Raw.Post(Suite.RawPaced, null, null, method: HttpMethod.Get, url: Settings.Health.ToString());
         c.Equal(200, health.Status, "/healthz answers");
