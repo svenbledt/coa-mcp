@@ -8,7 +8,7 @@
     <AssemblyName>coamcp-pipeline</AssemblyName>
     <RootNamespace>CoaMcp.Pipeline</RootNamespace>
     <!-- Local Spellwork CoA checkout. Override with -p:SpellWorkRoot=... -->
-    <SpellWorkRoot Condition="'$(SpellWorkRoot)' == ''">F:\WorkDir\SpellWork\.claude\worktrees\sw-coa</SpellWorkRoot>
+    <SpellWorkRoot Condition="'$(SpellWorkRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\SpellWork\.claude\worktrees\sw-coa</SpellWorkRoot>
   </PropertyGroup>
 
   <ItemGroup>

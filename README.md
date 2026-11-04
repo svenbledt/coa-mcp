@@ -14,6 +14,12 @@ https://coa-mcp.bledt.dev/mcp
 
 For Claude Code: `claude mcp add --transport http coa-knowledge https://coa-mcp.bledt.dev/mcp`. Other clients take the same URL as an HTTP server. Start with the `status` tool, which lists the loaded layers, their versions and the known gaps.
 
+## Build from source
+
+`dotnet build CoaMcp.sln` and `dotnet test CoaMcp.sln` cover the server and need only the .NET 10 SDK.
+
+The pipeline also needs the .NET 9 SDK and the `coa` branch of [SpellWork](https://github.com/HavenWoW/SpellWork) at `../SpellWork/.claude/worktrees/sw-coa`, beside this repository. `CoaMcp.Pipeline.sln` expects that path. To build the pipeline project from another location, pass `-p:SpellWorkRoot=<path>`. `tools/build-stormlib.ps1` builds StormLib, which only the `restore` and `listfile` commands use. The rest of this README describes the owner's production setup; publishing and the acceptance suite need that server.
+
 ## Publish a layer
 
 Layers are built locally, then pushed to the server with `scp` and `ssh` (the server's login shell does not matter: commands run under `sh -s`; the ssh host, such as `BledtIT`, must already work without a password prompt, as a user that may `chown`, normally root).
@@ -126,6 +132,8 @@ COA_MCP_URL=https://coa-mcp.bledt.dev/mcp dotnet test tests/CoaMcp.Acceptance
 
 It takes about 20 minutes, because it stays under the rate limit, and needs the local sources (restored client, `DataCOA`, Spellwork CoA) and the `BledtIT` ssh host. Without a token, the write tests report NOT RUN, never passed; give one in `COA_MCP_BEARER_TOKEN` or `.superpowers/acceptance-token.txt`. Tests that disturb production run only when asked for: `COA_ACCEPT_LIVE_UPDATE=1` publishes a rebuilt notes layer and rolls it back, and `COA_ACCEPT_RESTART=1` restarts the container (a full redeploy isn't performed: the store's file on the host volume is what shows it would survive one). `COA_ACCEPT_SEED` repeats a random sample, `COA_ACCEPT_REPORT` writes the report elsewhere, and `COA_ACCEPT_REAL_CLIENT=0` skips the Claude Code test, which spends model usage. The test that goes straight to the origin past Cloudflare needs the origin's address in `COA_ACCEPT_ORIGIN_IP`, and without it reports NOT RUN.
 
-## Before this repository becomes public
+## License
 
-The design names the server's direct address under "Hosting" (`docs/superpowers/specs/`), and earlier commits hold it too. That is fine while the repository is private. It must go before the repository becomes public.
+The code and documents in this repository are under the [MIT License](LICENSE). It doesn't cover game client files or data, and none are included here: you need your own client to build the layers. StormLib and SpellWork aren't included either and keep their own licenses. The `source` line in each `config/dbc-fields` file names where its field layout came from.
+
+World of Warcraft is a trademark of Blizzard Entertainment. This project isn't made or endorsed by Blizzard or Ascension.

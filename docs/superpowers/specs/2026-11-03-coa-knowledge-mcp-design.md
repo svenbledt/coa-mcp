@@ -55,7 +55,7 @@ These would make it a failure even if it technically works:
 
 ### Hosting
 
-- Runs on `BledtIT` (ORIGIN-ADDRESS-REMOVED), deployed through Coolify. **[Owner]** Confirmed reachable over SSH as root with Coolify and its proxy running; 183 GB disk free, 30 GB RAM of which about 10 GB is available.
+- Runs on `BledtIT`, deployed through Coolify. **[Owner]** Confirmed reachable over SSH with Coolify and its proxy running, with enough disk and memory free.
 - Public HTTPS with no login for reads, at `https://coa-mcp.bledt.dev`. **[Owner]**
 - `D:\WoW\Coa` is the client to use, and the reconstructed file list is for this client. **[Owner]** No separate unmodified client is used, so where a project archive wins and no `ascension` copy exists underneath, only the project's copy is available.
 
