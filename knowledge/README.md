@@ -50,3 +50,5 @@ Undone and superseded entries are kept (`status`, `undone_at`, `undone_by`, `sup
 4. Start the container.
 
 Entries about `test:` subjects are not in a default export, so they are not restored.
+
+Restore checks every file with the server's own write rules (trust, kind, author, subject shape, content limits and invisible characters, evidence, field and value, realm, position), so a tampered file can't restore an entry the server would refuse. `path:` and DBC row subjects are checked by shape only. One bad file stops the restore, with the file name and the rule, and nothing is written. `entries/` must hold only `<id>.md` files (padded to 8 digits; larger ids have more digits): any other file or folder stops the restore, so nothing is skipped silently.

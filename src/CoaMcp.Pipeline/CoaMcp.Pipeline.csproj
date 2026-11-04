@@ -13,6 +13,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CoaMcp.Core\CoaMcp.Core.csproj" />
+    <!-- restore-writes checks every entry with the server's own WriteRules, so the two can't drift. -->
+    <ProjectReference Include="..\CoaMcp.Server\CoaMcp.Server.csproj" />
   </ItemGroup>
 
   <ItemGroup>

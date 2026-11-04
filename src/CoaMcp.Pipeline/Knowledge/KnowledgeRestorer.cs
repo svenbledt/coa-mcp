@@ -38,7 +38,8 @@ public static partial class KnowledgeRestorer
         CREATE VIRTUAL TABLE entries_fts USING fts5(subject_id, content_md, field, value);
         """;
 
-    [GeneratedRegex(@"^\d{8}\.md\z", RegexOptions.CultureInvariant)]
+    /// <summary>Eight digits or more: ids are padded to eight, and larger ids simply have more digits.</summary>
+    [GeneratedRegex(@"^\d{8,}\.md\z", RegexOptions.CultureInvariant)]
     private static partial Regex EntryName();
 
     /// <returns>How many entries were restored.</returns>
@@ -48,13 +49,16 @@ public static partial class KnowledgeRestorer
         if (!Directory.Exists(entriesDir)) throw new KnowledgeException($"There is no entries folder at {entriesDir}, so there is nothing to restore.");
         CheckTarget(storePath);
 
-        // Every file is read and checked before anything is created.
+        // Every file is read and checked before anything is created. Anything in the folder that isn't an entry file is an error, never skipped.
         var entries = new List<KnowledgeEntry>();
-        foreach (var file in Directory.GetFiles(entriesDir).Where(f => EntryName().IsMatch(Path.GetFileName(f))).Order(StringComparer.Ordinal))
+        foreach (var path in Directory.GetFileSystemEntries(entriesDir).Order(StringComparer.Ordinal))
         {
-            var name = Path.GetFileName(file);
-            var e = KnowledgeFormat.Parse(File.ReadAllBytes(file), name);
+            var name = Path.GetFileName(path);
+            if (Directory.Exists(path) || !EntryName().IsMatch(name))
+                throw new KnowledgeException($"{KnowledgeFormat.Escape(name)}: not an entry file (entries/ holds only <id>.md files, with the id padded to 8 digits). Move it out, or delete it, then restore again.");
+            var e = KnowledgeFormat.Parse(File.ReadAllBytes(path), name);
             if (KnowledgeFormat.FileName(e.Id) != name) throw new KnowledgeException($"{name}: the file name doesn't match the id inside it.");
+            EntryRules.Check(e, name);
             entries.Add(e);
         }
         if (entries.Count == 0) throw new KnowledgeException($"There are no entry files in {entriesDir}, so there is nothing to restore.");
@@ -68,7 +72,7 @@ public static partial class KnowledgeRestorer
             {
                 c.Open();
                 using var tx = c.BeginTransaction();
-                Exec(c, tx, Schema);
+                Exec(c, tx, Schema.Replace("\r\n", "\n"));   // a CRLF checkout must not change the stored SQL
                 Exec(c, tx, "INSERT INTO schema_version VALUES ($0)", (long)SchemaVersion);
                 foreach (var e in entries)
                 {

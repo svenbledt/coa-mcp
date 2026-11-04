@@ -57,7 +57,7 @@ public static class KnowledgeCli
             if (result.Total > 0) output.WriteLine($"Review the diff, then commit it yourself: git add {Path.GetFileName(Path.TrimEndingDirectorySeparator(outDir))} && git commit");
             return 0;
         }
-        catch (Exception ex) when (ex is KnowledgeException or IOException or UnauthorizedAccessException or SqliteException)
+        catch (Exception ex) when (ex is KnowledgeException or IOException or UnauthorizedAccessException or SqliteException or System.ComponentModel.Win32Exception)
         {
             error.WriteLine($"{command} failed: {ex.Message}");
             return 1;

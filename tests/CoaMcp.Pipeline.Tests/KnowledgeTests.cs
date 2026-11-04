@@ -29,7 +29,7 @@ public sealed class KnowledgeTests : IDisposable
 
     private static long Add(WriteStore s, string subject = "item:1", string kind = "note", string content = "text", string author = "Ann",
         Trust trust = Trust.Memory, string? field = null, string? value = null, string? position = null) =>
-        s.Add(new NewEntry(subject, kind, new[] { "ascension-live" }, trust, content, "{\"source\":\"x\"}", field, value, position, author)).Id;
+        s.Add(new NewEntry(subject, kind, new[] { "coa" }, trust, content, "{\"description\":\"seen in game\"}", field, value, position, author)).Id;
 
     private WriteStore Store(string? path = null) => new(path ?? Snap);
 
@@ -81,7 +81,7 @@ public sealed class KnowledgeTests : IDisposable
     [Fact]
     public void Export_Rerun_NoChanges()
     {
-        using (var s = Store()) { Add(s, content: "a\r\nb"); Add(s, "page:x", "page", "# T\n"); Add(s, field: "level", value: "10", subject: "spell:9"); }
+        using (var s = Store()) { Add(s, content: "a\r\nb"); Add(s, "note:x", "page", "# T\n"); Add(s, field: "level", value: "10", subject: "spell:9"); }
         KnowledgeExporter.Export(Snap, Out);
         var before = Tree(Entries);
 
@@ -124,8 +124,8 @@ public sealed class KnowledgeTests : IDisposable
         using (var s = Store())
         {
             undone = Add(s, "item:1");
-            oldPage = Add(s, "page:x", "page", "v1");
-            newPage = Add(s, "page:x", "page", "v2");
+            oldPage = Add(s, "note:x", "page", "v1");
+            newPage = Add(s, "note:x", "page", "v2");
             Add(s, "item:2");
             s.Undo(undone, "owner");
         }
@@ -176,14 +176,14 @@ public sealed class KnowledgeTests : IDisposable
     [Fact]
     public void Export_StoresRawJsonColumnsExactly()
     {
-        using (var s = Store()) Add(s, position: "{\"x\": 1.5,\"y\":2}");
+        using (var s = Store()) Add(s, position: "{\"map\": \"A\",\"leftPct\": 1.5,\"topPct\":2}");
 
         KnowledgeExporter.Export(Snap, Out);
 
         var e = KnowledgeFormat.Parse(File.ReadAllBytes(Path.Combine(Entries, "00000001.md")), "x");
-        Assert.Equal("{\"x\": 1.5,\"y\":2}", e.PositionJson);
-        Assert.Equal("{\"source\":\"x\"}", e.EvidenceJson);
-        Assert.Equal("[\"ascension-live\"]", e.RealmJson);
+        Assert.Equal("{\"map\": \"A\",\"leftPct\": 1.5,\"topPct\":2}", e.PositionJson);
+        Assert.Equal("{\"description\":\"seen in game\"}", e.EvidenceJson);
+        Assert.Equal("[\"coa\"]", e.RealmJson);
     }
 
     private void HostileStore(object id)
@@ -406,9 +406,9 @@ public sealed class KnowledgeTests : IDisposable
         using (var s = Store())
         {
             a = Add(s, "item:1", content: "---\nid: 7\n---\r\nweird");
-            page1 = Add(s, "page:x", "page", "v1", trust: Trust.Observed);
-            Add(s, "page:x", "page", "v2", trust: Trust.Observed);
-            Add(s, "spell:5", field: "level", value: "10", position: "{\"x\":1}", author: "Zed \u00e9\u4e2d");
+            page1 = Add(s, "note:x", "page", "v1", trust: Trust.Observed);
+            Add(s, "note:x", "page", "v2", trust: Trust.Observed);
+            Add(s, "spell:5", field: "level", value: "10", position: "{\"map\":\"Azeroth\",\"leftPct\":10,\"topPct\":20}", author: "Zed_1");
             Add(s, "test:probe");
             s.Undo(a, "owner");
         }
@@ -446,7 +446,9 @@ public sealed class KnowledgeTests : IDisposable
         const string schema = "SELECT type, name, tbl_name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY name";
         var server = Rows(Snap, schema);
         Assert.NotEmpty(server);
-        Assert.Equal(server, Rows(restored, schema));
+        // The server file may be checked out with CRLF; the SQL is the same text either way.
+        static List<string?[]> Flat(List<object?[]> rows) => rows.Select(r => r.Select(c => (c as string)?.Replace("\r\n", "\n")).ToArray()).ToList();
+        Assert.Equal(Flat(server), Flat(Rows(restored, schema)));
         Assert.Equal(Rows(Snap, "SELECT version FROM schema_version"), Rows(restored, "SELECT version FROM schema_version"));
     }
 
@@ -521,6 +523,150 @@ public sealed class KnowledgeTests : IDisposable
         Assert.Throws<KnowledgeException>(() => KnowledgeRestorer.Restore(Path.Combine(_dir, "nope"), target));
 
         Assert.False(File.Exists(target));
+    }
+
+    // ---- restore applies the server's write rules ----
+
+    private const string PositionJson = "{\"map\":\"Azeroth\",\"leftPct\":10,\"topPct\":20}";
+
+    private string RestoreTampered(string file, Func<string, string> tamper)
+    {
+        using (var s = Store()) { Add(s, "item:1"); Add(s, "item:2", position: PositionJson); }
+        KnowledgeExporter.Export(Snap, Out);
+        var path = Path.Combine(Entries, file);
+        File.WriteAllBytes(path, new UTF8Encoding(false).GetBytes(tamper(File.ReadAllText(path))));
+        var target = Path.Combine(_dir, "restored.sqlite");
+
+        var ex = Assert.Throws<KnowledgeException>(() => KnowledgeRestorer.Restore(Out, target));
+
+        Assert.False(File.Exists(target), "nothing may be written");
+        Assert.Empty(Directory.GetFiles(_dir, "*.tmp*"));
+        return ex.Message;
+    }
+
+    // Each case replaces one front matter line of entry 2 (written by export, so the text is exactly as below).
+    [Theory]
+    [InlineData("trust: 5", "trust: 1", "trust")]
+    [InlineData("kind: \"note\"", "kind: \"bogus\"", "kind")]
+    [InlineData("requested_kind: \"note\"", "requested_kind: \"bogus\"", "kind")]
+    [InlineData("author: \"Ann\"", "author: \"A\\u0001nn\"", "author")]
+    [InlineData("author: \"Ann\"", "author: \" Ann\"", "author")]
+    [InlineData("subject_id: \"item:2\"", "subject_id: \"evil:x\"", "subject")]
+    [InlineData("subject_id: \"item:2\"", "subject_id: \"path:bad|char\"", "subject")]
+    [InlineData("subject_id: \"item:2\"", "subject_id: \"item:2\\u200b\"", "subject")]
+    [InlineData("realm_json: \"[\\\"coa\\\"]\"", "realm_json: \"[\\\"mars\\\"]\"", "realm")]
+    [InlineData("realm_json: \"[\\\"coa\\\"]\"", "realm_json: \"not json\"", "realm")]
+    [InlineData("evidence_json: \"{\\\"description\\\":\\\"seen in game\\\"}\"", "evidence_json: \"{\\\"url\\\":\\\"ftp://x.org/a\\\"}\"", "url")]
+    [InlineData("evidence_json: \"{\\\"description\\\":\\\"seen in game\\\"}\"", "evidence_json: \"[1,2\"", "evidence")]
+    [InlineData("field: null\nvalue: null", "field: \"level\"\nvalue: null", "field")]
+    [InlineData("position_json: \"{\\\"map\\\":\\\"Azeroth\\\",\\\"leftPct\\\":10,\\\"topPct\\\":20}\"", "position_json: \"{\\\"map\\\":\\\"Azeroth\\\",\\\"leftPct\\\":150,\\\"topPct\\\":20}\"", "position")]
+    [InlineData("position_json: \"{\\\"map\\\":\\\"Azeroth\\\",\\\"leftPct\\\":10,\\\"topPct\\\":20}\"", "position_json: \"{\\\"leftPct\\\":10,\\\"topPct\\\":20}\"", "position")]
+    [InlineData("position_json: \"{\\\"map\\\":\\\"Azeroth\\\",\\\"leftPct\\\":10,\\\"topPct\\\":20}\"", "position_json: \"null\"", "position")]
+    [InlineData("created_at: \"20", "created_at: \"yesterday 20", "created_at")]
+    public void Restore_BreaksServerRule_RefusedNamingFileAndRule(string from, string to, string rule)
+    {
+        var message = RestoreTampered("00000002.md", t =>
+        {
+            Assert.Contains(from, t);
+            return t.Replace(from, to);
+        });
+
+        Assert.Contains("00000002.md", message);
+        Assert.Contains(rule, message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Restore_ObservedWithoutEvidence_Refused()
+    {
+        var message = RestoreTampered("00000002.md", t => t.Replace("trust: 5", "trust: 4").Replace("{\\\"description\\\":\\\"seen in game\\\"}", "{}"));
+
+        Assert.Contains("00000002.md", message);
+        Assert.Contains("observed needs evidence", message);
+    }
+
+    [Fact]
+    public void Restore_OversizeOrInvisibleContent_Refused()
+    {
+        var big = RestoreTampered("00000002.md", t => t + new string('a', 40_000));
+        Assert.Contains("00000002.md", big);
+        Assert.Contains("content", big);
+        Assert.Contains("invisible", RestoreTampered("00000002.md", t => t + "ab​cd"));
+        Assert.Contains("control", RestoreTampered("00000002.md", t => t + "a\u0001b"));
+    }
+
+    [Fact]
+    public void Restore_PathSubject_ShapeOnly_IsAccepted()
+    {
+        using (var s = Store()) { Add(s, "path:Interface/Icons/Foo.blp"); }
+        KnowledgeExporter.Export(Snap, Out);
+        var target = Path.Combine(_dir, "restored.sqlite");
+
+        Assert.Equal(1, KnowledgeRestorer.Restore(Out, target));
+        Assert.Equal("path:Interface/Icons/Foo.blp", Rows(target, "SELECT subject_id FROM entries")[0][0]);
+    }
+
+    // ---- restore never skips a file silently ----
+
+    [Fact]
+    public void Restore_NineDigitIds_AreRestored()
+    {
+        using (var s = Store()) { Add(s); Add(s, "item:2"); }
+        using (var c = new SqliteConnection($"Data Source={Snap};Pooling=False"))
+        {
+            c.Open();
+            using var cmd = c.CreateCommand();
+            cmd.CommandText = "UPDATE entries SET id = 123456789 WHERE id = 2";
+            cmd.ExecuteNonQuery();
+        }
+        KnowledgeExporter.Export(Snap, Out);
+        Assert.True(File.Exists(Path.Combine(Entries, "123456789.md")));
+        var target = Path.Combine(_dir, "restored.sqlite");
+
+        Assert.Equal(2, KnowledgeRestorer.Restore(Out, target));
+
+        Assert.Equal(new object?[] { 1L, 123456789L }, Rows(target, "SELECT id FROM entries ORDER BY id").Select(r => r[0]).ToArray());
+    }
+
+    [Theory]
+    [InlineData("notes.txt", false)]
+    [InlineData("1.md", false)]
+    [InlineData("0000000001.md", false)]   // padded wider than the canonical form
+    [InlineData("00000002.MD", false)]
+    [InlineData("00000003.md.bak", false)]
+    [InlineData("sub", true)]
+    public void Restore_OtherFileInEntries_FailsNamingIt(string name, bool folder)
+    {
+        using (var s = Store()) { Add(s); }
+        KnowledgeExporter.Export(Snap, Out);
+        if (folder) Directory.CreateDirectory(Path.Combine(Entries, name));
+        else File.Copy(Path.Combine(Entries, "00000001.md"), Path.Combine(Entries, name));
+        var target = Path.Combine(_dir, "restored.sqlite");
+
+        var ex = Assert.Throws<KnowledgeException>(() => KnowledgeRestorer.Restore(Out, target));
+
+        Assert.Contains(name, ex.Message);
+        Assert.False(File.Exists(target));
+    }
+
+    [Fact]
+    public async Task Cli_MissingSshOrScp_IsACleanMessage()
+    {
+        Directory.CreateDirectory(TempRoot);
+        var e = new StringWriter();
+
+        var code = await KnowledgeCli.RunAsync("pull-writes", new[] { "--host", "BledtIT", "--out", Out }, new StringWriter(), e, _ => new MissingTool(), TempRoot);
+
+        Assert.Equal(1, code);
+        Assert.Contains("ssh", e.ToString());
+        Assert.DoesNotContain("   at ", e.ToString());
+    }
+
+    private sealed class MissingTool : IRemote
+    {
+        public Task UploadAsync(string localPath, string remotePath, CancellationToken ct) => throw new InvalidOperationException();
+        public Task DownloadAsync(string remotePath, string localPath, CancellationToken ct) => throw new InvalidOperationException();
+        public Task<RemoteResult> RunAsync(string command, string? stdin, CancellationToken ct) =>
+            throw new System.ComponentModel.Win32Exception(2, "An error occurred trying to start process 'ssh'");
     }
 
     // ---- pull ----

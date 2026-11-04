@@ -87,6 +87,21 @@ public static partial class WriteRules
         return (subject, false);
     }
 
+    /// <summary>
+    /// The subject rule without the layers, for restoring entries from the repository: the same limits and shapes, but whether a client file,
+    /// DBC row or generated id exists is not checked, because the layers are not there. Returns the id; throws if the shape is wrong.
+    /// </summary>
+    public static string SubjectShapeOnly(string? subject)
+    {
+        var allowed = $"subject must be an existing id, or a <type>:<slug> in lower case, with type one of: {string.Join(", ", SubjectTypes)}.";
+        if (string.IsNullOrEmpty(subject) || subject.Length > Limits.MaxIdChars || TextProblem(subject, multiline: false) is not null) throw Refuse(allowed);
+        if (PathTools.IsSubject(subject))
+            return PathShape().IsMatch(subject) ? subject : throw Refuse("subject has characters no client path has.");
+        if (DbcPages.IsRowId(subject)) return subject;
+        if (!SubjectShape().IsMatch(subject) || !SubjectTypes.Contains(subject.Split(':')[0], StringComparer.Ordinal)) throw Refuse(allowed);
+        return subject;
+    }
+
     public static string Content(string? content)
     {
         if (string.IsNullOrWhiteSpace(content)) throw Refuse("content is empty.");
