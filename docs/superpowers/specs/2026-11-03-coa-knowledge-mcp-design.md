@@ -89,7 +89,7 @@ Also: `Spell` has 209,510 rows and `Item` has 563,769.
 ### Known problems in the data
 
 - **Realms are mixed.** BisBeard's 70,838 items are shared with its Classic and S10 realms and aren't tagged per realm. Its guide texts also mix realms and include off-topic articles (VPNs, mice, monitors). The owner doesn't run BisBeard, so a tagged export would have to be requested from them. At launch these items are marked "CoA, Classic or S10" rather than guessed, and the builder checks them against client item data to narrow down what can be proven. **[Design call]**
-- **The local client contains the project's own edits.** `D:\WoW\Coa` is a CoA client patch at revision 8 (`CLIENT-RELEASE.json`, `README.txt`): at least `patch-B.MPQ` and `patch-T.MPQ` are project-built, with Descension branding and other changes, and there may be others. A value from such an archive says what the project shipped, not what Ascension does. Every archive therefore has an origin (`ascension`, `project` or `unknown`) in a reviewed config file. Files and DBC rows whose winning copy is from a `project` archive say so, and the next non-project copy is shown alongside when one exists, labeled by its origin. **[Design call]**
+- **The local client contains the project's own edits.** `D:\WoW\Coa` is a CoA client patch at revision 8 (`CLIENT-RELEASE.json`, `README.txt`): `patch-B.MPQ` is project-built, with Descension branding and other changes, and has a build record there. `patch-T.MPQ` is shipped in the project's client package, unchanged since revision 7, but who built it is unconfirmed, so its origin is `unknown`. There may be other project archives. A value from such an archive says what the project shipped, not what Ascension does. Every archive therefore has an origin (`ascension`, `project` or `unknown`) in a reviewed config file. Files and DBC rows whose winning copy is from a `project` archive say so, and the next non-project copy is shown alongside when one exists, labeled by its origin. A winner of `unknown` origin isn't claimed as Ascension either. **[Design call]**
 - **Local caches may not be from Ascension.** `D:\WoW\Coa\Cache\WDB\enUS\Pale Reach` may come from a non-Ascension server. Cache folders are imported only when listed in a config file that names their server. **[Design call]**
 - **Patch order is not documented.** `mpq-listfile.md` lists holders alphabetically. Showing which copy of a file wins requires the real load order, which must be derived from the client (`CoA64` holds the code that loads archives).
 - **Unresolved names.** The list marks 4,911 names that didn't resolve to an archive entry (3,610 in `patch.MPQ`, 1,234 in `patch-2.MPQ`). It may be a locale or checking artifact, or the real names may differ. `patch-ZG.MPQ` holds 2 files with no known names and isn't in the list. Seven other archives hold only internal entries.
@@ -129,6 +129,8 @@ Update timing: **[Design call]**
 - **BisBeard layer:** built from `D:\WoW\Coa\DataCOA` and rebuilt only when that folder changes. Nothing fetches from BisBeard automatically. Its age is shown in answers, since it won't track live changes on its own.
 - **Observations:** live immediately.
 - The status tool reports the version and date of each layer rather than one release number.
+- The client layers (`dbc`, `spells`, `paths`) share one date, labeled `client files dated`: the newest modified time among the archives the default client reads. Tables keep the name of the archive that won them, not a date of their own.
+- The `cache` layer holds creature details only, and only once a config file lists an approved cache source. No source is approved yet, so `status` says `not built` and lists it as a known gap. Item and quest details wait for such a source and a proven layout.
 
 ### How information is stored
 
@@ -149,7 +151,7 @@ Each fact keeps its own trust level. Answers show the highest first and never me
 |---|---:|---|---|
 | 1 | `client` | Extracted from client files | DBC rows, file paths |
 | 2 | `derived` | Curated data or written analysis based on real data | BisBeard item data, client notes |
-| 3 | `cache` | Exact values seen in a player's cache | Creature and quest details |
+| 3 | `cache` | Exact values seen in a player's cache | Creature details (quests and items once a source and layout are proven) |
 | 4 | `observed` | Seen in a video or in play, with evidence | Positions, mechanics |
 | 5 | `memory` | Someone remembers it | Always marked unconfirmed |
 
@@ -201,6 +203,7 @@ Agents holding a bearer token can write through the MCP, and writes go live imme
 - **Authors:** since one token is shared, each write must give an `author` name. It's shown on the entry and used for undo, but it's self-declared, not proven, and answers say so. **[Design call]**
 - **What can be written:** observations, notes, corrections, and curated pages. Extracted data (DBC rows, file paths) can't be changed, but can get a note saying a row looks wrong.
 - **Required on each write:** subject, content, trust level, and evidence. `observed` requires a link or description, with a timestamp for videos.
+- **Subjects:** an existing id, or a new `<type>:<slug>` with type one of `npc`, `dungeon`, `encounter`, `mechanic`, `spell`, `item`, `class`, `quest`, `note`, `test` or `path`. `test:` entries stay out of search and out of the merge into the repo by default, though `get` still finds them, so a test can write to production without showing up in answers.
 - **Levels a token can claim:** only `observed` and `memory`. `client`, `derived` and `cache` come only from the pipeline, so a remembered fact can't outrank real evidence by being mislabeled.
 - **Player caches:** WDB files are collected by the owner and parsed by a pipeline step on the owner's machine, which is what produces level `cache`. Uploading WDB files through the MCP is out of scope for now.
 - **History:** nothing is truly deleted. Every change records author and time. A single write, or all writes by one author, can be undone.
@@ -213,6 +216,9 @@ Reads never need a token, and sending one doesn't change what a reader sees, apa
 ### Public reads
 
 The endpoint is open to the internet with no login, so it needs per-IP rate limits and result caps, to keep anyone from overloading the server or pulling the entire database through one query. **[Design call]**
+
+- **The client address:** requests normally arrive through Cloudflare and then Traefik, but the origin can also be reached directly, past Cloudflare, and Traefik serves that too. So forged headers can't be allowed to escape the limit. Forwarded headers are believed only from a peer in `Network:PeerNetworks` (default none, which trusts nothing). Behind Traefik the rightmost `X-Forwarded-For` address is what Traefik saw: if it's a Cloudflare edge address, the client is `CF-Connecting-IP`, otherwise it's that address. **[Design call]**
+- **Overload:** `/mcp` has a concurrency limit across all clients, and a request past it gets a 503 with a short JSON-RPC error. Waits for a layer connection or search slot are bounded, with a clean busy answer. `/healthz` stays outside the limit. **[Design call]**
 
 ### Merging written data into the project
 
@@ -229,7 +235,7 @@ What users feed in by hand should become part of the project source, from time t
 
 ### Production testing
 
-Once the server is up, it gets detailed testing against production, as a repeatable suite with a saved report. **[Owner]** It covers, through a real MCP client: every tool; accuracy against the sources; hostile input; rate limits; token enforcement; writes, undo and merging; a live layer swap; load; and connecting from Claude Code. Failures get fixed and the suite re-run before the work counts as finished. **[Design call]** The report shows the real requests and responses of each tool for several requests. **[Owner]**
+Once the server is up, it gets detailed testing against production, as a repeatable suite with a saved report. **[Owner]** It covers, through a real MCP client: every tool; accuracy against the sources; hostile input; rate limits; token enforcement; writes, undo and merging; a live layer swap; load; and connecting from Claude Code. Failures get fixed and the suite re-run before the work counts as finished. **[Design call]** The report shows the real requests and responses of each tool for several requests. **[Owner]** The restart test restarts the container and shows that an entry survives, with the store's file on the host volume. A full redeploy isn't performed by the suite, because the volume file is what would survive one, and tests that disturb production run only when asked for. **[Design call]**
 
 ## Technology
 
