@@ -7,15 +7,15 @@ namespace CoaMcp.Pipeline.Bisbeard;
 /// <summary>Imports the three BisBeard item databases, streaming each so the 68 MB main list is never held whole.</summary>
 public static class ItemImporter
 {
-    private sealed record ItemList(string RelativePath, string IdPrefix, RealmSet Realm, DateOnly Date, string Label);
+    private sealed record ItemList(string Name, string RelativePath, string IdPrefix, RealmSet Realm, DateOnly Date, string Label);
 
     private static readonly ItemList[] Lists =
     {
-        new(Path.Combine("api", "items_all.json"), "item:", BisbeardImport.Unproven(BisbeardImport.MainRealms),
+        new("main", Path.Combine("api", "items_all.json"), "item:", BisbeardImport.Unproven(BisbeardImport.MainRealms),
             new DateOnly(2026, 8, 27), "BisBeard main item API (shared by CoA, Classic and S10; not tagged per realm)"),
-        new(Path.Combine("realms", "wotlk", "api", "items_all.json"), "item:wotlk:", BisbeardImport.Proven("wotlk"),
+        new("wotlk", Path.Combine("realms", "wotlk", "api", "items_all.json"), "item:wotlk:", BisbeardImport.Proven("wotlk"),
             new DateOnly(2026, 7, 16), "BisBeard WotLK item API"),
-        new(Path.Combine("realms", "octo", "api", "items_all.json"), "item:octo:", BisbeardImport.Proven("octo"),
+        new("octo", Path.Combine("realms", "octo", "api", "items_all.json"), "item:octo:", BisbeardImport.Proven("octo"),
             new DateOnly(2026, 8, 10), "BisBeard Octo item API"),
     };
 
@@ -29,6 +29,10 @@ public static class ItemImporter
     {
         var count = 0;
         var notInClient = 0;
+        ItemTables.Create(w);
+        using var rows = w.BeginInsert(ItemTables.Items, ItemTables.ItemColumns);
+        using var stats = w.BeginInsert(ItemTables.Stats, ItemTables.StatColumns);
+        using var classes = w.BeginInsert(ItemTables.Classes, ItemTables.ClassColumns);
         foreach (var list in Lists)
         {
             using var stream = File.OpenRead(Path.Combine(dataDir, list.RelativePath));
@@ -41,11 +45,39 @@ public static class ItemImporter
                     notInClient++;
                 }
                 w.Add(entity);
+                AddRows(item, list, entity, clientItems, rows, stats, classes);
                 count++;
             }
         }
         return (count, notInClient);
     }
+
+    /// <summary>One structured row per item, plus its stats and classes. in_coa_client is only set for a list that may be CoA, and only when the client ids are known.</summary>
+    private static void AddRows(JsonElement item, ItemList list, Entity entity, IReadOnlySet<int>? clientItems,
+        BulkInsert rows, BulkInsert stats, BulkInsert classes)
+    {
+        var id = long.Parse(Text(item, "id")!, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture);
+        object? inClient = clientItems is not null && list.Realm.Realms.Contains("coa") ? (InClient(item, clientItems) ? 1L : 0L) : null;
+        JsonElement dmg = default;
+        if (item.TryGetProperty("damage", out var d)) dmg = d;
+        double? Dmg(string n) => dmg.ValueKind == JsonValueKind.Object && dmg.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDouble() : null;
+        rows.Add(new object?[]
+        {
+            list.Name, id, entity.Id, entity.Title, string.Join(",", list.Realm.Realms), list.Realm.Proven ? 1L : 0L, inClient,
+            Text(item, "slot"), Text(item, "type"), Text(item, "quality"), Num(item, "itemLevel"), Num(item, "reqLevel"),
+            Text(item, "sourceCategory"), Text(item, "source"), Text(item, "version"), Num(item, "phase"),
+            Text(item, "dropRate"), Text(item, "setName"), Text(item, "requiredFaction"), Dmg("min"), Dmg("max"), Dmg("speed"),
+        });
+        if (item.TryGetProperty("stats", out var st) && st.ValueKind == JsonValueKind.Object)
+            foreach (var p in st.EnumerateObject().Where(p => p.Value.ValueKind == JsonValueKind.Number))
+                stats.Add(new object?[] { list.Name, id, p.Name, p.Value.GetDouble() });
+        if (item.TryGetProperty("classes", out var cl) && cl.ValueKind == JsonValueKind.Array)
+            foreach (var c in cl.EnumerateArray().Select(c => c.GetString()).Where(c => !string.IsNullOrWhiteSpace(c)).Distinct())
+                classes.Add(new object?[] { list.Name, id, c });
+    }
+
+    private static object? Num(JsonElement e, string name) =>
+        e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt64(out var n) ? n : null;
 
     private static bool InClient(JsonElement item, IReadOnlySet<int> clientItems) =>
         int.TryParse(Text(item, "id"), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var id) && clientItems.Contains(id);

@@ -283,4 +283,33 @@ public sealed class BisbeardTests : IDisposable
         Assert.NotNull(spec);
         Assert.Contains("no default stat weights", spec.BodyMd, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void ItemTables_HoldOneRowPerItemPerList_WithStatsClassesAndHonestRealm()
+    {
+        using var r = ImportWithClientItems(10531);
+
+        var main = r.Query("SELECT * FROM items WHERE item_list = 'main' AND id = 10531").Single();
+        Assert.Equal("item:10531", main["entity_id"]);
+        Assert.Equal("coa,classic,s10", main["realms"]);
+        Assert.Equal(0L, main["realm_proven"]);   // the shared list never proves a realm
+        Assert.Equal(1L, main["in_coa_client"]);
+        Assert.Equal("Libram", main["type"]);
+        Assert.Equal(0L, r.Query("SELECT in_coa_client AS c FROM items WHERE id = 100000 AND item_list = 'main'").Single()["c"]);
+        Assert.Equal(9.0, Convert.ToDouble(r.Query("SELECT value FROM item_stats WHERE item_list = 'main' AND item_id = 10531 AND stat = 'stamina'").Single()["value"]));
+        Assert.Equal("Paladin", r.Query("SELECT class FROM item_classes WHERE item_list = 'main' AND item_id = 10531").Single()["class"]);
+
+        var proven = r.Query("SELECT DISTINCT item_list, realms, realm_proven, in_coa_client FROM items WHERE item_list <> 'main' ORDER BY item_list");
+        Assert.Equal(new[] { "octo", "wotlk" }, proven.Select(x => (string)x["item_list"]!));
+        Assert.All(proven, x => { Assert.Equal(1L, x["realm_proven"]); Assert.Null(x["in_coa_client"]); });
+        Assert.Equal((long)r.Query("SELECT COUNT(*) AS n FROM entities WHERE type = 'item'").Single()["n"]!,
+            (long)r.Query("SELECT COUNT(*) AS n FROM items").Single()["n"]!);
+    }
+
+    [Fact]
+    public void ItemTables_WithoutClientIds_LeaveInClientUnknown()
+    {
+        using var r = Import();
+        Assert.Null(r.Query("SELECT in_coa_client AS c FROM items WHERE id = 10531 AND item_list = 'main'").Single()["c"]);
+    }
 }

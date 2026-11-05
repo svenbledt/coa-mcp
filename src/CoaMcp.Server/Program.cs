@@ -76,6 +76,7 @@ builder.Services.AddMcpServer(o => o.ServerInstructions =
     .WithTools<SpellHelperTools>()
     .WithTools<PathTools>()
     .WithTools<DbcTools>()
+    .WithTools<ItemTools>()
     .WithTools<WriteTools>()
     .WithRequestFilters(f => f.AddCallToolFilter(RefusedCalls.InsideTool))
     .AddAuthorizationFilters();

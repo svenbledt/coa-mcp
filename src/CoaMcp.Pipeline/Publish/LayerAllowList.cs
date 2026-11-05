@@ -18,7 +18,7 @@ public static partial class LayerAllowList
 
     private static readonly IReadOnlyDictionary<string, string[]> Layers = new Dictionary<string, string[]>(StringComparer.Ordinal)
     {
-        ["bisbeard"] = Base,
+        ["bisbeard"] = Base.Concat(CoaMcp.Core.ItemTables.AllTables).ToArray(),
         ["spells"] = Base.Concat(new[]
         {
             "enums", "flag_kinds", "spell_scaling_inputs", "golden_scaling", "ScalingStatValues", "ScalingStatDistribution", Client,
